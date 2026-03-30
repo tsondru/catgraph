@@ -1,0 +1,15 @@
+pub mod errors;
+pub mod utils;
+pub mod category;
+pub mod monoidal;
+pub mod operadic;
+pub mod finset;
+pub mod frobenius;
+pub mod cospan;
+pub mod named_cospan;
+pub mod span;
+pub mod wiring_diagram;
+pub mod linear_combination;
+pub mod temperley_lieb;
+pub mod e1_operad;
+pub mod e2_operad;

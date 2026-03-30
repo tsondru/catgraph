@@ -1,0 +1,363 @@
+# catgraph - Category-Based Cospan Graph Tools
+
+## Project Overview
+
+**catgraph** implements category-theoretic graph structures in Rust, focusing on source/target (cospan) semantics for hypergraphs. This is distinct from path-based hypergraph semantics used by libraries like yamafaktory/hypergraph.
+
+Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten.
+
+### Core Semantics: Source/Target (Cospan)
+
+In catgraph, hyperedges connect **source sets** to **target sets**:
+- An edge `[a,b] → [c,d]` creates connections: a→c, a→d, b→c, b→d (bipartite complete subgraph)
+- Based on category theory (cospans)
+- Uses petgraph for underlying graph representation
+
+This differs from path semantics where `[a,b,c,d]` means a→b→c→d (sequential chain).
+
+## Workspace Structure
+
+```
+catgraph/                           # Workspace root
+├── Cargo.toml                      # Workspace: members = [".", "catgraph-surreal"]
+├── src/
+│   ├── errors.rs                   # Unified CatgraphError (Composition, Interpret, Operadic, Relation)
+│   ├── category.rs                 # Core traits: HasIdentity, Composable, ComposableMutating
+│   ├── monoidal.rs                 # Monoidal + symmetric monoidal traits, GenericMonoidalMorphism
+│   ├── operadic.rs                 # Operadic trait for substitution
+│   │
+│   ├── cospan.rs                   # Core cospan implementation over Lambda-typed sets
+│   ├── named_cospan.rs             # Cospans with named boundary nodes
+│   ├── span.rs                     # Span and Rel (relations) implementations
+│   │
+│   ├── frobenius.rs                # Frobenius algebra morphisms, MorphismSystem, Contains trait
+│   ├── temperley_lieb.rs           # Temperley-Lieb / Brauer algebra
+│   │
+│   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
+│   │
+│   ├── e1_operad.rs                # E1 operad (intervals in [0,1])
+│   ├── e2_operad.rs                # E2 operad (disks in unit disk)
+│   │
+│   ├── finset.rs                   # Finite set morphisms, permutations, epi-mono factorization
+│   │
+│   ├── linear_combination.rs       # Linear combinations over rings
+│   ├── utils.rs                    # Permutation utilities, helpers
+│   ├── lib.rs                      # Library exports (all modules pub)
+│   └── main.rs                     # Demo binary (NamedCospan exercise)
+│
+├── tests/                          # Integration tests (public API only)
+│   ├── composition_laws.rs         # 17 tests: associativity, identity, empty/large boundaries
+│   ├── pushout_correctness.rs      # 9 tests: union-find pushout, wire merging, determinism
+│   ├── relation_algebra.rs         # 21 tests: Rel API, dagger involution, span composition, equivalence/partial order
+│   ├── frobenius_laws.rs           # 8 tests: braiding, spider fusion, unit/counit, monoidal
+│   ├── monoidal_structure.rs       # 6 tests: tensor associativity/unit, braiding, permute_side
+│   ├── cross_type_interactions.rs  # 6 tests: NamedCospan ports, to_graph, LinearCombination ring
+│   ├── morphism_system.rs          # 8 tests: DAG resolution, cycle detection, multi-level fill
+│   ├── operad_boundary.rs          # 10 tests: E1/E2 epsilon boundaries, embedding, substitution
+│   └── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
+│
+└── catgraph-surreal/               # SurrealDB persistence bridge crate
+    ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
+    ├── src/
+    │   ├── lib.rs                  # init_schema() + init_schema_v2() + module re-exports
+    │   ├── error.rs                # PersistError enum (thiserror)
+    │   ├── persist.rs              # Persistable trait + impls (char, (), u32, i32, i64, u64, String)
+    │   ├── schema.rs               # V1 SurrealQL DDL (embedded arrays)
+    │   ├── schema_v2.rs            # V2 SurrealQL DDL (RELATE-based graph tables)
+    │   ├── types.rs                # V1 record types (SurrealValue derives)
+    │   ├── types_v2.rs             # V2 record types (GraphNodeRecord, GraphEdgeRecord, HyperedgeHubRecord)
+    │   ├── cospan_store.rs         # V1 CospanStore: save/load/delete/list
+    │   ├── named_cospan_store.rs   # V1 NamedCospanStore (composes with CospanStore)
+    │   ├── span_store.rs           # V1 SpanStore: save/load/delete/list
+    │   ├── node_store.rs           # V2 NodeStore: CRUD for graph_node records
+    │   ├── edge_store.rs           # V2 EdgeStore: RELATE edges, traversal
+    │   ├── hyperedge_store.rs      # V2 HyperedgeStore: decompose/reconstruct Cospan/Span via hub-node reification
+    │   └── query.rs                # V2 QueryHelper: outbound/inbound neighbors, BFS reachable
+    └── tests/
+        ├── v1_cospan_roundtrip.rs          # 9 tests: V1 char/unit roundtrip, identity, compose-persist
+        ├── v1_named_cospan_roundtrip.rs    # 5 tests: V1 port name preservation, record references
+        ├── v1_span_roundtrip.rs            # 8 tests: V1 span/dagger roundtrip, identity flags
+        ├── v1_v2_coexistence.rs            # 6 tests: span/named cospan, table/delete isolation
+        ├── v2_node_edge_crud.rs            # 23 tests: V2 node/edge/hyperedge CRUD, traversal
+        ├── v2_atomic_decompose.rs          # 8 tests: atomic vs non-atomic decompose
+        ├── v2_span_decompose.rs            # 5 tests: V2 span decompose/reconstruct
+        ├── v2_provenance.rs                # 11 tests: provenance + schema features (REFERENCE, ON DELETE UNSET, COMPUTED)
+        ├── domain_api_orchestration.rs     # 4 tests: API orchestration (hub properties)
+        ├── domain_chemical_reactions.rs    # 5 tests: chemical reactions (Cospan hyperedges)
+        ├── domain_circuit_design.rs        # 5 tests: cascaded logic gates, shared nodes
+        ├── domain_code_analysis.rs         # 5 tests: code graph (pairwise, multi-hop)
+        └── domain_dataflow_pipeline.rs     # 4 tests: NamedCospan dataflow
+```
+
+## Key Types and Traits
+
+### Category Traits (`category.rs`)
+
+```rust
+pub trait HasIdentity<T>: Sized {
+    fn identity(on_this: &T) -> Self;
+}
+
+pub trait Composable<T: Eq>: Sized {
+    fn compose(&self, other: &Self) -> Result<Self, CatgraphError>;
+    fn domain(&self) -> T;
+    fn codomain(&self) -> T;
+}
+
+pub trait ComposableMutating<T: Eq>: Sized {
+    fn compose(&mut self, other: Self) -> Result<(), CatgraphError>;
+    // ... domain, codomain
+}
+```
+
+### Monoidal + Symmetric Monoidal (`monoidal.rs`)
+
+```rust
+pub trait Monoidal {
+    fn monoidal(&mut self, other: Self);
+}
+
+pub trait SymmetricMonoidalMorphism<T: Eq>: Composable<Vec<T>> + Monoidal {
+    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Self;
+    fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
+}
+```
+
+### Error Handling (`errors.rs`)
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CatgraphError {
+    Composition(String),  // incompatible morphisms
+    Interpret(String),    // black-box interpretation failures
+    Operadic(String),     // substitution failures
+    Relation(String),     // relation construction / algebra failures
+}
+```
+
+### Cospan (`cospan.rs`)
+
+```rust
+pub struct Cospan<Lambda> {
+    left: Vec<MiddleIndex>,   // domain → middle
+    right: Vec<MiddleIndex>,  // codomain → middle
+    middle: Vec<Lambda>,      // typed middle set
+}
+```
+
+- `Lambda` types the vertices (use `()` for untyped)
+- Composition via pushout (union-find, O(n * alpha(n)))
+- Supports `Monoidal`, `Composable`, `SymmetricMonoidalMorphism`
+- Public accessors: `left_to_middle()`, `right_to_middle()`, `middle()`, `is_left_identity()`, `is_right_identity()`
+
+### Named Cospan (`named_cospan.rs`)
+
+```rust
+pub struct NamedCospan<Lambda, LeftPortName, RightPortName> {
+    cospan: Cospan<Lambda>,
+    left_names: Vec<LeftPortName>,
+    right_names: Vec<RightPortName>,
+}
+```
+
+- Public accessors: `cospan()`, `left_names()`, `right_names()`
+
+### Span/Rel (`span.rs`)
+
+```rust
+pub struct Span<Lambda> { ... }
+pub struct Rel<Lambda>(Span<Lambda>);
+```
+
+- Public accessors: `left()`, `right()`, `middle_pairs()`, `is_left_identity()`, `is_right_identity()`
+- `Rel::as_span()` for bridge crate access
+- Relations with: `is_reflexive`, `is_symmetric`, `is_antisymmetric`, `is_transitive`, `is_equivalence_rel`, `is_partial_order`, `subsumes`, `intersection`, `union`, `complement`.
+
+### Frobenius (`frobenius.rs`)
+
+Encodes morphisms from Frobenius algebra generators (mul, comul, unit, counit, braiding) plus black boxes. Also contains `Contains` trait, `InterpretableMorphism` trait, and `MorphismSystem` struct for named morphism DAG resolution.
+
+## SurrealDB Persistence (`catgraph-surreal`)
+
+Bridge crate for persisting catgraph structures to SurrealDB. Two layers coexist on different tables:
+
+### V1: Embedded Arrays (O(1) reconstruction)
+
+Each n-ary hyperedge stored as a single record with embedded arrays encoding the structural maps.
+
+- **`Persistable`** trait — JSON serialization for Lambda types without requiring serde on catgraph core. Impls for `char`, `()`, `u32`, `i32`, `i64`, `u64`, `String`.
+- **`CospanStore`** / **`NamedCospanStore`** / **`SpanStore`** — typed async CRUD (save/load/delete/list).
+- Tables: `cospan`, `named_cospan`, `span`.
+
+### V2: RELATE-Based Graph Persistence
+
+Graph-native persistence with first-class nodes, pairwise edges, and hub-node reification for n-ary hyperedges. Supports edge properties, graph traversal, and SurrealDB-native queries.
+
+- **`NodeStore`** — CRUD for `graph_node` records (name, kind, labels, properties).
+- **`EdgeStore`** — `RELATE`-based pairwise edges with traversal (outbound/inbound/between).
+- **`HyperedgeStore`** — Decompose `Cospan`/`Span`/`NamedCospan` into hub-node reification pattern (`hyperedge_hub` + `source_of`/`target_of` edges). Reconstruct `Cospan<Lambda>` from hub.
+- **`QueryHelper`** — Graph traversal: `outbound_neighbors`, `inbound_neighbors`, `reachable` (BFS to depth N).
+- Tables: `graph_node`, `graph_edge`, `hyperedge_hub`, `source_of`, `target_of`.
+
+### Usage
+
+```rust
+use catgraph_surreal::{init_schema, init_schema_v2};
+use catgraph_surreal::cospan_store::CospanStore;       // V1
+use catgraph_surreal::node_store::NodeStore;            // V2
+use catgraph_surreal::hyperedge_store::HyperedgeStore;  // V2
+
+let db = Surreal::new::<Mem>(()).await?;
+db.use_ns("test").use_db("test").await?;
+init_schema(&db).await?;      // V1 tables
+init_schema_v2(&db).await?;   // V2 tables (can coexist)
+
+// V1: embedded array roundtrip
+let v1 = CospanStore::new(&db);
+let id = v1.save(&my_cospan).await?;
+let loaded: Cospan<char> = v1.load(&id).await?;
+
+// V2: graph-native decomposition
+let v2 = HyperedgeStore::new(&db);
+let hub_id = v2.decompose_cospan(&cospan, "reaction", props, |c| c.to_string()).await?;
+let sources = v2.sources(&hub_id).await?;
+let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
+```
+
+### Dependencies
+
+`catgraph`, `surrealdb` 3.0.5 (kv-mem), `surrealdb-types` 3.0.5, `serde` + `serde_json`, `tokio`, `thiserror`
+
+## Testing
+
+### Running Tests
+
+```bash
+cargo test --workspace        # Run all 403 tests (295 catgraph + 108 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (295: 200 unit + 95 integration)
+cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
+cargo clippy                  # Lint checks
+cargo tarpaulin --out Stdout  # Coverage report
+```
+
+### Test Patterns
+
+Tests typically use simple types for Lambda:
+- `char` for readable examples
+- `()` for untyped tests
+- Custom enums (e.g., `Color { Red, Green, Blue }`) for typed examples
+
+## Common Patterns
+
+### Creating Identity Morphisms
+
+```rust
+let id = Cospan::identity(&vec!['a', 'b', 'c']);
+let named_id = NamedCospan::identity(&types, &prenames, |n| (n, n));
+```
+
+### Composition
+
+```rust
+let result = morphism1.compose(&morphism2)?;  // returns Result<_, CatgraphError>
+```
+
+### Monoidal Product
+
+```rust
+let mut combined = morphism1;
+combined.monoidal(morphism2);
+```
+
+### Permutations
+
+```rust
+use permutations::Permutation;
+let p = Permutation::rotation_left(3, 1);
+let cospan = Cospan::from_permutation(p, &types, types_as_on_domain);
+```
+
+## Type Constraints
+
+- `Lambda: Sized + Eq + Copy + Debug` (catgraph core); `Persistable: Sized + Eq + Clone + Debug` (persistence)
+- Names often need `Eq + Clone` (and `Hash` for validation)
+- Group elements need `One + MulAssign + Eq + Clone`
+
+## Public API (hardened, tested)
+
+| Module | What it provides |
+|--------|-----------------|
+| `category.rs` | Core traits: `HasIdentity`, `Composable`, `ComposableMutating` |
+| `cospan.rs` | Pushout composition via union-find, identity fast-paths |
+| `named_cospan.rs` | Port-labeled cospans for wiring-style composition |
+| `span.rs` | Pullback composition (dual of cospan) |
+| `span.rs` — `Rel` | Relation algebra: `new`/`new_unchecked`, `is_reflexive`, `is_symmetric`, `is_transitive`, `is_antisymmetric`, `subsumes`, `union`, `intersection`, `complement`, `is_equivalence_rel`, `is_partial_order` |
+| `monoidal.rs` | Tensor product, symmetric braiding, `GenericMonoidalMorphism` |
+| `frobenius.rs` | String diagram morphisms, `two_layer_simplify` (4 rules), `from_permutation`, `from_decomposition` |
+| `frobenius.rs` — `MorphismSystem` | DAG-based black box interpretation: name morphisms, compose by reference, topological resolution via `fill_black_boxes`. Uses `Contains` + `InterpretableMorphism` traits. |
+| `e1_operad.rs` | Little intervals operad: containment, overlap, coalescence, monoid homomorphism. Fallible constructor with epsilon tolerance. |
+| `e2_operad.rs` | Little disks operad: 2D containment, coalescence, `from_e1_config` embedding. Fallible constructor with epsilon tolerance. |
+| `temperley_lieb.rs` | Brauer/Temperley-Lieb algebra generators (`e_i`, `s_i`), dagger, `simplify`, composition via `ExtendedPerfectMatching` |
+| `wiring_diagram.rs` | Operadic substitution built on `NamedCospan` |
+| `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
+| `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |
+
+## Parallelization
+
+The library uses rayon for parallel computation with adaptive thresholds:
+
+| Module | Parallelized Operation | Threshold |
+|--------|------------------------|-----------|
+| `linear_combination.rs` | `Mul` impl, `linear_combine` | 32 terms |
+| `temperley_lieb.rs` | `non_crossing` checks | 8 elements |
+| `named_cospan.rs` | `find_nodes_by_name_predicate` | 256 elements |
+| `frobenius.rs` | `hflip` block mutations | 64 blocks |
+
+### Async Integration
+
+All parallelism is rayon-based (CPU-bound). For tokio integration, use **tokio-rayon** (not `spawn_blocking`, which is for I/O blocking). Rayon's work-stealing thread pool is optimized for CPU parallelism.
+
+```rust
+use std::sync::LazyLock;
+use rayon::ThreadPoolBuilder;
+use tokio_rayon::AsyncThreadPool;
+
+static EXEC: LazyLock<Executor> = LazyLock::new(|| Executor::new());
+
+struct Executor { pool: rayon::ThreadPool }
+
+impl Executor {
+    fn new() -> Self {
+        Self { pool: ThreadPoolBuilder::new().build().unwrap() }
+    }
+    async fn run<F, R>(&self, f: F) -> R
+    where F: FnOnce() -> R + Send + 'static, R: Send + 'static {
+        self.pool.spawn_async(f).await
+    }
+}
+
+// Usage:
+let result = EXEC.run(move || {
+    cospan_a.compose(&cospan_b) // rayon work-stealing kicks in above thresholds
+}).await?;
+```
+
+## Clippy Preferences
+
+Rust 2024 edition. Common patterns:
+- Use `matches!` macro instead of match expressions returning bool
+- Use `.is_multiple_of()` instead of `% n == 0`
+- Collapse nested `if let` with `&&` (let chains)
+
+## Future Work
+
+| Area | Notes |
+|------|-------|
+| Petri nets | Natural fit for source/target semantics. Chemical use case tests demonstrate the pattern. |
+| Benchmarks | No benchmarks for pushout/pullback performance |
+| Property testing | Randomized tests use ad-hoc loops without seed control |
+| WiringDiagram persistence | No V2 store; no downstream consumer yet |
+
+## API Scope
+
+catgraph implements **applied category theory for compositional systems** — specifically Fong-Spivak-style string diagrams and cospans (source/target hypergraph semantics). It is NOT a general category theory library.
