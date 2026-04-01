@@ -112,12 +112,6 @@ impl From<Vec<Pair>> for PerfectMatching {
 }
 
 impl PerfectMatching {
-    #[allow(dead_code)]
-    fn new(pair_prime: &[Pair]) -> Self {
-        #[allow(clippy::from_iter_instead_of_collect)]
-        Self::from_iter(pair_prime.iter().copied())
-    }
-
     fn canonicalize(&mut self) {
         /*
         each matched pair is given as the smaller number first

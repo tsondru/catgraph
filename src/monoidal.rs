@@ -155,7 +155,6 @@ where
         self.layers.len()
     }
 
-    #[allow(dead_code)]
     fn append_layer(
         &mut self,
         next_layer: GenericMonoidalMorphismLayer<BoxType, Lambda>,
@@ -167,7 +166,7 @@ where
             }
             Some(v) => {
                 if v.right_type != next_layer.left_type {
-                    return Err(CatgraphError::Composition("type mismatch in morphims composition".to_string()));
+                    return Err(CatgraphError::Composition { message: "type mismatch in morphims composition".to_string() });
                 }
                 self.layers.push(v);
                 self.layers.push(next_layer);
@@ -241,24 +240,26 @@ where
         return if interface.is_empty() {
             Ok(())
         } else {
-            Err(CatgraphError::Composition("Mismatch in cardinalities of common interface".to_string()))
+            Err(CatgraphError::CompositionSizeMismatch { expected: 0, actual: interface.len() })
         };
     }
     let self_interface = &l.last().unwrap().right_type;
     let other_interface = &r[0].left_type;
     if self_interface.len() != other_interface.len() {
-        Err(CatgraphError::Composition("Mismatch in cardinalities of common interface".to_string()))
+        Err(CatgraphError::CompositionSizeMismatch { expected: self_interface.len(), actual: other_interface.len() })
     } else if self_interface != other_interface {
         for idx in 0..self_interface.len() {
             let w1 = self_interface[idx];
             let w2 = other_interface[idx];
             if w1 != w2 {
-                return Err(CatgraphError::Composition(format!(
-                    "Mismatch in labels of common interface. At some index there was {w1:?} vs {w2:?}"
-                )));
+                return Err(CatgraphError::CompositionLabelMismatch {
+                    index: idx,
+                    expected: format!("{w1:?}"),
+                    actual: format!("{w2:?}"),
+                });
             }
         }
-        Err(CatgraphError::Composition("Mismatch in labels of common interface at some unknown index.".to_string()))
+        Err(CatgraphError::Composition { message: "Mismatch in labels of common interface at some unknown index.".to_string() })
     } else {
         Ok(())
     }
@@ -312,6 +313,7 @@ where
     */
 }
 
+#[allow(dead_code)] // constructed via From::from() in InterpretableMorphism impls
 struct InterpretableNoMut<T, Lambda>
 where
     Lambda: Eq,
@@ -319,22 +321,6 @@ where
 {
     me: T,
     dummy: PhantomData<Lambda>,
-}
-
-impl<T, Lambda> InterpretableNoMut<T, Lambda>
-where
-    Lambda: Eq,
-    T: Monoidal + Composable<Vec<Lambda>> + HasIdentity<Vec<Lambda>>,
-{
-    #[allow(dead_code)]
-    fn change_black_boxer<F1, BoxType>(
-        f1: F1,
-    ) -> impl Fn(&BoxType, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>
-    where
-        F1: Fn(&BoxType) -> Result<T, CatgraphError>,
-    {
-        move |bb, _, _| f1(bb).map(Self::from)
-    }
 }
 
 impl<T, Lambda> From<T> for InterpretableNoMut<T, Lambda>
@@ -350,6 +336,7 @@ where
     }
 }
 
+#[allow(dead_code)] // constructed via From::from() in InterpretableMorphism impls
 struct InterpretableMut<T, Lambda>
 where
     Lambda: Eq,
@@ -357,22 +344,6 @@ where
 {
     me: T,
     dummy: PhantomData<Lambda>,
-}
-
-impl<T, Lambda> InterpretableMut<T, Lambda>
-where
-    Lambda: Eq,
-    T: Monoidal + ComposableMutating<Vec<Lambda>> + HasIdentity<Vec<Lambda>>,
-{
-    #[allow(dead_code)]
-    fn change_black_boxer<F1, BoxType>(
-        f1: F1,
-    ) -> impl Fn(&BoxType, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>
-    where
-        F1: Fn(&BoxType) -> Result<T, CatgraphError>,
-    {
-        move |bb, _, _| f1(bb).map(Self::from)
-    }
 }
 
 impl<T, Lambda> From<T> for InterpretableMut<T, Lambda>
@@ -412,7 +383,7 @@ where
         let mut answer = T::identity(&morphism.domain());
         for layer in &morphism.layers {
             let Some(first) = &layer.blocks.first() else {
-                return Err(CatgraphError::Interpret("somehow an empty layer in a generica monoidal morphism???".to_string()));
+                return Err(CatgraphError::Interpret { context: "somehow an empty layer in a generica monoidal morphism???".to_string() });
             };
             let mut cur_layer = black_box_interpreter(first, &[], &[]).map(|z| z.me)?;
             for block in &layer.blocks[1..] {
@@ -451,7 +422,7 @@ where
         let mut answer = T::identity(&morphism.domain());
         for layer in &morphism.layers {
             let Some(first) = &layer.blocks.first() else {
-                return Err(CatgraphError::Interpret("somehow an empty layer in a generica monoidal morphism???".to_string()));
+                return Err(CatgraphError::Interpret { context: "somehow an empty layer in a generica monoidal morphism???".to_string() });
             };
             let mut cur_layer = black_box_interpreter(first, &[], &[]).map(|z| z.me)?;
             for block in &layer.blocks[1..] {

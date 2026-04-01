@@ -3,6 +3,9 @@
 //! Tests verify that `compose` (which internally uses union-find pushout)
 //! produces correct middle sets, boundary maps, and label preservation.
 
+mod common;
+use common::assert_cospan_eq;
+
 use catgraph::{
     category::{Composable, HasIdentity},
     cospan::Cospan,
@@ -16,21 +19,6 @@ use catgraph::{
 /// Build a cospan from slices for brevity.
 fn cospan(left: &[usize], right: &[usize], middle: &[char]) -> Cospan<char> {
     Cospan::new(left.to_vec(), right.to_vec(), middle.to_vec())
-}
-
-/// Assert structural equality of two cospans via their public accessors.
-fn assert_cospan_eq(actual: &Cospan<char>, expected: &Cospan<char>) {
-    assert_eq!(
-        actual.left_to_middle(),
-        expected.left_to_middle(),
-        "left legs differ"
-    );
-    assert_eq!(
-        actual.right_to_middle(),
-        expected.right_to_middle(),
-        "right legs differ"
-    );
-    assert_eq!(actual.middle(), expected.middle(), "middle sets differ");
 }
 
 // ---------------------------------------------------------------------------

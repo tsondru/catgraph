@@ -1,7 +1,6 @@
 use {
     either::Either::{self, Left, Right},
     permutations::Permutation,
-    rand::{distr::Uniform, prelude::Distribution},
     std::{collections::HashSet, fmt::Debug},
 };
 
@@ -102,14 +101,14 @@ pub fn in_place_permute<T>(me: &mut [T], p: &Permutation) {
     }
 }
 
-#[allow(dead_code)]
-pub fn rand_perm(n: usize, max_depth: usize) -> Permutation {
-    let mut rng = rand::rng();
+#[cfg(test)]
+pub fn rand_perm(n: usize, max_depth: usize, rng: &mut impl rand::Rng) -> Permutation {
+    use rand::{distr::Uniform, prelude::Distribution};
     let between = Uniform::try_from(0..n).unwrap();
     let mut answer = Permutation::identity(n);
     for _ in 0..max_depth {
-        let i = between.sample(&mut rng);
-        let j = between.sample(&mut rng);
+        let i = between.sample(rng);
+        let j = between.sample(rng);
         answer = answer * Permutation::transposition(n, i, j);
     }
     answer
@@ -148,7 +147,7 @@ pub fn same_labels_check<
     ))
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn test_asserter<T, U, F>(
     observed: Result<T, U>,
     expected: Result<T, U>,
@@ -195,6 +194,8 @@ macro_rules! assert_err {
 
 #[cfg(test)]
 mod test {
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn nec_permutation() {
@@ -202,11 +203,11 @@ mod test {
         use rand::{distr::Uniform, prelude::Distribution};
         let n_max = 10;
         let between = Uniform::<usize>::try_from(2usize..n_max).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(42);
         for _ in 0..10 {
             let n = between.sample(&mut rng);
             let set = (0..n).map(|i| format!("{i}")).collect::<Vec<String>>();
-            let p1 = rand_perm(n, n * n / 4);
+            let p1 = rand_perm(n, n * n / 4, &mut rng);
             let permuted_set = p1.permute(&set);
             let found_perm = necessary_permutation(&set, &permuted_set);
             assert_eq!(found_perm, Ok(p1));
@@ -219,12 +220,12 @@ mod test {
         use permutations::Permutation;
         use rand::{distr::Uniform, prelude::Distribution};
         let n_max = 10;
-        
+
         let between = Uniform::<usize>::try_from(2usize..n_max).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(123);
         for _ in 0..10 {
             let n = between.sample(&mut rng);
-            let p1 = rand_perm(n, n * n / 4);
+            let p1 = rand_perm(n, n * n / 4, &mut rng);
             let cycle_prod = perm_decompose(&p1);
             let obs_p1 = cycle_prod
                 .iter()
@@ -241,11 +242,11 @@ mod test {
         use rand::{distr::Uniform, prelude::Distribution};
         let n_max = 10;
         let between = Uniform::<usize>::try_from(2usize..n_max).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(456);
         for _ in 0..10 {
             let n = between.sample(&mut rng);
             let mut set = (0..n).map(|i| format!("{i}")).collect::<Vec<String>>();
-            let p1 = rand_perm(n, n * n / 4);
+            let p1 = rand_perm(n, n * n / 4, &mut rng);
             in_place_permute(&mut set, &p1);
             for (idx, cur) in set.iter().enumerate() {
                 assert_eq!(*cur, format!("{}", p1.apply(idx)));

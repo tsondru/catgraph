@@ -35,11 +35,13 @@ impl Monoidal for FinSetMorphism {
 impl Composable<usize> for FinSetMorphism {
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.composable(other).is_err() {
-            return Err(CatgraphError::Composition(format!(
-                "Not composable. The codomain of self was {}. The domain of other was {}",
-                self.codomain(),
-                other.domain()
-            )));
+            return Err(CatgraphError::Composition {
+                message: format!(
+                    "Not composable. The codomain of self was {}. The domain of other was {}",
+                    self.codomain(),
+                    other.domain()
+                ),
+            });
         }
         let other_codomain = other.codomain();
         let composite: Vec<_> = (0..self.domain()).map(|s| other.0[self.0[s]]).collect();
@@ -98,11 +100,13 @@ impl Monoidal for OrderPresSurj {
 impl Composable<usize> for OrderPresSurj {
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.composable(other).is_err() {
-            return Err(CatgraphError::Composition(format!(
-                "Not composable. The codomain of self was {}. The domain of other was {}",
-                self.codomain(),
-                other.domain()
-            )));
+            return Err(CatgraphError::Composition {
+                message: format!(
+                    "Not composable. The codomain of self was {}. The domain of other was {}",
+                    self.codomain(),
+                    other.domain()
+                ),
+            });
         }
         let codomain = other.codomain();
         let mut answer = Vec::with_capacity(codomain);
@@ -179,16 +183,18 @@ impl Monoidal for OrderPresInj {
 impl Composable<usize> for OrderPresInj {
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.composable(other).is_err() {
-            return Err(CatgraphError::Composition(format!(
-                "Not composable. The codomain of self was {}. The domain of other was {}",
-                self.codomain(),
-                other.domain()
-            )));
+            return Err(CatgraphError::Composition {
+                message: format!(
+                    "Not composable. The codomain of self was {}. The domain of other was {}",
+                    self.codomain(),
+                    other.domain()
+                ),
+            });
         }
         let ord_self = self.to_ordinary();
         let ord_other = other.to_ordinary();
         let composite = ord_self.compose(&ord_other)?;
-        Self::try_from(composite).map_err(|_| CatgraphError::Composition("???".to_string()))
+        Self::try_from(composite).map_err(|_| CatgraphError::Composition { message: "???".to_string() })
     }
 
     fn domain(&self) -> usize {
@@ -420,11 +426,13 @@ impl Monoidal for Decomposition {
 impl Composable<usize> for Decomposition {
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.composable(other).is_err() {
-            return Err(CatgraphError::Composition(format!(
-                "Not composable. The codomain of self was {}. The domain of other was {}",
-                self.codomain(),
-                other.domain()
-            )));
+            return Err(CatgraphError::Composition {
+                message: format!(
+                    "Not composable. The codomain of self was {}. The domain of other was {}",
+                    self.codomain(),
+                    other.domain()
+                ),
+            });
         }
         let other_codomain = other.codomain();
         let ord_self = self.to_ordinary();
@@ -432,9 +440,9 @@ impl Composable<usize> for Decomposition {
         let composite = ord_self.compose(&ord_other)?;
         if let Some(max_val) = composite.0.iter().max() {
             let leftover_needed = other_codomain.saturating_sub(max_val + 1);
-            Self::try_from((composite.0, leftover_needed)).map_err(|_| CatgraphError::Composition("???".to_string()))
+            Self::try_from((composite.0, leftover_needed)).map_err(|_| CatgraphError::Composition { message: "???".to_string() })
         } else {
-            Self::try_from(composite).map_err(|_| CatgraphError::Composition("???".to_string()))
+            Self::try_from(composite).map_err(|_| CatgraphError::Composition { message: "???".to_string() })
         }
     }
 
@@ -565,6 +573,8 @@ fn monotone_epi_mono_fact(v: FinSetMap) -> (FinSetMap, FinSetMap) {
 
 #[cfg(test)]
 mod test {
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn surjectivity() {
@@ -924,10 +934,10 @@ mod test {
     fn two_decompositions() {
         use crate::category::Composable;
         use crate::finset::Decomposition;
-         use rand::RngExt;
+        use rand::RngExt;
 
         let fin_set_size: usize = 20;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(2001);
         let trial_num = 10;
 
         for _ in 0..trial_num {
@@ -972,10 +982,10 @@ mod test {
         use crate::finset::from_cycle;
         use itertools::Itertools;
         use rand::distr::Uniform;
-         use rand::RngExt;
+        use rand::RngExt;
 
         let fin_set_size: usize = 20;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(2002);
         let u = Uniform::new(0, fin_set_size).unwrap();
         for _ in 0..10 {
             let cycle_len = rng.sample(u);
@@ -1082,10 +1092,10 @@ mod test {
         use crate::utils::rand_perm;
         use rand::{distr::Uniform, prelude::Distribution};
 
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(2003);
         for _ in 0..20 {
             let n = Uniform::<usize>::try_from(2..8).unwrap().sample(&mut rng);
-            let p_dom = rand_perm(n, n * 2);
+            let p_dom = rand_perm(n, n * 2, &mut rng);
             let original_map: Vec<usize> = (0..n)
                 .map(|_| Uniform::<usize>::try_from(0..n).unwrap().sample(&mut rng))
                 .collect();
@@ -1110,7 +1120,7 @@ mod test {
             let mut decomp_cod = Decomposition::try_from((surj_map.clone(), 0)).unwrap();
             let cod_size = decomp_cod.codomain();
             assert_eq!(cod_size, n);
-            let p_cod = rand_perm(cod_size, cod_size * 2);
+            let p_cod = rand_perm(cod_size, cod_size * 2, &mut rng);
             let p_cod_inv = p_cod.inv();
             decomp_cod.permute_side(&p_cod, true);
             for i in 0..n {

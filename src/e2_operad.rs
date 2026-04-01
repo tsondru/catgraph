@@ -63,24 +63,24 @@ where
         */
         for (_a, b, c) in &sub_circles {
             if !disk_contains((0.0, 0.0), 1.0, *b, Some(*c)) {
-                return Err(CatgraphError::Operadic(
-                    format!("Subcircle at ({}, {}), r={} is not contained in the unit disk", b.0, b.1, c),
-                ));
+                return Err(CatgraphError::Operadic {
+                    message: format!("Subcircle at ({}, {}), r={} is not contained in the unit disk", b.0, b.1, c),
+                });
             }
         }
         if !sub_circles.iter().map(|(a, _, _)| a).all_unique() {
-            return Err(CatgraphError::Operadic(
-                "each subcircle must have a unique name".to_string(),
-            ));
+            return Err(CatgraphError::Operadic {
+                message: "each subcircle must have a unique name".to_string(),
+            });
         }
         if overlap_check {
             for d_pair in sub_circles.iter().combinations(2) {
                 let d1 = d_pair[0];
                 let d2 = d_pair[1];
                 if disk_overlaps(d1.1, d1.2, d2.1, d2.2) {
-                    return Err(CatgraphError::Operadic(
-                        "The input circles cannot overlap".to_string(),
-                    ));
+                    return Err(CatgraphError::Operadic {
+                        message: "The input circles cannot overlap".to_string(),
+                    });
                 }
             }
         }
@@ -225,7 +225,7 @@ where
                 .iter()
                 .any(|cur| selfnames.contains(&cur.0));
             if not_still_unique {
-                return Err(CatgraphError::Operadic("each subcircle must have a unique name".to_string()));
+                return Err(CatgraphError::Operadic { message: "each subcircle must have a unique name".to_string() });
             }
             let new_circles = other_obj.sub_circles.into_iter().map(|cur| {
                 let new_center = (
@@ -238,7 +238,7 @@ where
             self.arity = self.sub_circles.len();
             Ok(())
         } else {
-            Err(CatgraphError::Operadic(format!("No such input {which_input:?} found")))
+            Err(CatgraphError::Operadic { message: format!("No such input {which_input:?} found") })
         }
     }
 }
@@ -267,10 +267,10 @@ mod test {
         let id = E2::identity(&0);
         let mut x = E2::new(vec![], true).unwrap();
         let composed = x.operadic_substitution(0, id);
-        assert_eq!(composed, Err(CatgraphError::Operadic("No such input 0 found".to_string())));
+        assert_eq!(composed, Err(CatgraphError::Operadic { message: "No such input 0 found".to_string() }));
         let id = E2::identity(&0);
         let composed = x.operadic_substitution(5, id);
-        assert_eq!(composed, Err(CatgraphError::Operadic("No such input 5 found".to_string())));
+        assert_eq!(composed, Err(CatgraphError::Operadic { message: "No such input 5 found".to_string() }));
     }
 
     #[test]

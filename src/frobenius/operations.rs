@@ -13,186 +13,11 @@ use {
         utils::in_place_permute,
     },
     permutations::Permutation,
-    petgraph::{algo::toposort, prelude::DiGraph},
     rayon::prelude::*,
-    std::{collections::HashMap, convert::identity, fmt::Debug, marker::PhantomData},
+    std::{collections::HashMap, convert::identity, fmt::Debug},
 };
 
-// ── Traits and types from frobenius_system ──
-
-pub trait Contains<BlackBoxLabel> {
-    fn contained_labels(&self) -> Vec<BlackBoxLabel>;
-}
-
-pub trait InterpretableMorphism<GeneralVersion, Lambda, BlackBoxLabel>: Sized {
-    fn interpret<F>(r#gen: &GeneralVersion, black_box_interpreter: F) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>;
-}
-
-pub struct MorphismSystem<BlackBoxLabel, Lambda, GeneralBlackBoxed, T>
-where
-    BlackBoxLabel: std::hash::Hash + Eq,
-    T: InterpretableMorphism<GeneralBlackBoxed, Lambda, BlackBoxLabel>,
-    GeneralBlackBoxed: Contains<BlackBoxLabel>,
-{
-    composite_pieces: HashMap<BlackBoxLabel, GeneralBlackBoxed>,
-    simple_pieces: HashMap<BlackBoxLabel, T>,
-    main: BlackBoxLabel,
-    dag: DiGraph<BlackBoxLabel, ()>,
-    dummy: PhantomData<Lambda>,
-}
-
-impl<GeneralBlackBoxed, BlackBoxLabel, Lambda, T>
-    MorphismSystem<BlackBoxLabel, Lambda, GeneralBlackBoxed, T>
-where
-    BlackBoxLabel: std::hash::Hash + Eq + Clone + std::fmt::Debug,
-    Lambda: Eq + std::fmt::Debug + Copy,
-    T: InterpretableMorphism<GeneralBlackBoxed, Lambda, BlackBoxLabel> + Clone,
-    GeneralBlackBoxed: Contains<BlackBoxLabel>,
-{
-    pub fn new(main_name: BlackBoxLabel) -> Self {
-        Self {
-            composite_pieces: HashMap::new(),
-            simple_pieces: HashMap::new(),
-            main: main_name,
-            dag: DiGraph::new(),
-            dummy: PhantomData,
-        }
-    }
-
-    /// Find or create a DAG node for the given label, returning its `NodeIndex`.
-    fn ensure_node(&mut self, label: &BlackBoxLabel) -> petgraph::graph::NodeIndex {
-        self.dag
-            .node_indices()
-            .find(|&i| self.dag[i] == *label)
-            .unwrap_or_else(|| self.dag.add_node(label.clone()))
-    }
-
-    /// Register a composite definition that depends on other labels.
-    ///
-    /// Adds `new_name` to the DAG with edges to each label returned by
-    /// `new_def.contained_labels()`, then verifies acyclicity. Returns
-    /// `CatgraphError::Interpret` if the addition would create a cycle.
-    pub fn add_definition_composite(
-        &mut self,
-        new_name: BlackBoxLabel,
-        new_def: GeneralBlackBoxed,
-    ) -> Result<(), CatgraphError> {
-        let contained = new_def.contained_labels();
-
-        // Build the mutation on a clone first so we can check acyclicity
-        // before committing to the real DAG.
-        let mut trial_dag = self.dag.clone();
-        let parent = trial_dag
-            .node_indices()
-            .find(|&i| trial_dag[i] == new_name)
-            .unwrap_or_else(|| trial_dag.add_node(new_name.clone()));
-        for child_label in &contained {
-            let child = trial_dag
-                .node_indices()
-                .find(|&i| trial_dag[i] == *child_label)
-                .unwrap_or_else(|| trial_dag.add_node(child_label.clone()));
-            trial_dag.add_edge(parent, child, ());
-        }
-
-        // Verify acyclicity on the trial DAG.
-        if toposort(&trial_dag, None).is_err() {
-            return Err(CatgraphError::Interpret(format!(
-                "Adding composite {new_name:?} would create a cycle in the dependency DAG"
-            )));
-        }
-
-        // Commit: apply the same mutations to the real DAG.
-        self.dag = trial_dag;
-        self.composite_pieces.insert(new_name, new_def);
-        Ok(())
-    }
-
-    /// Register a simple (leaf) definition with no dependencies.
-    ///
-    /// Adds `new_name` as a leaf node in the DAG and stores the definition
-    /// in `simple_pieces`.
-    #[allow(clippy::unnecessary_wraps)] // consistent API with add_definition_composite
-    pub fn add_definition_simple(
-        &mut self,
-        new_name: BlackBoxLabel,
-        new_def: T,
-    ) -> Result<(), CatgraphError> {
-        self.ensure_node(&new_name);
-        self.simple_pieces.insert(new_name, new_def);
-        Ok(())
-    }
-
-    pub fn set_main(&mut self, main_name: BlackBoxLabel) {
-        self.main = main_name;
-    }
-
-    fn interpret_nomut(
-        &self,
-        interpret_target: Option<BlackBoxLabel>,
-    ) -> Result<T, CatgraphError> {
-        let which_interpreting = interpret_target.unwrap_or(self.main.clone());
-        if let Some(simple_answer) = self.simple_pieces.get(&which_interpreting) {
-            return Ok(simple_answer.clone());
-        }
-        let complicated_answer = self.composite_pieces.get(&which_interpreting);
-        if let Some(complicated_answer_2) = complicated_answer {
-            let black_box_interpreter = |bb: &BlackBoxLabel, _src: &[Lambda], _tgt: &[Lambda]| {
-                let simple_answer = self
-                    .simple_pieces
-                    .get(bb)
-                    .ok_or(CatgraphError::Interpret(format!("No filling for {:?}", bb.clone())))
-                    .cloned();
-                if simple_answer.is_err() {
-                    self.interpret_nomut(Some(bb.clone()))
-                } else {
-                    simple_answer
-                }
-            };
-            T::interpret(complicated_answer_2, black_box_interpreter).map_err(
-                |internal_explanation| {
-                    CatgraphError::Interpret(format!("When doing {which_interpreting:?}\n{internal_explanation:?}"))
-                },
-            )
-        } else {
-            Err(CatgraphError::Interpret(format!("No {which_interpreting:?} found")))
-        }
-    }
-
-    pub fn fill_black_boxes(
-        &mut self,
-        interpret_target: Option<BlackBoxLabel>,
-    ) -> Result<T, CatgraphError> {
-        let which_interpreting = interpret_target.unwrap_or(self.main.clone());
-        if let Some(simple_answer) = self.simple_pieces.get(&which_interpreting) {
-            return Ok(simple_answer.clone());
-        }
-        let resolution_order = toposort(&self.dag, None);
-        if let Ok(ordered) = resolution_order {
-            for cur_node in ordered {
-                let node_name = self.dag.node_weight(cur_node);
-                if let Some(my_bb) = node_name {
-                    let cur_answer = self.interpret_nomut(Some(my_bb.clone()));
-                    if let Ok(real_cur_answer) = cur_answer.clone() {
-                        self.simple_pieces.insert(my_bb.clone(), real_cur_answer);
-                        let _ = self.composite_pieces.remove(my_bb);
-                    }
-                    if *my_bb == which_interpreting {
-                        return cur_answer;
-                    }
-                } else {
-                    return Err(CatgraphError::Interpret(
-                        format!("Node {cur_node:?} not found after topological sort"),
-                    ));
-                }
-            }
-            Err(CatgraphError::Interpret(format!("Through all but never found {which_interpreting:?}")))
-        } else {
-            Err(CatgraphError::Interpret("Not acyclic dependencies".to_string()))
-        }
-    }
-}
+use super::morphism_system::Contains;
 
 /// Threshold for parallelizing block mutations in Frobenius layers.
 const PARALLEL_BLOCK_THRESHOLD: usize = 64;
@@ -293,8 +118,8 @@ where
 }
 
 #[derive(PartialEq, Eq, Clone)]
-struct FrobeniusBlock<Lambda: Eq + Copy, BlackBoxLabel: Eq + Clone> {
-    op: FrobeniusOperation<Lambda, BlackBoxLabel>,
+pub(crate) struct FrobeniusBlock<Lambda: Eq + Copy, BlackBoxLabel: Eq + Clone> {
+    pub(crate) op: FrobeniusOperation<Lambda, BlackBoxLabel>,
     source_side_placement: usize,
     target_side_placement: usize,
 }
@@ -333,22 +158,8 @@ where
         self.op.source_size()
     }
 
-    #[allow(dead_code)]
-    fn source_idces(&self) -> Vec<usize> {
-        (0..self.source_size())
-            .map(|z| z + self.source_side_placement)
-            .collect()
-    }
-
     fn target_size(&self) -> usize {
         self.op.target_size()
-    }
-
-    #[allow(dead_code)]
-    fn target_idces(&self) -> Vec<usize> {
-        (0..self.target_size())
-            .map(|z| z + self.target_side_placement)
-            .collect()
     }
 
     fn hflip<F>(&mut self, black_box_changer: F)
@@ -373,10 +184,10 @@ where
 }
 
 #[derive(PartialEq, Eq, Clone)]
-struct FrobeniusLayer<Lambda: Eq + Copy, BlackBoxLabel: Eq + Clone> {
-    blocks: Vec<FrobeniusBlock<Lambda, BlackBoxLabel>>,
-    left_type: Vec<Lambda>,
-    right_type: Vec<Lambda>,
+pub(crate) struct FrobeniusLayer<Lambda: Eq + Copy, BlackBoxLabel: Eq + Clone> {
+    pub(crate) blocks: Vec<FrobeniusBlock<Lambda, BlackBoxLabel>>,
+    pub(crate) left_type: Vec<Lambda>,
+    pub(crate) right_type: Vec<Lambda>,
 }
 
 impl<Lambda, BlackBoxLabel> Contains<BlackBoxLabel> for FrobeniusLayer<Lambda, BlackBoxLabel>
@@ -450,8 +261,7 @@ where
         ));
     }
 
-    #[allow(dead_code)]
-    fn is_identity(&self) -> bool {
+    pub(crate) fn is_identity(&self) -> bool {
         #[allow(clippy::redundant_closure_for_method_calls)]
         self.blocks.iter().all(|cur_block| cur_block.is_identity())
     }
@@ -482,7 +292,7 @@ where
     ///
     /// **Rule 4 — Spider fusion**: `Spider(z, m, n)` followed by
     /// `Spider(z, n, k)` at matching wires fuses into `Spider(z, m, k)`.
-    fn two_layer_simplify(&mut self, next_layer: &mut Self) -> (bool, bool, bool) {
+    pub(crate) fn two_layer_simplify(&mut self, next_layer: &mut Self) -> (bool, bool, bool) {
         // Rule 1: identity check (no mutations needed)
         let self_id = self.is_identity();
         let next_id = next_layer.is_identity();
@@ -641,7 +451,7 @@ where
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, PartialEq, Eq)]
 pub struct FrobeniusMorphism<Lambda: Eq + Copy + Debug, BlackBoxLabel: Eq + Clone> {
-    layers: Vec<FrobeniusLayer<Lambda, BlackBoxLabel>>,
+    pub(crate) layers: Vec<FrobeniusLayer<Lambda, BlackBoxLabel>>,
 }
 
 impl<Lambda, BlackBoxLabel> Contains<BlackBoxLabel> for FrobeniusMorphism<Lambda, BlackBoxLabel>
@@ -701,7 +511,7 @@ where
         self.layers.len()
     }
 
-    fn append_layer(
+    pub(crate) fn append_layer(
         &mut self,
         next_layer: FrobeniusLayer<Lambda, BlackBoxLabel>,
     ) -> Result<(), CatgraphError> {
@@ -710,7 +520,7 @@ where
         */
         if let Some(mut v) = self.layers.pop() {
             if v.right_type != next_layer.left_type {
-                return Err(CatgraphError::Composition("type mismatch in frobenius morphims composition".to_string()));
+                return Err(CatgraphError::Composition { message: "type mismatch in frobenius morphims composition".to_string() });
             }
             let mut temp_next_layer = next_layer.clone();
             let (v_id, temp_id, v_change) = v.two_layer_simplify(&mut temp_next_layer);
@@ -744,7 +554,7 @@ where
         Ok(())
     }
 
-    fn hflip<F>(&mut self, black_box_changer: &F)
+    pub(crate) fn hflip<F>(&mut self, black_box_changer: &F)
     where
         F: Fn(BlackBoxLabel) -> BlackBoxLabel + Sync,
         Lambda: Send + Sync,
@@ -820,24 +630,26 @@ where
             return if interface.is_empty() {
                 Ok(())
             } else {
-                Err(CatgraphError::Composition("Mismatch in cardinalities of common interface".to_string()))
+                Err(CatgraphError::CompositionSizeMismatch { expected: 0, actual: interface.len() })
             };
         }
         let self_interface = &self.layers.last().unwrap().right_type;
         let other_interface = &other.layers[0].left_type;
         if self_interface.len() != other_interface.len() {
-            Err(CatgraphError::Composition("Mismatch in cardinalities of common interface".to_string()))
+            Err(CatgraphError::CompositionSizeMismatch { expected: self_interface.len(), actual: other_interface.len() })
         } else if self_interface != other_interface {
             for idx in 0..self_interface.len() {
                 let w1 = self_interface[idx];
                 let w2 = other_interface[idx];
                 if w1 != w2 {
-                    return Err(CatgraphError::Composition(format!(
-                        "Mismatch in labels of common interface. At index {idx} there was {w1:?} vs {w2:?}"
-                    )));
+                    return Err(CatgraphError::CompositionLabelMismatch {
+                        index: idx,
+                        expected: format!("{w1:?}"),
+                        actual: format!("{w2:?}"),
+                    });
                 }
             }
-            Err(CatgraphError::Composition("Mismatch in labels of common interface at some unknown index.".to_string()))
+            Err(CatgraphError::Composition { message: "Mismatch in labels of common interface at some unknown index.".to_string() })
         } else {
             Ok(())
         }
@@ -1100,160 +912,18 @@ where
     answer
 }
 
-// TODO implement and test
-pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq + Clone + Send + Sync>:
-    SymmetricMonoidalMorphism<Lambda> + HasIdentity<Vec<Lambda>> + MonoidalMutatingMorphism<Vec<Lambda>>
-{
-    /*
-    the implementor (Self) of this trait is a type for a morphism in a symmetric monoidal category with
-    objects built as tensor products of basic objects labelled from Lambda
-    and each such basic object is a frobenius object with interpretations
-    so one can interpret each of unit/counit/multiplication/comultiplication as a Self
-    */
-    fn interpret_unit(z: Lambda) -> Self;
-    fn interpret_counit(z: Lambda) -> Self;
-    fn interpret_multiplication(z: Lambda) -> Self;
-    fn interpret_comultiplication(z: Lambda) -> Self;
-
-    fn basic_interpret<F>(
-        single_step: &FrobeniusOperation<Lambda, BlackBoxLabel>,
-        black_box_interpreter: &F,
-    ) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
-    {
-        /*
-        interpret a single frobenius operation as a Self
-        with black_box_interpreter saying how to interpret the black boxes
-            the black boxes do not have to be morphisms that can be built from Frobenius operations (though they might)
-        the identity and symmetric braiding are interpreted
-            using the fact that Self was a morphism in a symmetric monoidal category
-        */
-        Ok(match single_step {
-            FrobeniusOperation::Unit(z) => Self::interpret_unit(*z),
-            FrobeniusOperation::Counit(z) => Self::interpret_counit(*z),
-            FrobeniusOperation::Multiplication(z) => Self::interpret_multiplication(*z),
-            FrobeniusOperation::Comultiplication(z) => Self::interpret_comultiplication(*z),
-            FrobeniusOperation::Identity(z) => Self::identity(&vec![*z]),
-            FrobeniusOperation::SymmetricBraiding(z1, z2) => {
-                let transposition = Permutation::try_from(vec![0, 1]).unwrap();
-                Self::from_permutation(transposition, &[*z1, *z2], true)
-            }
-            FrobeniusOperation::UnSpecifiedBox(bbl, z1, z2) => black_box_interpreter(bbl, z1, z2)?,
-            FrobeniusOperation::Spider(z, d1, d2) => {
-                let broken_down = special_frobenius_morphism(*d1, *d2, *z);
-                Self::interpret_frob(&broken_down, black_box_interpreter)?
-            }
-        })
-    }
-
-    fn interpret_frob<F>(
-        morphism: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
-        black_box_interpreter: &F,
-    ) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
-    {
-        /*
-        interpret a complicated frobenius morphism as a Self
-        built up from all the basic_interpret using composition and monoidal
-        */
-        let mut answer = Self::identity(&morphism.domain());
-        for layer in &morphism.layers {
-            if layer.blocks.is_empty() {
-                return Err(CatgraphError::Interpret("somehow an empty layer in a frobenius morphism???".to_string()));
-            }
-            let first = &layer.blocks[0];
-            let mut cur_layer = Self::basic_interpret(&first.op, black_box_interpreter)?;
-            for block in &layer.blocks[1..] {
-                cur_layer.monoidal(Self::basic_interpret(&block.op, black_box_interpreter)?);
-            }
-            answer.compose(cur_layer)?;
-        }
-        Ok(answer)
-    }
-}
-
-impl<Lambda, BlackBoxLabel> Frobenius<Lambda, BlackBoxLabel>
-    for FrobeniusMorphism<Lambda, BlackBoxLabel>
-where
-    Lambda: Eq + Copy + Debug + Send + Sync,
-    BlackBoxLabel: Eq + Clone + Send + Sync,
-{
-    /*
-    the most obvious implementation of Frobenius is FrobeniusMorphism itself
-    */
-    fn interpret_unit(z: Lambda) -> Self {
-        FrobeniusOperation::Unit(z).into()
-    }
-    fn interpret_counit(z: Lambda) -> Self {
-        FrobeniusOperation::Counit(z).into()
-    }
-    fn interpret_multiplication(z: Lambda) -> Self {
-        FrobeniusOperation::Multiplication(z).into()
-    }
-    fn interpret_comultiplication(z: Lambda) -> Self {
-        FrobeniusOperation::Comultiplication(z).into()
-    }
-
-    fn basic_interpret<F>(
-        single_step: &FrobeniusOperation<Lambda, BlackBoxLabel>,
-        _black_box_interpreter: &F,
-    ) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
-    {
-        /*
-        ignores black_box_interpreter as if it was just the simple
-        |label,src,tgt| Ok(FrobeniusOperation::UnSpecifiedBox(label, src, tgt))
-        */
-        Ok(single_step.clone().into())
-    }
-
-    fn interpret_frob<F>(
-        morphism: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
-        _black_box_interpreter: &F,
-    ) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
-    {
-        /*
-        ignores black_box_interpreter as if it was just the simple
-        |label,src,tgt| Ok(FrobeniusOperation::UnSpecifiedBox(label, src, tgt))
-        */
-        Ok(morphism.clone())
-    }
-}
-
-impl<Lambda, BlackBoxLabel, T>
-    InterpretableMorphism<FrobeniusMorphism<Lambda, BlackBoxLabel>, Lambda, BlackBoxLabel> for T
-where
-    Lambda: Eq + Copy + Debug + Send + Sync,
-    BlackBoxLabel: Eq + Clone + Send + Sync,
-    T: Frobenius<Lambda, BlackBoxLabel>,
-{
-    fn interpret<F>(
-        gens: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
-        black_box_interpreter: F,
-    ) -> Result<Self, CatgraphError>
-    where
-        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
-    {
-        Self::interpret_frob(gens, &black_box_interpreter)
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::{Contains, CatgraphError, InterpretableMorphism, MorphismSystem};
+    use super::*;
+    use crate::category::ComposableMutating;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn rand_spiders() {
-        use super::{special_frobenius_morphism, FrobeniusMorphism};
-        use crate::category::ComposableMutating;
         use rand::{distr::Uniform, prelude::Distribution};
         let between = Uniform::try_from(0..5).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(3001);
         for _ in 0..10 {
             let m = between.sample(&mut rng);
             let n = between.sample(&mut rng);
@@ -1264,7 +934,7 @@ mod test {
             assert_eq!(exp_target_type, rand_spider.codomain());
         }
         let between = Uniform::try_from(128..255).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(3002);
         for _ in 0..5 {
             let m = between.sample(&mut rng);
             let n = between.sample(&mut rng);
@@ -1286,7 +956,6 @@ mod test {
 
     #[test]
     fn basic_spiders() {
-        use super::{special_frobenius_morphism, FrobeniusMorphism, FrobeniusOperation};
         let counit_spider: FrobeniusMorphism<(), ()> = special_frobenius_morphism(1, 0, ());
         let exp_counit_spider: FrobeniusMorphism<_, _> = FrobeniusOperation::Counit(()).into();
         assert!(exp_counit_spider == counit_spider);
@@ -1317,8 +986,6 @@ mod test {
     #[allow(clippy::items_after_statements)]
     #[test]
     fn basic_typed_spiders() {
-        use super::{special_frobenius_morphism, FrobeniusMorphism, FrobeniusOperation};
-        use crate::category::ComposableMutating;
         let counit_spider: FrobeniusMorphism<bool, ()> = special_frobenius_morphism(1, 0, true);
         let exp_counit_spider: FrobeniusMorphism<_, _> = FrobeniusOperation::Counit(true).into();
         assert!(exp_counit_spider == counit_spider);
@@ -1376,20 +1043,18 @@ mod test {
               // internal types don't line up after simplification. Pre-existing issue,
               // not caused by hflip fix. Tracked in catgraph WIP.
     fn permutation_automatic() {
-        use super::{FrobeniusMorphism, FrobeniusOperation};
         use crate::{
-            category::ComposableMutating,
             monoidal::SymmetricMonoidalMorphism,
             utils::{in_place_permute, rand_perm},
         };
         use rand::{distr::Uniform, prelude::Distribution};
         let n_max = 10;
         let between = Uniform::<usize>::try_from(2..n_max).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(3003);
         let my_n = between.sample(&mut rng);
         let types_as_on_source = true;
         let domain_types = (0..my_n).map(|idx| idx + 100).collect::<Vec<usize>>();
-        let p1 = rand_perm(my_n, my_n * 2);
+        let p1 = rand_perm(my_n, my_n * 2, &mut rng);
         let frob_p1 = FrobeniusMorphism::<usize, ()>::from_permutation(
             p1.clone(),
             &domain_types,
@@ -1400,7 +1065,7 @@ mod test {
         let mut types_after_this_layer = domain_types.clone();
         in_place_permute(&mut types_after_this_layer, &p1.inv());
         assert_eq!(frob_prod.codomain(), types_after_this_layer);
-        let p2 = rand_perm(my_n, my_n * 2);
+        let p2 = rand_perm(my_n, my_n * 2, &mut rng);
         let frob_p2 = FrobeniusMorphism::from_permutation(
             p2.clone(),
             &frob_p1.codomain(),
@@ -1414,7 +1079,7 @@ mod test {
         // from_permutation(p3, codomain_types, false) creates a morphism
         // whose codomain matches codomain_types and domain is p3-permuted.
         let types_as_on_source = false;
-        let p3 = rand_perm(my_n, my_n * 2);
+        let p3 = rand_perm(my_n, my_n * 2, &mut rng);
         let codomain_of_prod = frob_prod.codomain().clone();
         let frob_p3 = FrobeniusMorphism::<usize, ()>::from_permutation(
             p3.clone(),
@@ -1442,12 +1107,11 @@ mod test {
 
     #[test]
     fn decomposition_automatic() {
-        use super::{from_decomposition, FrobeniusMorphism};
         use crate::finset::Decomposition;
         use rand::{distr::Uniform, prelude::Distribution};
         let in_max = 20;
         let out_max = 20;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(3004);
         let between = Uniform::<usize>::try_from(2..in_max).unwrap();
         let in_ = between.sample(&mut rng);
         let between = Uniform::<usize>::try_from(2..out_max).unwrap();
@@ -1472,387 +1136,6 @@ mod test {
         }
     }
 
-    // ── Tests from frobenius_system ──
-
-    #[test]
-    fn catgraph_error_interpret() {
-        let error = CatgraphError::Interpret("test error".to_string());
-        match error {
-            CatgraphError::Interpret(s) => assert_eq!(s, "test error"),
-            _ => panic!("Expected Interpret variant"),
-        }
-    }
-
-    #[test]
-    fn catgraph_error_interpret_display() {
-        let error = CatgraphError::Interpret("test error".to_string());
-        let display_str = format!("{error}");
-        assert!(display_str.contains("test error"));
-    }
-
-    #[test]
-    fn contains_trait() {
-        #[derive(Clone)]
-        struct SimpleContainer {
-            labels: Vec<String>,
-        }
-
-        impl Contains<String> for SimpleContainer {
-            fn contained_labels(&self) -> Vec<String> {
-                self.labels.clone()
-            }
-        }
-
-        let container = SimpleContainer {
-            labels: vec!["a".to_string(), "b".to_string()],
-        };
-        let labels = container.contained_labels();
-        assert_eq!(labels.len(), 2);
-        assert_eq!(labels[0], "a");
-        assert_eq!(labels[1], "b");
-    }
-
-    #[test]
-    fn morphism_system_new() {
-        #[derive(Clone)]
-        struct SimpleContainer {
-            labels: Vec<String>,
-        }
-        impl Contains<String> for SimpleContainer {
-            fn contained_labels(&self) -> Vec<String> {
-                self.labels.clone()
-            }
-        }
-        #[derive(Clone, Debug)]
-        struct SimpleMorphism;
-        impl InterpretableMorphism<SimpleContainer, char, String> for SimpleMorphism {
-            fn interpret<F>(
-                _container: &SimpleContainer,
-                _black_box_interpreter: F,
-            ) -> Result<Self, CatgraphError>
-            where
-                F: Fn(&String, &[char], &[char]) -> Result<Self, CatgraphError>,
-            {
-                Ok(SimpleMorphism)
-            }
-        }
-
-        let system: MorphismSystem<String, char, SimpleContainer, SimpleMorphism> =
-            MorphismSystem::new("main".to_string());
-        assert_eq!(system.main, "main".to_string());
-    }
-
-    #[test]
-    fn morphism_system_set_main() {
-        #[derive(Clone)]
-        struct SimpleContainer {
-            labels: Vec<String>,
-        }
-        impl Contains<String> for SimpleContainer {
-            fn contained_labels(&self) -> Vec<String> {
-                self.labels.clone()
-            }
-        }
-        #[derive(Clone, Debug)]
-        struct SimpleMorphism {
-            name: String,
-        }
-        impl InterpretableMorphism<SimpleContainer, char, String> for SimpleMorphism {
-            fn interpret<F>(
-                container: &SimpleContainer,
-                _black_box_interpreter: F,
-            ) -> Result<Self, CatgraphError>
-            where
-                F: Fn(&String, &[char], &[char]) -> Result<Self, CatgraphError>,
-            {
-                Ok(SimpleMorphism {
-                    name: container.labels.join(","),
-                })
-            }
-        }
-
-        let mut system: MorphismSystem<String, char, SimpleContainer, SimpleMorphism> =
-            MorphismSystem::new("initial".to_string());
-        system.set_main("new_main".to_string());
-        assert_eq!(system.main, "new_main".to_string());
-
-        // read the name field so it is not considered dead code
-        let container = SimpleContainer {
-            labels: vec!["a".to_string(), "b".to_string()],
-        };
-        let interpreted = SimpleMorphism::interpret(&container, |_bb, _src, _tgt| {
-            panic!("No black-boxs expected")
-        })
-        .unwrap();
-        assert_eq!(interpreted.name, "a,b".to_string());
-    }
-
-    // ── MorphismSystem DAG registration tests ──
-
-    /// Shared test scaffolding: a container whose `contained_labels` returns
-    /// an arbitrary set of `String` labels, and a morphism that records
-    /// the label it was resolved from via `interpret`.
-    mod dag_fixtures {
-        use super::*;
-
-        #[derive(Clone, Debug)]
-        pub struct TestContainer {
-            pub labels: Vec<String>,
-        }
-
-        impl Contains<String> for TestContainer {
-            fn contained_labels(&self) -> Vec<String> {
-                self.labels.clone()
-            }
-        }
-
-        #[derive(Clone, Debug, PartialEq, Eq)]
-        pub struct TestMorphism {
-            pub resolved_from: String,
-        }
-
-        impl InterpretableMorphism<TestContainer, char, String> for TestMorphism {
-            fn interpret<F>(
-                container: &TestContainer,
-                black_box_interpreter: F,
-            ) -> Result<Self, CatgraphError>
-            where
-                F: Fn(&String, &[char], &[char]) -> Result<Self, CatgraphError>,
-            {
-                // Resolve the first contained label via the interpreter,
-                // falling back to the joined label list as the name.
-                if let Some(first) = container.labels.first() {
-                    black_box_interpreter(first, &[], &[])
-                } else {
-                    Ok(TestMorphism {
-                        resolved_from: container.labels.join("+"),
-                    })
-                }
-            }
-        }
-
-        pub type TestSystem = MorphismSystem<String, char, TestContainer, TestMorphism>;
-
-        pub fn new_system(main: &str) -> TestSystem {
-            MorphismSystem::new(main.to_string())
-        }
-    }
-
-    use dag_fixtures::{new_system, TestContainer, TestMorphism};
-
-    #[test]
-    fn add_simple_definitions_then_fill() {
-        let mut sys = new_system("A");
-        sys.add_definition_simple(
-            "A".to_string(),
-            TestMorphism {
-                resolved_from: "leaf-A".into(),
-            },
-        )
-        .unwrap();
-        sys.add_definition_simple(
-            "B".to_string(),
-            TestMorphism {
-                resolved_from: "leaf-B".into(),
-            },
-        )
-        .unwrap();
-
-        // fill_black_boxes should resolve immediately for a simple definition
-        let result = sys.fill_black_boxes(None).unwrap();
-        assert_eq!(result.resolved_from, "leaf-A");
-
-        let result_b = sys.fill_black_boxes(Some("B".to_string())).unwrap();
-        assert_eq!(result_b.resolved_from, "leaf-B");
-    }
-
-    #[test]
-    fn composite_referencing_simples_resolves() {
-        let mut sys = new_system("top");
-
-        // Register two leaf definitions
-        sys.add_definition_simple(
-            "leaf1".to_string(),
-            TestMorphism {
-                resolved_from: "leaf1".into(),
-            },
-        )
-        .unwrap();
-        sys.add_definition_simple(
-            "leaf2".to_string(),
-            TestMorphism {
-                resolved_from: "leaf2".into(),
-            },
-        )
-        .unwrap();
-
-        // Register a composite that depends on leaf1 and leaf2
-        sys.add_definition_composite(
-            "top".to_string(),
-            TestContainer {
-                labels: vec!["leaf1".to_string(), "leaf2".to_string()],
-            },
-        )
-        .unwrap();
-
-        // fill_black_boxes resolves the composite through topological order
-        let result = sys.fill_black_boxes(None).unwrap();
-        // interpret delegates to black_box_interpreter for the first label ("leaf1")
-        assert_eq!(result.resolved_from, "leaf1");
-    }
-
-    #[test]
-    fn cycle_detection_returns_error() {
-        let mut sys = new_system("A");
-
-        // A depends on B
-        sys.add_definition_composite(
-            "A".to_string(),
-            TestContainer {
-                labels: vec!["B".to_string()],
-            },
-        )
-        .unwrap();
-
-        // B depends on A — this would create a cycle
-        let result = sys.add_definition_composite(
-            "B".to_string(),
-            TestContainer {
-                labels: vec!["A".to_string()],
-            },
-        );
-
-        assert!(result.is_err());
-        match result {
-            Err(CatgraphError::Interpret(msg)) => {
-                assert!(
-                    msg.contains("cycle"),
-                    "Error message should mention 'cycle', got: {msg}"
-                );
-            }
-            other => panic!("Expected Interpret error, got: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn deep_chain_resolves_in_topological_order() {
-        // Chain: top → mid → base (each composite except the leaf)
-        let mut sys = new_system("top");
-
-        sys.add_definition_simple(
-            "base".to_string(),
-            TestMorphism {
-                resolved_from: "base".into(),
-            },
-        )
-        .unwrap();
-
-        sys.add_definition_composite(
-            "mid".to_string(),
-            TestContainer {
-                labels: vec!["base".to_string()],
-            },
-        )
-        .unwrap();
-
-        sys.add_definition_composite(
-            "top".to_string(),
-            TestContainer {
-                labels: vec!["mid".to_string()],
-            },
-        )
-        .unwrap();
-
-        let result = sys.fill_black_boxes(None).unwrap();
-        // "top" interpret calls black_box_interpreter("mid"), which was
-        // already resolved to the "base" leaf by topological processing
-        assert_eq!(result.resolved_from, "base");
-    }
-
-    #[test]
-    fn diamond_dependency_resolves() {
-        //    top
-        //   /   \
-        //  left  right
-        //   \   /
-        //    base
-        let mut sys = new_system("top");
-
-        sys.add_definition_simple(
-            "base".to_string(),
-            TestMorphism {
-                resolved_from: "base".into(),
-            },
-        )
-        .unwrap();
-
-        sys.add_definition_composite(
-            "left".to_string(),
-            TestContainer {
-                labels: vec!["base".to_string()],
-            },
-        )
-        .unwrap();
-
-        sys.add_definition_composite(
-            "right".to_string(),
-            TestContainer {
-                labels: vec!["base".to_string()],
-            },
-        )
-        .unwrap();
-
-        sys.add_definition_composite(
-            "top".to_string(),
-            TestContainer {
-                labels: vec!["left".to_string(), "right".to_string()],
-            },
-        )
-        .unwrap();
-
-        let result = sys.fill_black_boxes(None).unwrap();
-        // "top" interpret resolves first contained label "left", which
-        // was already resolved to "base"
-        assert_eq!(result.resolved_from, "base");
-    }
-
-    #[test]
-    fn self_cycle_detected() {
-        let mut sys = new_system("A");
-
-        // A depends on itself
-        let result = sys.add_definition_composite(
-            "A".to_string(),
-            TestContainer {
-                labels: vec!["A".to_string()],
-            },
-        );
-
-        assert!(result.is_err());
-        match result {
-            Err(CatgraphError::Interpret(msg)) => {
-                assert!(msg.contains("cycle"), "Expected cycle error, got: {msg}");
-            }
-            other => panic!("Expected Interpret error, got: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn adding_composite_with_no_deps_succeeds() {
-        let mut sys = new_system("solo");
-
-        // A composite with an empty contained_labels list is valid
-        sys.add_definition_composite(
-            "solo".to_string(),
-            TestContainer { labels: vec![] },
-        )
-        .unwrap();
-
-        let result = sys.fill_black_boxes(None).unwrap();
-        // interpret with empty labels returns joined label list ""
-        assert_eq!(result.resolved_from, "");
-    }
-
     /// Algebraic verification of `FrobeniusMorphism::permute_side`.
     ///
     /// Reference: `Cospan::permute_side` uses `in_place_permute` directly
@@ -1862,8 +1145,7 @@ mod test {
     ///   - `permute_side(p, false)` → domain becomes `p.permute(old_domain)`
     #[test]
     fn frobenius_permute_side_codomain_with_swap() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -1878,8 +1160,7 @@ mod test {
 
     #[test]
     fn frobenius_permute_side_domain_with_swap() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -1895,8 +1176,7 @@ mod test {
     /// Non-involution (3-cycle) catches p vs p.inv() confusion.
     #[test]
     fn frobenius_permute_side_codomain_rotation() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -1912,8 +1192,7 @@ mod test {
 
     #[test]
     fn frobenius_permute_side_domain_rotation() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -1929,17 +1208,16 @@ mod test {
     /// Verify with random non-identity permutations on various sizes.
     #[test]
     fn frobenius_permute_side_random() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use crate::utils::rand_perm;
         use rand::{distr::Uniform, prelude::Distribution};
 
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(3005);
         for _ in 0..20 {
             let n = Uniform::<usize>::try_from(2..8).unwrap().sample(&mut rng);
             let types: Vec<usize> = (0..n).map(|i| i + 100).collect();
-            let p = rand_perm(n, n * 2);
+            let p = rand_perm(n, n * 2, &mut rng);
 
             // codomain case
             let mut morph_cod: FrobeniusMorphism<usize, ()> =
@@ -1970,8 +1248,7 @@ mod test {
     /// g = from_permutation(p.inv(), p.permute(types), true) should compose with f'.
     #[test]
     fn frobenius_permute_side_compose_roundtrip() {
-        use super::FrobeniusMorphism;
-        use crate::category::{ComposableMutating, HasIdentity};
+        use crate::category::HasIdentity;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -1995,8 +1272,6 @@ mod test {
     /// Verify that permute_side on a non-identity morphism (spider) works correctly.
     #[test]
     fn frobenius_permute_side_on_spider() {
-        use super::{special_frobenius_morphism, FrobeniusMorphism};
-        use crate::category::ComposableMutating;
         use crate::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
@@ -2023,8 +1298,6 @@ mod test {
 
     #[test]
     fn test_identity_layers_simplify() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Both layers are identity → (true, true, false)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Identity('a'));
@@ -2060,8 +1333,6 @@ mod test {
 
     #[test]
     fn test_braiding_self_inverse() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // σ(a,b) then σ(b,a) should cancel to identities in both layers
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::SymmetricBraiding('a', 'b'));
@@ -2090,8 +1361,6 @@ mod test {
 
     #[test]
     fn test_braiding_no_cancel_different_types() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // σ(a,b) then σ(a,b) should NOT cancel (not inverse)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::SymmetricBraiding('a', 'b'));
@@ -2105,8 +1374,6 @@ mod test {
 
     #[test]
     fn test_unit_counit_cancel() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Unit(z) then Counit(z) → both removed (scalar loop)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Unit('z'));
@@ -2128,8 +1395,6 @@ mod test {
 
     #[test]
     fn test_unit_counit_no_cancel_different_labels() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Unit('a') then Counit('b') → no cancellation (different labels)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Unit('a'));
@@ -2143,8 +1408,6 @@ mod test {
 
     #[test]
     fn test_spider_fusion() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Spider(z, 1, 2) then Spider(z, 2, 1) → Spider(z, 1, 1) which is identity
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Spider('z', 1, 2));
@@ -2169,8 +1432,6 @@ mod test {
 
     #[test]
     fn test_spider_fusion_general() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Spider(z, 3, 2) then Spider(z, 2, 4) → Spider(z, 3, 4)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Spider('z', 3, 2));
@@ -2195,8 +1456,6 @@ mod test {
 
     #[test]
     fn test_spider_no_fusion_different_labels() {
-        use super::{FrobeniusLayer, FrobeniusOperation};
-
         // Spider('a', 1, 2) then Spider('b', 2, 1) → no fusion (different labels)
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::Spider('a', 1, 2));
@@ -2212,9 +1471,6 @@ mod test {
     /// should simplify to identity (reducing depth).
     #[test]
     fn test_braiding_cancel_via_compose() {
-        use super::{FrobeniusMorphism, FrobeniusOperation};
-        use crate::category::ComposableMutating;
-
         let braiding1: FrobeniusMorphism<char, ()> =
             FrobeniusOperation::SymmetricBraiding('a', 'b').into();
         let braiding2: FrobeniusMorphism<char, ()> =
@@ -2239,9 +1495,6 @@ mod test {
     /// an empty (scalar) morphism.
     #[test]
     fn test_unit_counit_cancel_via_compose() {
-        use super::{FrobeniusMorphism, FrobeniusOperation};
-        use crate::category::ComposableMutating;
-
         let unit: FrobeniusMorphism<char, ()> = FrobeniusOperation::Unit('z').into();
         let counit: FrobeniusMorphism<char, ()> = FrobeniusOperation::Counit('z').into();
 

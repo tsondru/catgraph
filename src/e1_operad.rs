@@ -27,19 +27,19 @@ impl E1 {
         */
         for (a, b) in &sub_intervals {
             if *a >= *b - F32_EPSILON {
-                return Err(CatgraphError::Operadic(
-                    format!("Subinterval ({a}, {b}) has non-positive width"),
-                ));
+                return Err(CatgraphError::Operadic {
+                    message: format!("Subinterval ({a}, {b}) has non-positive width"),
+                });
             }
             if *a < -F32_EPSILON {
-                return Err(CatgraphError::Operadic(
-                    format!("Subinterval ({a}, {b}) starts below 0"),
-                ));
+                return Err(CatgraphError::Operadic {
+                    message: format!("Subinterval ({a}, {b}) starts below 0"),
+                });
             }
             if *b > 1.0 + F32_EPSILON {
-                return Err(CatgraphError::Operadic(
-                    format!("Subinterval ({a}, {b}) ends above 1"),
-                ));
+                return Err(CatgraphError::Operadic {
+                    message: format!("Subinterval ({a}, {b}) ends above 1"),
+                });
             }
         }
         if overlap_check {
@@ -47,9 +47,9 @@ impl E1 {
             new_sub_intervals.sort_by(|i1, i2| i1.0.partial_cmp(&i2.0).unwrap());
             for ((_, b), (c, _)) in new_sub_intervals.iter().tuple_windows() {
                 if *b >= *c + F32_EPSILON {
-                    return Err(CatgraphError::Operadic(
-                        "The subintervals cannot overlap".to_string(),
-                    ));
+                    return Err(CatgraphError::Operadic {
+                        message: "The subintervals cannot overlap".to_string(),
+                    });
                 }
             }
             Ok(Self {
@@ -162,10 +162,12 @@ impl Operadic<usize> for E1 {
         other_obj: Self,
     ) -> Result<(), CatgraphError> {
         if which_input >= self.arity {
-            return Err(CatgraphError::Operadic(format!(
-                "There aren't enough inputs to graft onto the {}'th one",
-                which_input + 1
-            )));
+            return Err(CatgraphError::Operadic {
+                message: format!(
+                    "There aren't enough inputs to graft onto the {}'th one",
+                    which_input + 1
+                ),
+            });
         }
         self.canonicalize();
         let (a, b) = self.sub_intervals[which_input];
@@ -198,6 +200,8 @@ impl HasIdentity<()> for E1 {
 
 #[cfg(test)]
 mod test {
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn identity_e1_nullary() {
@@ -224,13 +228,13 @@ mod test {
         let composed = x.operadic_substitution(0, id);
         assert_eq!(
             composed,
-            Err(CatgraphError::Operadic("There aren't enough inputs to graft onto the 1'th one".to_string()))
+            Err(CatgraphError::Operadic { message: "There aren't enough inputs to graft onto the 1'th one".to_string() })
         );
         let id = E1::identity(&());
         let composed = x.operadic_substitution(5, id);
         assert_eq!(
             composed,
-            Err(CatgraphError::Operadic("There aren't enough inputs to graft onto the 6'th one".to_string()))
+            Err(CatgraphError::Operadic { message: "There aren't enough inputs to graft onto the 6'th one".to_string() })
         );
     }
 
@@ -243,7 +247,7 @@ mod test {
         use rand::RngExt;
 
         let arity_max: u8 = 20;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(1001);
         let trial_num = 10;
 
         for _ in 0..trial_num {
@@ -280,7 +284,7 @@ mod test {
         use rand::RngExt;
 
         let arity_max: u8 = 20;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(1002);
         let trial_num = 10;
 
         for _ in 0..trial_num {

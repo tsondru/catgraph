@@ -17,10 +17,14 @@ categories = ["mathematics", "science", "data-structures"]
 either = "^1.15.0"
 petgraph = "^0.8.3"
 union-find = "0.4.3"
-env_logger = "^0.11.10"
 log = { version = "^0.4.29", features = ["max_level_debug", "release_max_level_warn"] }
 permutations = "^0.1.1"
 rand = "^0.10.0"
 num = "^0.4.3"
 itertools = "^0.14.0"
 rayon = "^1.11"
+thiserror = "2"
+
+[dev-dependencies]
+env_logger = "^0.11.10"
+proptest = "1"

@@ -3,77 +3,15 @@
 //! Verifies associativity, left/right identity neutrality, empty-boundary edge cases,
 //! and large-boundary composition using only the public API.
 
+mod common;
+use common::*;
+
 use catgraph::{
     category::{Composable, HasIdentity},
     cospan::Cospan,
     named_cospan::NamedCospan,
     span::Span,
 };
-
-// ---------------------------------------------------------------------------
-// Helpers: structural equality via public accessors (types lack PartialEq)
-// ---------------------------------------------------------------------------
-
-fn cospan_eq<L: Eq + Copy + std::fmt::Debug>(a: &Cospan<L>, b: &Cospan<L>) -> bool {
-    a.left_to_middle() == b.left_to_middle()
-        && a.right_to_middle() == b.right_to_middle()
-        && a.middle() == b.middle()
-}
-
-fn assert_cospan_eq<L: Eq + Copy + std::fmt::Debug>(a: &Cospan<L>, b: &Cospan<L>) {
-    assert!(
-        cospan_eq(a, b),
-        "Cospans differ:\n  left:   {:?} vs {:?}\n  right:  {:?} vs {:?}\n  middle: {:?} vs {:?}",
-        a.left_to_middle(),
-        b.left_to_middle(),
-        a.right_to_middle(),
-        b.right_to_middle(),
-        a.middle(),
-        b.middle(),
-    );
-}
-
-fn span_eq<L: Eq + Copy + std::fmt::Debug>(a: &Span<L>, b: &Span<L>) -> bool {
-    a.left() == b.left() && a.right() == b.right() && a.middle_pairs() == b.middle_pairs()
-}
-
-fn assert_span_eq<L: Eq + Copy + std::fmt::Debug>(a: &Span<L>, b: &Span<L>) {
-    assert!(
-        span_eq(a, b),
-        "Spans differ:\n  left:   {:?} vs {:?}\n  right:  {:?} vs {:?}\n  middle: {:?} vs {:?}",
-        a.left(),
-        b.left(),
-        a.right(),
-        b.right(),
-        a.middle_pairs(),
-        b.middle_pairs(),
-    );
-}
-
-fn assert_named_cospan_eq<L, LN, RN>(a: &NamedCospan<L, LN, RN>, b: &NamedCospan<L, LN, RN>)
-where
-    L: Eq + Copy + std::fmt::Debug,
-    LN: Eq + Clone + std::fmt::Debug,
-    RN: Eq + std::fmt::Debug,
-{
-    assert!(
-        cospan_eq(a.cospan(), b.cospan())
-            && a.left_names() == b.left_names()
-            && a.right_names() == b.right_names(),
-        "NamedCospans differ:\n  left_names:  {:?} vs {:?}\n  right_names: {:?} vs {:?}\n  \
-         left_map:    {:?} vs {:?}\n  right_map:   {:?} vs {:?}\n  middle:      {:?} vs {:?}",
-        a.left_names(),
-        b.left_names(),
-        a.right_names(),
-        b.right_names(),
-        a.cospan().left_to_middle(),
-        b.cospan().left_to_middle(),
-        a.cospan().right_to_middle(),
-        b.cospan().right_to_middle(),
-        a.cospan().middle(),
-        b.cospan().middle(),
-    );
-}
 
 // ---------------------------------------------------------------------------
 // Test morphism builders

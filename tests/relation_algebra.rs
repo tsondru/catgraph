@@ -10,33 +10,14 @@
 //!   `is_antisymmetric`, `is_transitive`, `is_homogeneous`, `is_equivalence_rel`, `is_partial_order`
 //! - `Rel` set operations: `subsumes`, `union`, `intersection`, `complement`
 
+mod common;
+use common::{spans_eq, spans_eq_unordered};
+
 use catgraph::category::{Composable, HasIdentity};
 use catgraph::errors::CatgraphError;
 use catgraph::monoidal::Monoidal;
 use catgraph::span::{Rel, Span};
 use std::collections::HashSet;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Structural equality for spans: same left, right, and middle_pairs (order-sensitive).
-fn spans_eq<L: Eq + Copy + std::fmt::Debug>(a: &Span<L>, b: &Span<L>) -> bool {
-    a.left() == b.left() && a.right() == b.right() && a.middle_pairs() == b.middle_pairs()
-}
-
-/// Structural equality ignoring middle-pair ordering.
-/// Needed when composition or dagger may reorder the pullback pairs.
-fn spans_eq_unordered<L: Eq + Copy + std::fmt::Debug + Ord>(a: &Span<L>, b: &Span<L>) -> bool {
-    if a.left() != b.left() || a.right() != b.right() {
-        return false;
-    }
-    let mut a_mid: Vec<_> = a.middle_pairs().to_vec();
-    let mut b_mid: Vec<_> = b.middle_pairs().to_vec();
-    a_mid.sort();
-    b_mid.sort();
-    a_mid == b_mid
-}
 
 // ---------------------------------------------------------------------------
 // 1. Identity span: self-composition yields identity
@@ -252,7 +233,7 @@ fn rel_new_validates_joint_injectivity() {
     assert!(!span.is_jointly_injective());
 
     let result = Rel::new(span);
-    assert!(matches!(result, Err(CatgraphError::Relation(_))));
+    assert!(matches!(result, Err(CatgraphError::Relation { .. })));
 }
 
 // ---------------------------------------------------------------------------

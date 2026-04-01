@@ -24,8 +24,24 @@ impl<'a> CospanStore<'a> {
     ) -> Result<RecordId, PersistError> {
         let record = CospanRecord {
             id: None,
-            left_map: cospan.left_to_middle().iter().map(|&i| i as i64).collect(),
-            right_map: cospan.right_to_middle().iter().map(|&i| i as i64).collect(),
+            left_map: cospan
+                .left_to_middle()
+                .iter()
+                .map(|&i| {
+                    i64::try_from(i).map_err(|_| {
+                        PersistError::InvalidData(format!("index overflow in left_map: {i}"))
+                    })
+                })
+                .collect::<Result<_, _>>()?,
+            right_map: cospan
+                .right_to_middle()
+                .iter()
+                .map(|&i| {
+                    i64::try_from(i).map_err(|_| {
+                        PersistError::InvalidData(format!("index overflow in right_map: {i}"))
+                    })
+                })
+                .collect::<Result<_, _>>()?,
             middle_labels: cospan
                 .middle()
                 .iter()

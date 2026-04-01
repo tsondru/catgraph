@@ -21,7 +21,7 @@ This differs from path semantics where `[a,b,c,d]` means a→b→c→d (sequenti
 catgraph/                           # Workspace root
 ├── Cargo.toml                      # Workspace: members = [".", "catgraph-surreal"]
 ├── src/
-│   ├── errors.rs                   # Unified CatgraphError (Composition, Interpret, Operadic, Relation)
+│   ├── errors.rs                   # CatgraphError with thiserror (CompositionSizeMismatch, CompositionLabelMismatch, Composition, Interpret, Operadic, Relation)
 │   ├── category.rs                 # Core traits: HasIdentity, Composable, ComposableMutating
 │   ├── monoidal.rs                 # Monoidal + symmetric monoidal traits, GenericMonoidalMorphism
 │   ├── operadic.rs                 # Operadic trait for substitution
@@ -30,7 +30,11 @@ catgraph/                           # Workspace root
 │   ├── named_cospan.rs             # Cospans with named boundary nodes
 │   ├── span.rs                     # Span and Rel (relations) implementations
 │   │
-│   ├── frobenius.rs                # Frobenius algebra morphisms, MorphismSystem, Contains trait
+│   ├── frobenius/                  # Frobenius algebra (split from single 2254-LOC file)
+│   │   ├── mod.rs                  # Re-exports preserving public API
+│   │   ├── morphism_system.rs      # Contains, InterpretableMorphism, MorphismSystem (DAG resolution)
+│   │   ├── operations.rs           # FrobeniusOperation, FrobeniusBlock, FrobeniusLayer, FrobeniusMorphism
+│   │   └── trait_impl.rs           # Frobenius trait + blanket InterpretableMorphism impl
 │   ├── temperley_lieb.rs           # Temperley-Lieb / Brauer algebra
 │   │
 │   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
@@ -46,6 +50,7 @@ catgraph/                           # Workspace root
 │   └── main.rs                     # Demo binary (NamedCospan exercise)
 │
 ├── tests/                          # Integration tests (public API only)
+│   ├── common/mod.rs               # Shared test helpers: cospan_eq, span_eq, assert_*_eq
 │   ├── composition_laws.rs         # 17 tests: associativity, identity, empty/large boundaries
 │   ├── pushout_correctness.rs      # 9 tests: union-find pushout, wire merging, determinism
 │   ├── relation_algebra.rs         # 21 tests: Rel API, dagger involution, span composition, equivalence/partial order
@@ -54,7 +59,8 @@ catgraph/                           # Workspace root
 │   ├── cross_type_interactions.rs  # 6 tests: NamedCospan ports, to_graph, LinearCombination ring
 │   ├── morphism_system.rs          # 8 tests: DAG resolution, cycle detection, multi-level fill
 │   ├── operad_boundary.rs          # 10 tests: E1/E2 epsilon boundaries, embedding, substitution
-│   └── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
+│   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
+│   └── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
     ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
@@ -71,8 +77,12 @@ catgraph/                           # Workspace root
     │   ├── span_store.rs           # V1 SpanStore: save/load/delete/list
     │   ├── node_store.rs           # V2 NodeStore: CRUD for graph_node records
     │   ├── edge_store.rs           # V2 EdgeStore: RELATE edges, traversal
-    │   ├── hyperedge_store.rs      # V2 HyperedgeStore: decompose/reconstruct Cospan/Span via hub-node reification
-    │   └── query.rs                # V2 QueryHelper: outbound/inbound neighbors, BFS reachable
+    │   ├── hyperedge/              # V2 HyperedgeStore (split from single 738-LOC file)
+    │   │   ├── mod.rs              # HyperedgeStore struct, hub CRUD, private helpers
+    │   │   ├── decompose.rs        # decompose_cospan/span/named_cospan, atomic, retry
+    │   │   ├── reconstruct.rs      # reconstruct_cospan/span, sources/targets
+    │   │   └── provenance.rs       # composition provenance tracking
+    │   └── query.rs                # V2 QueryHelper: outbound/inbound neighbors, BFS reachable (batched IN query)
     └── tests/
         ├── v1_cospan_roundtrip.rs          # 9 tests: V1 char/unit roundtrip, identity, compose-persist
         ├── v1_named_cospan_roundtrip.rs    # 5 tests: V1 port name preservation, record references
@@ -126,12 +136,14 @@ pub trait SymmetricMonoidalMorphism<T: Eq>: Composable<Vec<T>> + Monoidal {
 ### Error Handling (`errors.rs`)
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CatgraphError {
-    Composition(String),  // incompatible morphisms
-    Interpret(String),    // black-box interpretation failures
-    Operadic(String),     // substitution failures
-    Relation(String),     // relation construction / algebra failures
+    CompositionSizeMismatch { expected: usize, actual: usize },
+    CompositionLabelMismatch { index: usize, expected: String, actual: String },
+    Composition { message: String },
+    Interpret { context: String },
+    Operadic { message: String },
+    Relation { message: String },
 }
 ```
 
@@ -173,9 +185,9 @@ pub struct Rel<Lambda>(Span<Lambda>);
 - `Rel::as_span()` for bridge crate access
 - Relations with: `is_reflexive`, `is_symmetric`, `is_antisymmetric`, `is_transitive`, `is_equivalence_rel`, `is_partial_order`, `subsumes`, `intersection`, `union`, `complement`.
 
-### Frobenius (`frobenius.rs`)
+### Frobenius (`frobenius/`)
 
-Encodes morphisms from Frobenius algebra generators (mul, comul, unit, counit, braiding) plus black boxes. Also contains `Contains` trait, `InterpretableMorphism` trait, and `MorphismSystem` struct for named morphism DAG resolution.
+Split into submodules: `morphism_system.rs` (Contains, InterpretableMorphism, MorphismSystem DAG), `operations.rs` (FrobeniusOperation, FrobeniusBlock, FrobeniusLayer, FrobeniusMorphism + all trait impls), `trait_impl.rs` (Frobenius trait + blanket impl). Public API unchanged via re-exports in `mod.rs`.
 
 ## SurrealDB Persistence (`catgraph-surreal`)
 
@@ -228,13 +240,17 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 
 `catgraph`, `surrealdb` 3.0.5 (kv-mem), `surrealdb-types` 3.0.5, `serde` + `serde_json`, `tokio`, `thiserror`
 
+### catgraph core dependencies
+
+`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`. Dev-only: `env_logger`, `proptest`.
+
 ## Testing
 
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 403 tests (295 catgraph + 108 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (295: 200 unit + 95 integration)
+cargo test --workspace        # Run all 411 tests (303 catgraph + 108 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (303: 200 unit + 103 integration)
 cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -293,8 +309,8 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain);
 | `span.rs` | Pullback composition (dual of cospan) |
 | `span.rs` — `Rel` | Relation algebra: `new`/`new_unchecked`, `is_reflexive`, `is_symmetric`, `is_transitive`, `is_antisymmetric`, `subsumes`, `union`, `intersection`, `complement`, `is_equivalence_rel`, `is_partial_order` |
 | `monoidal.rs` | Tensor product, symmetric braiding, `GenericMonoidalMorphism` |
-| `frobenius.rs` | String diagram morphisms, `two_layer_simplify` (4 rules), `from_permutation`, `from_decomposition` |
-| `frobenius.rs` — `MorphismSystem` | DAG-based black box interpretation: name morphisms, compose by reference, topological resolution via `fill_black_boxes`. Uses `Contains` + `InterpretableMorphism` traits. |
+| `frobenius/operations.rs` | String diagram morphisms, `two_layer_simplify` (4 rules), `from_permutation`, `from_decomposition` |
+| `frobenius/morphism_system.rs` | DAG-based black box interpretation: name morphisms, compose by reference, topological resolution via `fill_black_boxes`. Uses `Contains` + `InterpretableMorphism` traits. |
 | `e1_operad.rs` | Little intervals operad: containment, overlap, coalescence, monoid homomorphism. Fallible constructor with epsilon tolerance. |
 | `e2_operad.rs` | Little disks operad: 2D containment, coalescence, `from_e1_config` embedding. Fallible constructor with epsilon tolerance. |
 | `temperley_lieb.rs` | Brauer/Temperley-Lieb algebra generators (`e_i`, `s_i`), dagger, `simplify`, composition via `ExtendedPerfectMatching` |
@@ -311,7 +327,7 @@ The library uses rayon for parallel computation with adaptive thresholds:
 | `linear_combination.rs` | `Mul` impl, `linear_combine` | 32 terms |
 | `temperley_lieb.rs` | `non_crossing` checks | 8 elements |
 | `named_cospan.rs` | `find_nodes_by_name_predicate` | 256 elements |
-| `frobenius.rs` | `hflip` block mutations | 64 blocks |
+| `frobenius/operations.rs` | `hflip` block mutations | 64 blocks |
 
 ### Async Integration
 
@@ -354,9 +370,9 @@ Rust 2024 edition. Common patterns:
 | Area | Notes |
 |------|-------|
 | Petri nets | Natural fit for source/target semantics. Chemical use case tests demonstrate the pattern. |
-| Benchmarks | No benchmarks for pushout/pullback performance |
-| Property testing | Randomized tests use ad-hoc loops without seed control |
-| WiringDiagram persistence | No V2 store; no downstream consumer yet |
+| Benchmarks | No criterion/divan benchmarks for pushout/pullback performance |
+| WiringDiagram | 18 unit tests, 0 integration tests. No V2 persistence store yet. |
+| LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope
 

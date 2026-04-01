@@ -34,13 +34,13 @@ where
     pub fn assert_valid(&self, check_id_strong: bool, check_id_weak: bool) {
         let left_size = self.left.len();
         let left_in_bounds = self.middle.iter().all(|(z, _)| *z < left_size);
-        assert!(
+        debug_assert!(
             left_in_bounds,
             "A target for one of the left arrows was out of bounds"
         );
         let right_size = self.right.len();
         let right_in_bounds = self.middle.iter().all(|(_, z)| *z < right_size);
-        assert!(
+        debug_assert!(
             right_in_bounds,
             "A target for one of the right arrows was out of bounds"
         );
@@ -48,20 +48,20 @@ where
             .middle
             .iter()
             .all(|(z1, z2)| self.left[*z1] == self.right[*z2]);
-        assert!(
+        debug_assert!(
             left_right_types_match,
             "There was a left and right linked by something in the span, but their lambda types didn't match"
         );
         if check_id_strong || (check_id_weak && self.is_left_id) {
             let is_left_really_id = represents_id(self.middle_to_left().into_iter());
-            assert_eq!(
+            debug_assert_eq!(
                 is_left_really_id, self.is_left_id,
                 "The identity nature of the left arrow was wrong"
             );
         }
         if check_id_strong || (check_id_weak && self.is_right_id) {
             let is_right_really_id = represents_id(self.middle_to_right().into_iter());
-            assert_eq!(
+            debug_assert_eq!(
                 is_right_really_id, self.is_right_id,
                 "The identity nature of the right arrow was wrong"
             );
@@ -217,7 +217,7 @@ where
 {
     fn composable(&self, other: &Self) -> Result<(), CatgraphError> {
         crate::utils::same_labels_check(self.right.iter(), other.left.iter())
-            .map_err(CatgraphError::Composition)
+            .map_err(|message| CatgraphError::Composition { message })
     }
 
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
@@ -236,7 +236,7 @@ where
                     match mid_added {
                         Ok(_) => {}
                         Err(z) => {
-                            return Err(CatgraphError::Composition(format!("{z}\nShould be unreachable if composability already said it was all okay.")));
+                            return Err(CatgraphError::Composition { message: format!("{z}\nShould be unreachable if composability already said it was all okay.") });
                         }
                     }
                 }
@@ -293,7 +293,6 @@ where
                 *v1 = p.apply(*v1);
             });
         }
-        //todo test
     }
 
     fn from_permutation(
@@ -377,9 +376,9 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
 
     pub fn new(x: Span<Lambda>) -> Result<Self, CatgraphError> {
         if !x.is_jointly_injective() {
-            return Err(CatgraphError::Relation(
-                "span is not jointly injective, cannot form a relation".to_string(),
-            ));
+            return Err(CatgraphError::Relation {
+                message: "span is not jointly injective, cannot form a relation".to_string(),
+            });
         }
         Ok(Self(x))
     }
@@ -470,7 +469,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
                 if !self_pairs.contains(&(x, y)) {
                     ret_val
                         .add_middle((x, y))
-                        .map_err(CatgraphError::Relation)?;
+                        .map_err(|message| CatgraphError::Relation { message })?;
                 }
             }
         }

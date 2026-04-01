@@ -11,7 +11,8 @@ pub mod schema_v2;
 pub mod types_v2;
 pub mod node_store;
 pub mod edge_store;
-pub mod hyperedge_store;
+pub mod hyperedge;
+pub use hyperedge as hyperedge_store;
 pub mod query;
 
 use surrealdb::engine::local::Db;

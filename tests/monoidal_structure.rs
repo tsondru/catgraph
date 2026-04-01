@@ -3,6 +3,9 @@
 //! Covers tensor associativity, tensor unit, permutation cospan composition,
 //! symmetric braiding involutivity, span tensor product, and `permute_side`.
 
+mod common;
+use common::{assert_cospan_eq_msg as assert_cospan_eq, assert_cospan_shape};
+
 use catgraph::{
     category::{Composable, HasIdentity},
     cospan::Cospan,
@@ -10,40 +13,6 @@ use catgraph::{
     span::Span,
 };
 use permutations::Permutation;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Compare two cospans structurally via public accessors.
-fn assert_cospan_shape<L: Eq + Copy + std::fmt::Debug>(
-    a: &Cospan<L>,
-    b: &Cospan<L>,
-    msg: &str,
-) {
-    assert_eq!(a.domain(), b.domain(), "{msg}: domain mismatch");
-    assert_eq!(a.codomain(), b.codomain(), "{msg}: codomain mismatch");
-    assert_eq!(
-        a.middle().len(),
-        b.middle().len(),
-        "{msg}: middle size mismatch"
-    );
-}
-
-/// Assert a cospan is structurally identical to another via all public fields.
-fn assert_cospan_eq<L: Eq + Copy + std::fmt::Debug>(a: &Cospan<L>, b: &Cospan<L>, msg: &str) {
-    assert_eq!(
-        a.left_to_middle(),
-        b.left_to_middle(),
-        "{msg}: left_to_middle mismatch"
-    );
-    assert_eq!(
-        a.right_to_middle(),
-        b.right_to_middle(),
-        "{msg}: right_to_middle mismatch"
-    );
-    assert_eq!(a.middle(), b.middle(), "{msg}: middle mismatch");
-}
 
 /// Build a small non-trivial cospan: domain `[a,b]`, codomain `[b,c]`,
 /// middle `[a,b,c]` with left=`[0,1]`, right=`[1,2]`.

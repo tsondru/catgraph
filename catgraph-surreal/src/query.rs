@@ -72,7 +72,11 @@ impl<'a> QueryHelper<'a> {
     /// Find all nodes reachable within `depth` hops via edges of a specific kind.
     ///
     /// Implements BFS traversal up to `depth` hops by querying the edge table
-    /// iteratively. SurrealDB's native recursion syntax (`record.{N}->edge->table`)
+    /// iteratively. Each depth level issues a single batched query for all
+    /// frontier nodes using `WHERE `in` IN $nodes`, giving O(depth) queries
+    /// instead of O(frontier_size * depth).
+    ///
+    /// SurrealDB's native recursion syntax (`record.{N}->edge->table`)
     /// requires a literal record ID expression, not a bind parameter, and does not
     /// support edge-property filtering — so we do iterative expansion here.
     pub async fn reachable(
@@ -88,20 +92,18 @@ impl<'a> QueryHelper<'a> {
             if frontier.is_empty() {
                 break;
             }
+            let mut result = self
+                .db
+                .query("SELECT out FROM graph_edge WHERE `in` IN $nodes AND kind = $kind")
+                .bind(("nodes", frontier.clone()))
+                .bind(("kind", edge_kind.to_string()))
+                .await?;
+            let refs: Vec<OutRef> = result.take(0)?;
             let mut next_frontier = Vec::new();
-            for current in &frontier {
-                let mut result = self
-                    .db
-                    .query("SELECT out FROM graph_edge WHERE in = $node AND kind = $kind")
-                    .bind(("node", current.clone()))
-                    .bind(("kind", edge_kind.to_string()))
-                    .await?;
-                let refs: Vec<OutRef> = result.take(0)?;
-                for r in refs {
-                    if !visited.contains(&r.out) {
-                        visited.push(r.out.clone());
-                        next_frontier.push(r.out);
-                    }
+            for r in refs {
+                if !visited.contains(&r.out) {
+                    visited.push(r.out.clone());
+                    next_frontier.push(r.out);
                 }
             }
             frontier = next_frontier;

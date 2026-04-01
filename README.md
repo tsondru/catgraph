@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Fr
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-403 tests, zero clippy warnings. Rust 2024 edition.
+411 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -163,8 +163,8 @@ let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
 ## Testing
 
 ```bash
-cargo test --workspace        # 403 tests (295 catgraph + 108 bridge), 1 ignored
-cargo test                    # catgraph-only (295: 200 unit + 95 integration)
+cargo test --workspace        # 411 tests (303 catgraph + 108 bridge), 1 ignored
+cargo test                    # catgraph-only (303: 200 unit + 103 integration)
 cargo test -p catgraph-surreal # bridge crate (108: 10 unit + 98 integration)
 cargo clippy                  # zero warnings
 ```
@@ -182,6 +182,7 @@ Integration test suites:
 | `morphism_system` | 8 | DAG resolution, cycle detection, multi-level fill |
 | `operad_boundary` | 10 | E1/E2 epsilon boundaries, embedding, substitution |
 | `temperley_lieb` | 10 | TL/symmetric generators, braid relation, monoidal |
+| `property_laws` | 8 | Proptest: identity, associativity, dagger involution, monoidal |
 
 ## Parallelization
 
@@ -192,7 +193,7 @@ The library uses rayon for parallel computation with adaptive thresholds:
 | `linear_combination.rs` | `Mul` impl, `linear_combine` | 32 terms |
 | `temperley_lieb.rs` | `non_crossing` checks | 8 elements |
 | `named_cospan.rs` | `find_nodes_by_name_predicate` | 256 elements |
-| `frobenius.rs` | `hflip` block mutations | 64 blocks |
+| `frobenius/operations.rs` | `hflip` block mutations | 64 blocks |
 
 All parallelism is rayon-based (CPU-bound). For tokio integration, use **tokio-rayon** (not `spawn_blocking`).
 
@@ -206,8 +207,9 @@ All parallelism is rayon-based (CPU-bound). For tokio integration, use **tokio-r
 - `permutations` — permutation type for symmetric monoidal
 - `union-find` — QuickUnionUf for pushout composition
 - `rayon` — data parallelism with adaptive thresholds
-- `rand` — random permutations in tests
-- `log` + `env_logger` — warning messages
+- `log` — warning messages
+- `thiserror` — structured error types
+- Dev: `env_logger`, `proptest`, `rand`
 
 ### catgraph-surreal (bridge)
 - `surrealdb` 3.0.5 (kv-mem) — embedded SurrealDB

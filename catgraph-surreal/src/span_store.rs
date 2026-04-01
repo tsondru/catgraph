@@ -37,8 +37,21 @@ impl<'a> SpanStore<'a> {
             middle_pairs: span
                 .middle_pairs()
                 .iter()
-                .map(|&(l, r)| vec![l as i64, r as i64])
-                .collect(),
+                .map(|&(l, r)| {
+                    Ok(vec![
+                        i64::try_from(l).map_err(|_| {
+                            PersistError::InvalidData(format!(
+                                "index overflow in middle_pair left: {l}"
+                            ))
+                        })?,
+                        i64::try_from(r).map_err(|_| {
+                            PersistError::InvalidData(format!(
+                                "index overflow in middle_pair right: {r}"
+                            ))
+                        })?,
+                    ])
+                })
+                .collect::<Result<Vec<_>, PersistError>>()?,
             label_type: Lambda::type_name().to_string(),
             is_left_id: span.is_left_identity(),
             is_right_id: span.is_right_identity(),

@@ -4,6 +4,9 @@
 //! `LinearCombination` using only the public API. Each test verifies a property
 //! that spans multiple type boundaries rather than testing a single type in isolation.
 
+mod common;
+use common::*;
+
 use catgraph::{
     category::Composable,
     cospan::Cospan,
@@ -12,20 +15,6 @@ use catgraph::{
     named_cospan::NamedCospan,
     span::Span,
 };
-
-// ---------------------------------------------------------------------------
-// Helpers: structural equality via public accessors (types lack PartialEq)
-// ---------------------------------------------------------------------------
-
-fn spans_eq<L: Eq + Copy + std::fmt::Debug>(a: &Span<L>, b: &Span<L>) -> bool {
-    a.left() == b.left() && a.right() == b.right() && a.middle_pairs() == b.middle_pairs()
-}
-
-fn cospan_eq<L: Eq + Copy + std::fmt::Debug>(a: &Cospan<L>, b: &Cospan<L>) -> bool {
-    a.left_to_middle() == b.left_to_middle()
-        && a.right_to_middle() == b.right_to_middle()
-        && a.middle() == b.middle()
-}
 
 // ---------------------------------------------------------------------------
 // 1. Span dagger involution on a non-trivial span

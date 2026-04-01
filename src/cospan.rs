@@ -39,25 +39,25 @@ where
     pub fn assert_valid(&self, check_id_strong: bool, check_id_weak: bool) {
         let middle_size = self.middle.len();
         let left_in_bounds = self.left.iter().all(|z| *z < middle_size);
-        assert!(
+        debug_assert!(
             left_in_bounds,
             "A target for one of the left arrows was out of bounds"
         );
         let right_in_bounds = self.right.iter().all(|z| *z < middle_size);
-        assert!(
+        debug_assert!(
             right_in_bounds,
             "A target for one of the right arrows was out of bounds"
         );
         if check_id_strong || (check_id_weak && self.is_left_id) {
             let is_left_really_id = represents_id(self.left.iter().copied());
-            assert_eq!(
+            debug_assert_eq!(
                 is_left_really_id, self.is_left_id,
                 "The identity nature of the left arrow was wrong"
             );
         }
         if check_id_strong || (check_id_weak && self.is_right_id) {
             let is_right_really_id = represents_id(self.right.iter().copied());
-            assert_eq!(
+            debug_assert_eq!(
                 is_right_really_id, self.is_right_id,
                 "The identity nature of the right arrow was wrong"
             );
@@ -374,7 +374,7 @@ where
         let other_interface = other.left.iter().map(|mid| other.middle[*mid]);
 
         crate::utils::same_labels_check(self_interface, other_interface)
-            .map_err(CatgraphError::Composition)
+            .map_err(|message| CatgraphError::Composition { message })
     }
 
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
@@ -388,7 +388,7 @@ where
                 other.middle.len(),
                 other.is_left_id,
             )
-            .map_err(|e| CatgraphError::Composition(e.to_string()))?;
+            .map_err(|e| CatgraphError::Composition { message: e.to_string() })?;
         let mut composition = Self::new(
             Vec::with_capacity(self.left.len()),
             Vec::with_capacity(other.right.len()),
@@ -564,6 +564,8 @@ mod test {
         monoidal::{Monoidal, MonoidalMorphism},
         monoidal::SymmetricMonoidalMorphism,
     };
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn empty_cospan() {
@@ -762,10 +764,10 @@ mod test {
         assert!(result.is_err(), "should fail: codomain size 2 != domain size 3");
         let err = result.unwrap_err();
         match err {
-            crate::errors::CatgraphError::Composition(msg) => {
+            crate::errors::CatgraphError::Composition { message } => {
                 assert!(
-                    msg.contains("Mismatch") || msg.contains("cardinalities"),
-                    "error should mention mismatch: {msg}"
+                    message.contains("Mismatch") || message.contains("cardinalities"),
+                    "error should mention mismatch: {message}"
                 );
             }
             other => panic!("expected Composition error, got {other:?}"),
@@ -786,10 +788,10 @@ mod test {
         assert!(result.is_err(), "should fail: label mismatch at index 1");
         let err = result.unwrap_err();
         match err {
-            crate::errors::CatgraphError::Composition(msg) => {
+            crate::errors::CatgraphError::Composition { message } => {
                 assert!(
-                    msg.contains("Mismatch") || msg.contains("labels"),
-                    "error should mention label mismatch: {msg}"
+                    message.contains("Mismatch") || message.contains("labels"),
+                    "error should mention label mismatch: {message}"
                 );
             }
             other => panic!("expected Composition error, got {other:?}"),
@@ -911,11 +913,11 @@ mod test {
         use rand::{distr::Uniform, prelude::Distribution};
         let n_max = 10;
         let between = Uniform::<usize>::try_from(2..n_max).unwrap();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(789);
         let n = between.sample(&mut rng);
         let types_as_on_source = true;
-        let p1 = rand_perm(n, n * 2);
-        let p2 = rand_perm(n, n * 2);
+        let p1 = rand_perm(n, n * 2, &mut rng);
+        let p2 = rand_perm(n, n * 2, &mut rng);
         let prod = p1.clone() * p2.clone();
         let domain_types = (0..n).map(|idx| idx + 100).collect::<Vec<usize>>();
         let mut types_at_this_stage = domain_types.clone();
@@ -941,8 +943,8 @@ mod test {
         }
         let types_as_on_source = false;
         let domain_types = (0..n).map(|idx| idx + 10).collect::<Vec<usize>>();
-        let p1 = rand_perm(n, n * 2);
-        let p2 = rand_perm(n, n * 2);
+        let p1 = rand_perm(n, n * 2, &mut rng);
+        let p2 = rand_perm(n, n * 2, &mut rng);
         let prod = p1.clone() * p2.clone();
         let mut types_at_this_stage = domain_types.clone();
         in_place_permute(&mut types_at_this_stage, &p1.inv());

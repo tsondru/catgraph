@@ -213,19 +213,21 @@ where
                 .map(|z| (z.0.flipped(), z.2))
                 .collect::<Vec<_>>(),
         )
-        .map_err(CatgraphError::Operadic)?;
+        .map_err(|message| CatgraphError::Operadic { message })?;
         internal_other.0.permute_side(&p, true);
 
         self.0 = internal_other
             .0
             .compose(&self.0)
-            .map_err(|z| CatgraphError::Operadic(format!("{z:?}")))?;
+            .map_err(|z| CatgraphError::Operadic { message: format!("{z:?}") })?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn no_input_example() {
@@ -316,7 +318,7 @@ mod test {
         wires will be matched up by name not by index
         */
         use rand::seq::SliceRandom;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(5001);
         let mut y: Vec<usize> = (0..6).collect();
         y.shuffle(&mut rng);
         let p = Permutation::try_from(&y).unwrap();
@@ -402,7 +404,7 @@ mod test {
         wires will be matched up by name not by index
         */
         use rand::seq::SliceRandom;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(5002);
         let mut y: Vec<usize> = (0..9).collect();
         y.shuffle(&mut rng);
         let p1 = Permutation::try_from(&y).unwrap();

@@ -16,7 +16,7 @@ fn e1_barely_invalid() {
     let result = E1::new(vec![(-0.01, 0.5)], true);
     assert!(result.is_err());
     match result.unwrap_err() {
-        CatgraphError::Operadic(msg) => assert!(msg.contains("below 0"), "got: {msg}"),
+        CatgraphError::Operadic { message: msg } => assert!(msg.contains("below 0"), "got: {msg}"),
         other => panic!("Expected Operadic error, got: {other:?}"),
     }
 }
@@ -34,7 +34,7 @@ fn e1_overlapping_intervals() {
     let result = E1::new(vec![(0.0, 0.6), (0.5, 1.0)], true);
     assert!(result.is_err());
     match result.unwrap_err() {
-        CatgraphError::Operadic(msg) => assert!(msg.contains("overlap"), "got: {msg}"),
+        CatgraphError::Operadic { message: msg } => assert!(msg.contains("overlap"), "got: {msg}"),
         other => panic!("Expected Operadic error, got: {other:?}"),
     }
 }
@@ -54,7 +54,7 @@ fn e2_disk_outside() {
     let result = E2::new(vec![(0, (0.8, 0.0), 0.5)], true);
     assert!(result.is_err());
     match result.unwrap_err() {
-        CatgraphError::Operadic(msg) => assert!(msg.contains("not contained"), "got: {msg}"),
+        CatgraphError::Operadic { message: msg } => assert!(msg.contains("not contained"), "got: {msg}"),
         other => panic!("Expected Operadic error, got: {other:?}"),
     }
 }

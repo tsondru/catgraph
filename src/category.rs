@@ -12,9 +12,9 @@ pub trait Composable<T: Eq>: Sized {
         if self.codomain() == other.domain() {
             Ok(())
         } else {
-            Err(CatgraphError::Composition(
-                "Not composable. No details on how domain and codomain mismatched".to_string(),
-            ))
+            Err(CatgraphError::Composition {
+                message: "Not composable. No details on how domain and codomain mismatched".to_string(),
+            })
         }
     }
 }
@@ -27,9 +27,9 @@ pub trait ComposableMutating<T: Eq>: Sized {
         if self.codomain() == other.domain() {
             Ok(())
         } else {
-            Err(CatgraphError::Composition(
-                "Not composable. No details on how domain and codomain mismatched".to_string(),
-            ))
+            Err(CatgraphError::Composition {
+                message: "Not composable. No details on how domain and codomain mismatched".to_string(),
+            })
         }
     }
 }
@@ -40,23 +40,23 @@ mod test {
 
     #[test]
     fn catgraph_error_composition_from_string() {
-        let error = CatgraphError::Composition("test error".to_string());
+        let error = CatgraphError::Composition { message: "test error".to_string() };
         match error {
-            CatgraphError::Composition(s) => assert_eq!(s, "test error"),
+            CatgraphError::Composition { message } => assert_eq!(message, "test error"),
             _ => panic!("Expected Composition variant"),
         }
     }
 
     #[test]
     fn catgraph_error_composition_display() {
-        let error = CatgraphError::Composition("display test".to_string());
+        let error = CatgraphError::Composition { message: "display test".to_string() };
         let display_str = format!("{error}");
         assert!(display_str.contains("display test"));
     }
 
     #[test]
     fn catgraph_error_composition_debug() {
-        let error = CatgraphError::Composition("debug test".to_string());
+        let error = CatgraphError::Composition { message: "debug test".to_string() };
         let debug_str = format!("{:?}", error);
         assert!(debug_str.contains("debug test"));
     }
@@ -85,7 +85,7 @@ mod test {
                     target: other.target,
                 })
             } else {
-                Err(CatgraphError::Composition("Cannot compose".to_string()))
+                Err(CatgraphError::Composition { message: "Cannot compose".to_string() })
             }
         }
 
@@ -178,7 +178,7 @@ mod test {
                 self.target = other.target;
                 Ok(())
             } else {
-                Err(CatgraphError::Composition("Cannot compose".to_string()))
+                Err(CatgraphError::Composition { message: "Cannot compose".to_string() })
             }
         }
 

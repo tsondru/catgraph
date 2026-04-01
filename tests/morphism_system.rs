@@ -98,7 +98,7 @@ fn cycle_detection() {
         .add_definition_composite("b".into(), TestContainer(vec!["a".into()]))
         .unwrap_err();
 
-    assert!(matches!(err, CatgraphError::Interpret(_)));
+    assert!(matches!(err, CatgraphError::Interpret { .. }));
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn self_cycle() {
         .add_definition_composite("a".into(), TestContainer(vec!["a".into()]))
         .unwrap_err();
 
-    assert!(matches!(err, CatgraphError::Interpret(_)));
+    assert!(matches!(err, CatgraphError::Interpret { .. }));
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn missing_definition() {
     .unwrap();
 
     let err = sys.fill_black_boxes(None).unwrap_err();
-    assert!(matches!(err, CatgraphError::Interpret(_)));
+    assert!(matches!(err, CatgraphError::Interpret { .. }));
 }
 
 #[test]

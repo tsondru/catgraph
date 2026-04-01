@@ -46,12 +46,12 @@ where
 {
     pub fn assert_valid_nohash(&self, check_id: bool) {
         self.cospan.assert_valid(check_id, true);
-        assert_eq!(
+        debug_assert_eq!(
             self.cospan.left_to_middle().len(),
             self.left_names.len(),
             "There was a mismatch between the domain size and the list of their names"
         );
-        assert_eq!(
+        debug_assert_eq!(
             self.cospan.right_to_middle().len(),
             self.right_names.len(),
             "There was a mismatch between the codomain size and the list of their names"
@@ -557,11 +557,11 @@ where
 {
     pub fn assert_valid(&self, check_id: bool) {
         self.assert_valid_nohash(check_id);
-        assert!(
+        debug_assert!(
             crate::utils::is_unique(&self.left_names),
             "There was a duplicate name on the domain"
         );
-        assert!(
+        debug_assert!(
             crate::utils::is_unique(&self.right_names),
             "There was a duplicate name on the codomain"
         );
@@ -651,6 +651,8 @@ mod test {
     use super::*;
     use crate::{category::Composable, monoidal::Monoidal, monoidal::SymmetricMonoidalMorphism};
     use either::Either::{Left, Right};
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn named_cospan_new() {
@@ -991,13 +993,13 @@ mod test {
         use crate::utils::rand_perm;
         use rand::RngExt;
         let n_max = 10;
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(4001);
         let n = rng.random_range(2..n_max);
 
         for trial_num in 0..20 {
             let types_as_on_source = trial_num % 2 == 0;
-            let p1 = rand_perm(n, n * 2);
-            let p2 = rand_perm(n, n * 2);
+            let p1 = rand_perm(n, n * 2, &mut rng);
+            let p2 = rand_perm(n, n * 2, &mut rng);
             let prod = p1.clone() * p2.clone();
             let cospan_p1 = NamedCospan::from_permutation_extra_data(
                 p1,
