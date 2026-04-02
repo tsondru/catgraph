@@ -10,6 +10,7 @@ pub mod computation_state;
 pub mod adjunction;
 pub mod bifunctor;
 pub mod coherence;
+pub mod stokes;
 pub mod frobenius;
 pub mod cospan;
 pub mod named_cospan;
