@@ -447,7 +447,9 @@ pub trait SymmetricMonoidalMorphism<T: Eq> {
         again can panic if the cardinality of the permutation does not match the cardinality of types
     */
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
-    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Self;
+    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Result<Self, CatgraphError>
+    where
+        Self: Sized;
 }
 
 #[allow(clippy::module_name_repetitions)]

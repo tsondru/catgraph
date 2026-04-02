@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use surrealdb::engine::local::Db;
 use surrealdb::IndexedResults;
 use surrealdb::types::RecordId;
@@ -85,7 +87,10 @@ impl<'a> QueryHelper<'a> {
         edge_kind: &str,
         depth: u32,
     ) -> Result<Vec<GraphNodeRecord>, PersistError> {
-        let mut visited: Vec<RecordId> = vec![node.clone()];
+        // RecordId contains a regex cache (interior mutability) but Hash/Eq are stable.
+        #[allow(clippy::mutable_key_type)]
+        let mut visited: HashSet<RecordId> = HashSet::from([node.clone()]);
+        let mut visited_ordered: Vec<RecordId> = vec![node.clone()];
         let mut frontier: Vec<RecordId> = vec![node.clone()];
 
         for _ in 0..depth {
@@ -101,8 +106,8 @@ impl<'a> QueryHelper<'a> {
             let refs: Vec<OutRef> = result.take(0)?;
             let mut next_frontier = Vec::new();
             for r in refs {
-                if !visited.contains(&r.out) {
-                    visited.push(r.out.clone());
+                if visited.insert(r.out.clone()) {
+                    visited_ordered.push(r.out.clone());
                     next_frontier.push(r.out);
                 }
             }
@@ -110,8 +115,8 @@ impl<'a> QueryHelper<'a> {
         }
 
         // Fetch all discovered nodes except the starting node
-        let mut nodes = Vec::with_capacity(visited.len().saturating_sub(1));
-        for id in &visited[1..] {
+        let mut nodes = Vec::with_capacity(visited_ordered.len().saturating_sub(1));
+        for id in &visited_ordered[1..] {
             nodes.push(self.node_store.get(id).await?);
         }
         Ok(nodes)

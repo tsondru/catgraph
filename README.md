@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Fr
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-411 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
+452 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -50,7 +50,7 @@ pub trait Monoidal {
 }
 
 pub trait SymmetricMonoidalMorphism<T: Eq>: Composable<Vec<T>> + Monoidal {
-    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Self;
+    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Result<Self, CatgraphError>;
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
 }
 ```
@@ -65,8 +65,8 @@ Rel::new(span) -> Result<Self, CatgraphError>  // validates joint injectivity
 Rel::new_unchecked(span) -> Self               // trusts caller
 
 // Set operations
-rel.union(&other), rel.intersection(&other), rel.complement()?
-rel.subsumes(&other) -> bool
+rel.union(&other)?, rel.intersection(&other)?, rel.complement()?
+rel.subsumes(&other)? -> bool
 
 // Properties (require homogeneous relation: domain == codomain)
 rel.is_reflexive(), rel.is_symmetric(), rel.is_antisymmetric(), rel.is_transitive()
@@ -163,8 +163,8 @@ let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
 ## Testing
 
 ```bash
-cargo test --workspace        # 411 tests (303 catgraph + 108 bridge), 1 ignored
-cargo test                    # catgraph-only (303: 200 unit + 103 integration)
+cargo test --workspace        # 452 tests (344 catgraph + 108 bridge), 1 ignored
+cargo test                    # catgraph-only (344: 200 unit + 144 integration)
 cargo test -p catgraph-surreal # bridge crate (108: 10 unit + 98 integration)
 cargo clippy                  # zero warnings
 ```
@@ -180,9 +180,11 @@ Integration test suites:
 | `monoidal_structure` | 6 | Tensor associativity/unit, braiding, permute_side |
 | `cross_type_interactions` | 6 | NamedCospan ports, to_graph, ring axioms |
 | `morphism_system` | 8 | DAG resolution, cycle detection, multi-level fill |
-| `operad_boundary` | 10 | E1/E2 epsilon boundaries, embedding, substitution |
+| `operad_boundary` | 17 | E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness |
 | `temperley_lieb` | 10 | TL/symmetric generators, braid relation, monoidal |
 | `property_laws` | 8 | Proptest: identity, associativity, dagger involution, monoidal |
+| `wiring_diagram` | 14 | Operadic substitution, boundary mutations, map, sequential composition |
+| `mutation_workflows` | 20 | Cospan/Span add/delete/connect/map then compose, identity flags |
 
 ## Parallelization
 

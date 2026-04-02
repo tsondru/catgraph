@@ -140,7 +140,7 @@ where
     pub fn add_middle(
         &mut self,
         new_middle: (LeftIndex, RightIndex),
-    ) -> Result<MiddleIndex, String> {
+    ) -> Result<MiddleIndex, CatgraphError> {
         /*
         add a new node at the source
         the leg maps on this new node send it to the specified indices
@@ -150,9 +150,9 @@ where
         let type_left = self.left[new_middle.0];
         let type_right = self.right[new_middle.1];
         if type_left != type_right {
-            return Err(format!(
-                "Mismatched lambda values {type_left:?} and {type_right:?}"
-            ));
+            return Err(CatgraphError::Composition {
+                message: format!("Mismatched lambda values {type_left:?} and {type_right:?}"),
+            });
         }
         self.middle.push(new_middle);
         self.is_left_id = false;
@@ -299,23 +299,23 @@ where
         p: permutations::Permutation,
         types: &[Lambda],
         types_as_on_domain: bool,
-    ) -> Self {
+    ) -> Result<Self, CatgraphError> {
         if types_as_on_domain {
-            Self {
+            Ok(Self {
                 left: types.to_vec(),
                 middle: (0..types.len()).map(|idx| (idx, p.apply(idx))).collect(),
                 right: p.inv().permute(types),
                 is_left_id: true,
                 is_right_id: false,
-            }
+            })
         } else {
-            Self {
+            Ok(Self {
                 left: p.inv().permute(types),
                 middle: (0..types.len()).map(|idx| (p.apply(idx), idx)).collect(),
                 right: types.to_vec(),
                 is_left_id: false,
                 is_right_id: true,
-            }
+            })
         }
     }
 }
@@ -387,11 +387,18 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         Self(x)
     }
 
-    /// # Panics
-    /// Panics if `self` and `other` have different domain or codomain.
-    pub fn subsumes(&self, other: &Rel<Lambda>) -> bool {
-        assert_eq!(self.domain(), other.domain());
-        assert_eq!(self.codomain(), other.codomain());
+    pub fn subsumes(&self, other: &Rel<Lambda>) -> Result<bool, CatgraphError> {
+        if self.domain() != other.domain() || self.codomain() != other.codomain() {
+            return Err(CatgraphError::Relation {
+                message: format!(
+                    "domain/codomain mismatch: self ({}, {}), other ({}, {})",
+                    self.domain().len(),
+                    self.codomain().len(),
+                    other.domain().len(),
+                    other.codomain().len()
+                ),
+            });
+        }
 
         #[allow(clippy::from_iter_instead_of_collect)]
         let self_pairs: HashSet<(usize, usize)> = HashSet::from_iter(self.0.middle.iter().copied());
@@ -399,14 +406,21 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         let other_pairs: HashSet<(usize, usize)> =
             HashSet::from_iter(other.0.middle.iter().copied());
 
-        self_pairs.is_superset(&other_pairs)
+        Ok(self_pairs.is_superset(&other_pairs))
     }
 
-    /// # Panics
-    /// Panics if `self` and `other` have different domain or codomain.
-    pub fn union(&self, other: &Self) -> Self {
-        assert_eq!(self.domain(), other.domain());
-        assert_eq!(self.codomain(), other.codomain());
+    pub fn union(&self, other: &Self) -> Result<Self, CatgraphError> {
+        if self.domain() != other.domain() || self.codomain() != other.codomain() {
+            return Err(CatgraphError::Relation {
+                message: format!(
+                    "domain/codomain mismatch: self ({}, {}), other ({}, {})",
+                    self.domain().len(),
+                    self.codomain().len(),
+                    other.domain().len(),
+                    other.codomain().len()
+                ),
+            });
+        }
 
         #[allow(clippy::from_iter_instead_of_collect)]
         let self_pairs: HashSet<(usize, usize)> = HashSet::from_iter(self.0.middle.iter().copied());
@@ -422,14 +436,21 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
                 ret_val.add_middle((*x, *y)).unwrap();
             }
         }
-        Self(ret_val)
+        Ok(Self(ret_val))
     }
 
-    /// # Panics
-    /// Panics if `self` and `other` have different domain or codomain.
-    pub fn intersection(&self, other: &Self) -> Self {
-        assert_eq!(self.domain(), other.domain());
-        assert_eq!(self.codomain(), other.codomain());
+    pub fn intersection(&self, other: &Self) -> Result<Self, CatgraphError> {
+        if self.domain() != other.domain() || self.codomain() != other.codomain() {
+            return Err(CatgraphError::Relation {
+                message: format!(
+                    "domain/codomain mismatch: self ({}, {}), other ({}, {})",
+                    self.domain().len(),
+                    self.codomain().len(),
+                    other.domain().len(),
+                    other.codomain().len()
+                ),
+            });
+        }
 
         let capacity = self.0.middle.len().min(other.0.middle.len());
         let mut ret_val =
@@ -445,7 +466,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         for (x, y) in in_common {
             ret_val.add_middle((*x, *y)).unwrap();
         }
-        Self(ret_val)
+        Ok(Self(ret_val))
     }
 
     pub fn complement(&self) -> Result<Self, CatgraphError> {
@@ -467,9 +488,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         for x in 0..source_size {
             for y in 0..target_size {
                 if !self_pairs.contains(&(x, y)) {
-                    ret_val
-                        .add_middle((x, y))
-                        .map_err(|message| CatgraphError::Relation { message })?;
+                    ret_val.add_middle((x, y))?;
                 }
             }
         }
@@ -487,7 +506,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
     /// Panics if the relation is not homogeneous (domain != codomain).
     pub fn is_reflexive(&self) -> bool {
         let identity_rel = Self::new_unchecked(Span::<Lambda>::identity(&self.0.domain()));
-        self.subsumes(&identity_rel)
+        self.subsumes(&identity_rel).unwrap()
     }
 
     pub fn is_irreflexive(&self) -> bool {
@@ -502,16 +521,16 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
     /// Panics if the relation is not homogeneous (domain != codomain).
     pub fn is_symmetric(&self) -> bool {
         let dagger = Self::new_unchecked(self.0.dagger());
-        self.subsumes(&dagger)
+        self.subsumes(&dagger).unwrap()
     }
 
     /// # Panics
     /// Panics if the relation is not homogeneous (domain != codomain).
     pub fn is_antisymmetric(&self) -> bool {
         let dagger = Self::new_unchecked(self.0.dagger());
-        let intersect = self.intersection(&dagger);
+        let intersect = self.intersection(&dagger).unwrap();
         let identity_rel = Self::new_unchecked(Span::<Lambda>::identity(&self.0.domain()));
-        identity_rel.subsumes(&intersect)
+        identity_rel.subsumes(&intersect).unwrap()
     }
 
     /// # Panics
@@ -519,7 +538,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
     pub fn is_transitive(&self) -> bool {
         // compose can't fail: homogeneous relation has matching domain/codomain
         let twice = Self::new_unchecked(self.0.compose(&self.0).unwrap());
-        self.subsumes(&twice)
+        self.subsumes(&twice).unwrap()
     }
 
     pub fn is_equivalence_rel(&self) -> bool {
@@ -716,8 +735,8 @@ mod test {
         ).unwrap();
         let partial = Rel::new(Span::new(types.clone(), types.clone(), vec![(0, 0)])).unwrap();
 
-        assert!(full.subsumes(&partial));
-        assert!(!partial.subsumes(&full));
+        assert!(full.subsumes(&partial).unwrap());
+        assert!(!partial.subsumes(&full).unwrap());
     }
 
     #[test]
@@ -728,7 +747,7 @@ mod test {
         ).unwrap();
         let rel2 = Rel::new(Span::new(types.clone(), types.clone(), vec![(0, 0)])).unwrap();
 
-        let intersect = rel1.intersection(&rel2);
+        let intersect = rel1.intersection(&rel2).unwrap();
         assert_eq!(intersect.0.middle.len(), 1);
     }
 
@@ -738,7 +757,7 @@ mod test {
         let rel1 = Rel::new(Span::new(types.clone(), types.clone(), vec![(0, 0)])).unwrap();
         let rel2 = Rel::new(Span::new(types.clone(), types.clone(), vec![(1, 1)])).unwrap();
 
-        let union = rel1.union(&rel2);
+        let union = rel1.union(&rel2).unwrap();
         assert_eq!(union.0.middle.len(), 2);
     }
 
@@ -865,7 +884,7 @@ mod test {
 
         let types = vec!['a', 'b', 'c'];
         let id_perm = Permutation::identity(3);
-        let span = Span::from_permutation(id_perm, &types, true);
+        let span = Span::from_permutation(id_perm, &types, true).unwrap();
 
         assert_eq!(span.domain(), types);
         assert_eq!(span.codomain(), types);
@@ -881,7 +900,7 @@ mod test {
 
         let types = vec!['x', 'y'];
         let id_perm = Permutation::identity(2);
-        let span = Span::from_permutation(id_perm, &types, false);
+        let span = Span::from_permutation(id_perm, &types, false).unwrap();
 
         assert_eq!(span.domain(), types);
         assert_eq!(span.codomain(), types);
@@ -896,7 +915,7 @@ mod test {
 
         let types = vec!['a', 'b', 'c'];
         let rot = Permutation::rotation_left(3, 1);
-        let span = Span::from_permutation(rot, &types, true);
+        let span = Span::from_permutation(rot, &types, true).unwrap();
 
         // types_as_on_domain=true: left=types, right=permuted types
         assert_eq!(span.domain(), vec!['a', 'b', 'c']);
@@ -917,7 +936,7 @@ mod test {
 
         let types = vec!['a', 'b', 'c'];
         let rot = Permutation::rotation_left(3, 1);
-        let span = Span::from_permutation(rot, &types, false);
+        let span = Span::from_permutation(rot, &types, false).unwrap();
 
         // types_as_on_domain=false: right=types, left=permuted types
         assert_eq!(span.codomain(), vec!['a', 'b', 'c']);

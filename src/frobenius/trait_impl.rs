@@ -53,7 +53,7 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
             FrobeniusOperation::Identity(z) => Self::identity(&vec![*z]),
             FrobeniusOperation::SymmetricBraiding(z1, z2) => {
                 let transposition = Permutation::try_from(vec![0, 1]).unwrap();
-                Self::from_permutation(transposition, &[*z1, *z2], true)
+                Self::from_permutation(transposition, &[*z1, *z2], true)?
             }
             FrobeniusOperation::UnSpecifiedBox(bbl, z1, z2) => black_box_interpreter(bbl, z1, z2)?,
             FrobeniusOperation::Spider(z, d1, d2) => {

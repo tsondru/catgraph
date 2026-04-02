@@ -58,9 +58,11 @@ catgraph/                           # Workspace root
 │   ├── monoidal_structure.rs       # 6 tests: tensor associativity/unit, braiding, permute_side
 │   ├── cross_type_interactions.rs  # 6 tests: NamedCospan ports, to_graph, LinearCombination ring
 │   ├── morphism_system.rs          # 8 tests: DAG resolution, cycle detection, multi-level fill
-│   ├── operad_boundary.rs          # 10 tests: E1/E2 epsilon boundaries, embedding, substitution
+│   ├── operad_boundary.rs          # 17 tests: E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness
 │   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
-│   └── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
+│   ├── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
+│   ├── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
+│   └── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
     ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
@@ -128,7 +130,7 @@ pub trait Monoidal {
 }
 
 pub trait SymmetricMonoidalMorphism<T: Eq>: Composable<Vec<T>> + Monoidal {
-    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Self;
+    fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Result<Self, CatgraphError>;
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
 }
 ```
@@ -183,7 +185,7 @@ pub struct Rel<Lambda>(Span<Lambda>);
 
 - Public accessors: `left()`, `right()`, `middle_pairs()`, `is_left_identity()`, `is_right_identity()`
 - `Rel::as_span()` for bridge crate access
-- Relations with: `is_reflexive`, `is_symmetric`, `is_antisymmetric`, `is_transitive`, `is_equivalence_rel`, `is_partial_order`, `subsumes`, `intersection`, `union`, `complement`.
+- Relations with: `is_reflexive`, `is_symmetric`, `is_antisymmetric`, `is_transitive`, `is_equivalence_rel`, `is_partial_order`, `subsumes` (→ `Result<bool>`), `intersection` / `union` / `complement` (→ `Result<Self>`).
 
 ### Frobenius (`frobenius/`)
 
@@ -249,8 +251,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 411 tests (303 catgraph + 108 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (303: 200 unit + 103 integration)
+cargo test --workspace        # Run all 452 tests (344 catgraph + 108 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (344: 200 unit + 144 integration)
 cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -290,7 +292,7 @@ combined.monoidal(morphism2);
 ```rust
 use permutations::Permutation;
 let p = Permutation::rotation_left(3, 1);
-let cospan = Cospan::from_permutation(p, &types, types_as_on_domain);
+let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 ```
 
 ## Type Constraints
@@ -371,7 +373,7 @@ Rust 2024 edition. Common patterns:
 |------|-------|
 | Petri nets | Natural fit for source/target semantics. Chemical use case tests demonstrate the pattern. |
 | Benchmarks | No criterion/divan benchmarks for pushout/pullback performance |
-| WiringDiagram | 18 unit tests, 0 integration tests. No V2 persistence store yet. |
+| WiringDiagram | 18 unit tests + 14 integration tests. No V2 persistence store yet. |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope

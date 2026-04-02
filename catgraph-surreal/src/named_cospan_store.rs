@@ -79,12 +79,15 @@ impl<'a> NamedCospanStore<'a> {
         ))
     }
 
-    /// Delete a NamedCospan and its underlying cospan.
+    /// Delete a NamedCospan and its underlying cospan atomically.
     pub async fn delete(&self, id: &RecordId) -> Result<(), PersistError> {
         let record: Option<NamedCospanRecord> = self.db.select(id).await?;
         if let Some(record) = record {
-            self.cospan_store.delete(&record.cospan_ref).await?;
-            let _: Option<NamedCospanRecord> = self.db.delete(id).await?;
+            self.db
+                .query("BEGIN TRANSACTION; DELETE $cospan_id; DELETE $nc_id; COMMIT TRANSACTION;")
+                .bind(("cospan_id", record.cospan_ref))
+                .bind(("nc_id", id.clone()))
+                .await?;
         }
         Ok(())
     }

@@ -242,7 +242,7 @@ fn from_decomposition_roundtrip() {
     let codomain_types = vec!['x', 'y', 'q'];
 
     let morphism: FrobeniusMorphism<char, String> =
-        from_decomposition(decomp, &source_types, &codomain_types);
+        from_decomposition(decomp, &source_types, &codomain_types).unwrap();
 
     assert_eq!(morphism.domain(), source_types);
     assert_eq!(morphism.codomain(), codomain_types);
@@ -251,7 +251,7 @@ fn from_decomposition_roundtrip() {
     let id_decomp = Decomposition::try_from((vec![0_usize, 1, 2], 0_usize)).unwrap();
     let id_types = vec!['a', 'b', 'c'];
     let id_morphism: FrobeniusMorphism<char, String> =
-        from_decomposition(id_decomp, &id_types, &id_types);
+        from_decomposition(id_decomp, &id_types, &id_types).unwrap();
     let expected_id: FrobeniusMorphism<char, String> = FrobeniusMorphism::identity(&id_types);
     assert_eq!(id_morphism.domain(), expected_id.domain());
     assert_eq!(id_morphism.codomain(), expected_id.codomain());

@@ -149,7 +149,7 @@ where
             the order is similarly done as the labels using the types_as_on_domain flag
         */
         assert_eq!(types.len(), prenames.len());
-        let cospan = Cospan::from_permutation(p.clone(), types, types_as_on_domain);
+        let cospan = Cospan::from_permutation(p.clone(), types, types_as_on_domain).unwrap();
         let (left_names, right_names) = if types_as_on_domain {
             (
                 prenames.iter().map(|pre| prename_to_name(*pre).0).collect(),
@@ -640,8 +640,10 @@ where
         self.cospan.permute_side(p, of_right_leg);
     }
 
-    fn from_permutation(_p: Permutation, _types: &[Lambda], _types_as_on_domain: bool) -> Self {
-        panic!("Not enough data. Use from_permutation_extra_data instead");
+    fn from_permutation(_p: Permutation, _types: &[Lambda], _types_as_on_domain: bool) -> Result<Self, CatgraphError> {
+        Err(CatgraphError::Composition {
+            message: "NamedCospan::from_permutation requires port name data; use from_permutation_extra_data instead".to_string(),
+        })
     }
 }
 

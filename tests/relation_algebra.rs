@@ -338,7 +338,7 @@ fn rel_union_intersection() {
         vec![(0, 1), (1, 1), (2, 2)],
     )).unwrap();
 
-    let u = r1.union(&r2);
+    let u = r1.union(&r2).unwrap();
     let u_pairs: HashSet<(usize, usize)> = u.as_span().middle_pairs().iter().copied().collect();
     // Union should have all pairs from both: (0,0),(0,1),(1,1),(2,2)
     assert_eq!(u_pairs.len(), 4);
@@ -347,7 +347,7 @@ fn rel_union_intersection() {
     assert!(u_pairs.contains(&(1, 1)));
     assert!(u_pairs.contains(&(2, 2)));
 
-    let i = r1.intersection(&r2);
+    let i = r1.intersection(&r2).unwrap();
     let i_pairs: HashSet<(usize, usize)> = i.as_span().middle_pairs().iter().copied().collect();
     // Intersection should have common pairs: (0,1),(1,1)
     assert_eq!(i_pairs.len(), 2);
@@ -397,10 +397,10 @@ fn rel_subsumes() {
         vec![(0, 0), (1, 1)],
     )).unwrap();
 
-    assert!(full.subsumes(&partial));
-    assert!(!partial.subsumes(&full));
+    assert!(full.subsumes(&partial).unwrap());
+    assert!(!partial.subsumes(&full).unwrap());
     // Every relation subsumes itself
-    assert!(full.subsumes(&full));
+    assert!(full.subsumes(&full).unwrap());
 }
 
 // ---------------------------------------------------------------------------

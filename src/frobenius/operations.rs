@@ -744,7 +744,7 @@ where
     fn permute_side(&mut self, p: &permutations::Permutation, of_codomain: bool) {
         if of_codomain {
             assert_eq!(p.len(), self.codomain().len());
-            let p_frob = Self::from_permutation(p.inv(), &self.codomain(), true);
+            let p_frob = Self::from_permutation(p.inv(), &self.codomain(), true).unwrap();
             self.compose(p_frob).unwrap();
         } else {
             self.hflip(&identity);
@@ -757,15 +757,15 @@ where
         p: permutations::Permutation,
         types: &[Lambda],
         types_as_on_domain: bool,
-    ) -> Self {
+    ) -> Result<Self, CatgraphError> {
         if !types_as_on_domain {
-            let mut answer = Self::from_permutation(p.inv(), types, true);
+            let mut answer = Self::from_permutation(p.inv(), types, true)?;
             answer.hflip(&identity);
-            return answer;
+            return Ok(answer);
         }
 
         if p == Permutation::identity(p.len()) {
-            return Self::identity(&types.to_vec());
+            return Ok(Self::identity(&types.to_vec()));
         }
         let mut types_now = types.to_vec();
         let mut p_remaining = p.clone();
@@ -812,13 +812,13 @@ where
                 .monoidal(FrobeniusOperation::Identity(types_now[p_remaining.len() - 1]).into());
         }
         first_layer.compose(second_layer).unwrap();
-        let remaining = Self::from_permutation(p_remaining, &types_now, true);
+        let remaining = Self::from_permutation(p_remaining, &types_now, true)?;
         first_layer.compose(remaining).unwrap();
         assert_eq!(first_layer.domain(), types);
         let mut types_after_all_p = types.to_vec();
         in_place_permute(&mut types_after_all_p, &p.inv());
         assert_eq!(first_layer.codomain(), types_after_all_p);
-        first_layer
+        Ok(first_layer)
     }
 }
 
@@ -866,13 +866,13 @@ pub fn from_decomposition<Lambda, BlackBoxLabel>(
     v: Decomposition,
     source_types: &[Lambda],
     target_types: &[Lambda],
-) -> FrobeniusMorphism<Lambda, BlackBoxLabel>
+) -> Result<FrobeniusMorphism<Lambda, BlackBoxLabel>, CatgraphError>
 where
     Lambda: Eq + Copy + Debug + Send + Sync,
     BlackBoxLabel: Eq + Clone + Send + Sync,
 {
     let (perm_part, surj_part, inj_part) = v.get_parts();
-    let mut answer = FrobeniusMorphism::from_permutation(perm_part.clone(), source_types, true);
+    let mut answer = FrobeniusMorphism::from_permutation(perm_part.clone(), source_types, true)?;
 
     let mut surj_part_frob = FrobeniusMorphism::<Lambda, BlackBoxLabel>::new();
     let mut after_perm_number = 0;
@@ -909,7 +909,7 @@ where
         answer.compose(inj_part_frob).is_ok(),
         "The provided source and target types did not line up for the given decomposed finite set map"
     );
-    answer
+    Ok(answer)
 }
 
 #[cfg(test)]
@@ -1059,7 +1059,8 @@ mod test {
             p1.clone(),
             &domain_types,
             types_as_on_source,
-        );
+        )
+        .unwrap();
         let mut frob_prod = frob_p1.clone();
         assert_eq!(frob_prod.domain(), domain_types);
         let mut types_after_this_layer = domain_types.clone();
@@ -1070,7 +1071,8 @@ mod test {
             p2.clone(),
             &frob_p1.codomain(),
             types_as_on_source,
-        );
+        )
+        .unwrap();
         frob_prod.compose(frob_p2).unwrap();
         in_place_permute(&mut types_after_this_layer, &p2.inv());
         assert_eq!(frob_prod.domain(), domain_types);
@@ -1085,7 +1087,8 @@ mod test {
             p3.clone(),
             &codomain_of_prod,
             types_as_on_source,
-        );
+        )
+        .unwrap();
         // frob_p3.domain() should match frob_prod.codomain() for composition
         assert_eq!(frob_p3.domain(), codomain_of_prod);
         frob_prod.compose(frob_p3).unwrap();
@@ -1130,7 +1133,7 @@ mod test {
         #[allow(clippy::assertions_on_constants)]
         if let Ok(cur_decomp) = cur_res {
             let _x: FrobeniusMorphism<_, ()> =
-                from_decomposition(cur_decomp, &domain_types, &codomain_types);
+                from_decomposition(cur_decomp, &domain_types, &codomain_types).unwrap();
         } else {
             assert!(false, "All maps of finite sets decompose");
         }
@@ -1263,7 +1266,7 @@ mod test {
 
         // Build the inverse permutation morphism to compose back
         let inv_morph: FrobeniusMorphism<i32, ()> =
-            FrobeniusMorphism::from_permutation(p.clone(), &permuted_cod, true);
+            FrobeniusMorphism::from_permutation(p.clone(), &permuted_cod, true).unwrap();
         assert_eq!(inv_morph.domain(), permuted_cod);
         let compose_result = morph.compose(inv_morph);
         assert!(compose_result.is_ok(), "composition after permute_side should type-check");

@@ -98,8 +98,8 @@ fn permutation_cospan_compose() {
     // p2 = transposition(3,0,2): swap 0<->2
     let p2 = Permutation::transposition(3, 0, 2);
 
-    let c1 = Cospan::from_permutation(p1.clone(), &types, true);
-    let c2 = Cospan::from_permutation(p2.clone(), &types, true);
+    let c1 = Cospan::from_permutation(p1.clone(), &types, true).unwrap();
+    let c2 = Cospan::from_permutation(p2.clone(), &types, true).unwrap();
 
     // With uniform labels, any two permutation cospans are composable.
     assert!(c1.composable(&c2).is_ok(), "c1;c2 should be composable");
@@ -108,7 +108,7 @@ fn permutation_cospan_compose() {
 
     // The combined permutation p1*p2.
     let p12 = p1 * p2;
-    let expected = Cospan::from_permutation(p12, &types, true);
+    let expected = Cospan::from_permutation(p12, &types, true).unwrap();
 
     // Domain and codomain must match the composed permutation.
     assert_eq!(composed.domain(), expected.domain(), "domain after compose");
@@ -143,7 +143,7 @@ fn symmetric_braiding_involutive() {
 
     // The swap permutation on 2 elements: (0 1).
     let swap = Permutation::transposition(2, 0, 1);
-    let sigma = Cospan::from_permutation(swap.clone(), &types, true);
+    let sigma = Cospan::from_permutation(swap.clone(), &types, true).unwrap();
 
     // sigma ; sigma should give identity (the braiding is an involution).
     assert!(

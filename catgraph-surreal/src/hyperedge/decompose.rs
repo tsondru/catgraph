@@ -35,13 +35,12 @@ impl<'a> HyperedgeStore<'a> {
         let right_map = cospan.right_to_middle();
 
         // Create hub
+        let src_count = i64::try_from(left_map.len())
+            .map_err(|_| PersistError::InvalidData(format!("source count overflow: {}", left_map.len())))?;
+        let tgt_count = i64::try_from(right_map.len())
+            .map_err(|_| PersistError::InvalidData(format!("target count overflow: {}", right_map.len())))?;
         let hub_id = self
-            .create_hub(
-                hub_kind,
-                hub_properties,
-                i64::try_from(left_map.len()).unwrap_or(0),
-                i64::try_from(right_map.len()).unwrap_or(0),
-            )
+            .create_hub(hub_kind, hub_properties, src_count, tgt_count)
             .await?;
 
         // Create middle nodes
@@ -98,12 +97,13 @@ impl<'a> HyperedgeStore<'a> {
             .middle_pairs()
             .iter()
             .map(|&(l, r)| {
-                [
-                    i64::try_from(l).unwrap_or(0),
-                    i64::try_from(r).unwrap_or(0),
-                ]
+                let l64 = i64::try_from(l)
+                    .map_err(|_| PersistError::InvalidData(format!("middle index overflow: {l}")))?;
+                let r64 = i64::try_from(r)
+                    .map_err(|_| PersistError::InvalidData(format!("middle index overflow: {r}")))?;
+                Ok([l64, r64])
             })
-            .collect();
+            .collect::<Result<Vec<_>, PersistError>>()?;
         let mut props = hub_properties;
         if let Some(obj) = props.as_object_mut() {
             obj.insert("middle_pairs".into(), serde_json::json!(pairs));
@@ -118,13 +118,12 @@ impl<'a> HyperedgeStore<'a> {
         }
 
         // Create hub
+        let src_count = i64::try_from(left.len())
+            .map_err(|_| PersistError::InvalidData(format!("source count overflow: {}", left.len())))?;
+        let tgt_count = i64::try_from(right.len())
+            .map_err(|_| PersistError::InvalidData(format!("target count overflow: {}", right.len())))?;
         let hub_id = self
-            .create_hub(
-                hub_kind,
-                props,
-                i64::try_from(left.len()).unwrap_or(0),
-                i64::try_from(right.len()).unwrap_or(0),
-            )
+            .create_hub(hub_kind, props, src_count, tgt_count)
             .await?;
 
         // Create left nodes
@@ -198,8 +197,10 @@ impl<'a> HyperedgeStore<'a> {
         let middle = cospan.middle();
         let left_map = cospan.left_to_middle();
         let right_map = cospan.right_to_middle();
-        let src_count = i64::try_from(left_map.len()).unwrap_or(0);
-        let tgt_count = i64::try_from(right_map.len()).unwrap_or(0);
+        let src_count = i64::try_from(left_map.len())
+            .map_err(|_| PersistError::InvalidData(format!("source count overflow: {}", left_map.len())))?;
+        let tgt_count = i64::try_from(right_map.len())
+            .map_err(|_| PersistError::InvalidData(format!("target count overflow: {}", right_map.len())))?;
 
         // Build the transaction query string.
         // LET variables are scoped to the transaction and available across statements.

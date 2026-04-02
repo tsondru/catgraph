@@ -440,7 +440,7 @@ where
         );
     }
 
-    fn from_permutation(p: Permutation, types: &[Lambda], types_as_on_domain: bool) -> Self {
+    fn from_permutation(p: Permutation, types: &[Lambda], types_as_on_domain: bool) -> Result<Self, CatgraphError> {
         let num_types = types.len();
         assert_eq!(p.len(), num_types);
         let id_temp = (0..num_types).collect::<Vec<usize>>();
@@ -449,21 +449,21 @@ where
         //  right ; is composition of permutation functions
         let p_underlying = if types_as_on_domain { p.inv() } else { p }.permute(&id_temp);
         if types_as_on_domain {
-            Self {
+            Ok(Self {
                 left: (0..num_types).collect(),
                 right: p_underlying,
                 middle: types.to_vec(),
                 is_left_id: true,
                 is_right_id: false,
-            }
+            })
         } else {
-            Self {
+            Ok(Self {
                 left: p_underlying,
                 right: (0..num_types).collect(),
                 middle: types.to_vec(),
                 is_left_id: false,
                 is_right_id: true,
-            }
+            })
         }
     }
 }
@@ -668,12 +668,12 @@ mod test {
             Permutation::rotation_left(3, 1),
             &[Color::Red, Color::Green, Color::Blue],
             type_names_on_source,
-        );
+        ).unwrap();
         let cospan_2 = Cospan::<Color>::from_permutation(
             Permutation::rotation_left(3, 2),
             &[Color::Blue, Color::Red, Color::Green],
             type_names_on_source,
-        );
+        ).unwrap();
         let mid_interface_1 = cospan.codomain();
         let mid_interface_2 = cospan_2.domain();
         let comp = cospan.compose(&cospan_2);
@@ -695,12 +695,12 @@ mod test {
             Permutation::rotation_left(3, 1),
             &[Color::Red, Color::Green, Color::Blue],
             type_names_on_source,
-        );
+        ).unwrap();
         let cospan_2 = Cospan::<Color>::from_permutation(
             Permutation::rotation_left(3, 2),
             &[Color::Green, Color::Blue, Color::Red],
             type_names_on_source,
-        );
+        ).unwrap();
         let mid_interface_1 = cospan.codomain();
         let mid_interface_2 = cospan_2.domain();
         let comp = cospan.compose(&cospan_2);
@@ -921,16 +921,16 @@ mod test {
         let prod = p1.clone() * p2.clone();
         let domain_types = (0..n).map(|idx| idx + 100).collect::<Vec<usize>>();
         let mut types_at_this_stage = domain_types.clone();
-        let cospan_p1 = Cospan::from_permutation(p1.clone(), &domain_types, types_as_on_source);
+        let cospan_p1 = Cospan::from_permutation(p1.clone(), &domain_types, types_as_on_source).unwrap();
         in_place_permute(&mut types_at_this_stage, &p1.inv());
         let cospan_p2 =
-            Cospan::from_permutation(p2.clone(), &types_at_this_stage, types_as_on_source);
+            Cospan::from_permutation(p2.clone(), &types_at_this_stage, types_as_on_source).unwrap();
         in_place_permute(&mut types_at_this_stage, &p2.inv());
         let cospan_prod = cospan_p1.compose(&cospan_p2);
         match cospan_prod {
             Ok(real_res) => {
                 let expected_res =
-                    Cospan::from_permutation(prod, &domain_types, types_as_on_source);
+                    Cospan::from_permutation(prod, &domain_types, types_as_on_source).unwrap();
                 assert_eq!(real_res.left, expected_res.left);
                 assert_eq!(real_res.right, expected_res.right);
                 assert_eq!(real_res.middle, expected_res.middle);
@@ -949,15 +949,15 @@ mod test {
         let mut types_at_this_stage = domain_types.clone();
         in_place_permute(&mut types_at_this_stage, &p1.inv());
         let cospan_p1 =
-            Cospan::from_permutation(p1.clone(), &types_at_this_stage.clone(), types_as_on_source);
+            Cospan::from_permutation(p1.clone(), &types_at_this_stage.clone(), types_as_on_source).unwrap();
         in_place_permute(&mut types_at_this_stage, &p2.inv());
         let cospan_p2 =
-            Cospan::from_permutation(p2.clone(), &types_at_this_stage, types_as_on_source);
+            Cospan::from_permutation(p2.clone(), &types_at_this_stage, types_as_on_source).unwrap();
         let cospan_prod = cospan_p1.compose(&cospan_p2);
         match cospan_prod {
             Ok(real_res) => {
                 let expected_res =
-                    Cospan::from_permutation(prod, &types_at_this_stage, types_as_on_source);
+                    Cospan::from_permutation(prod, &types_at_this_stage, types_as_on_source).unwrap();
                 assert_eq!(real_res.left, expected_res.left);
                 assert_eq!(real_res.right, expected_res.right);
                 assert_eq!(real_res.middle, expected_res.middle);
