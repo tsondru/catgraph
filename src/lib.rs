@@ -6,6 +6,8 @@ pub mod operadic;
 pub mod finset;
 pub mod interval;
 pub mod complexity;
+pub mod computation_state;
+pub mod adjunction;
 pub mod frobenius;
 pub mod cospan;
 pub mod named_cospan;
