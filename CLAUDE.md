@@ -56,6 +56,21 @@ catgraph/                           # Workspace root
 │   ├── utils.rs                    # Permutation utilities, helpers
 │   └── lib.rs                      # Library exports (all modules pub)
 │
+├── examples/                       # Standalone API examples (one per module)
+│   ├── interval.rs                 # DiscreteInterval + ParallelIntervals
+│   ├── complexity.rs               # StepCount + Complexity trait
+│   ├── computation_state.rs        # ComputationState lifecycle
+│   ├── adjunction.rs               # ZPrimeOps + AdjunctionVerification
+│   ├── bifunctor.rs                # TensorProduct + IntervalTransform + verify_*
+│   ├── coherence.rs                # CoherenceVerification + DifferentialCoherence
+│   └── stokes.rs                   # TemporalComplex + ConservationResult
+│
+├── benches/                        # Criterion benchmarks
+│   ├── pushout.rs                  # Cospan::compose at sizes 4–1024
+│   ├── pullback.rs                 # Span::compose at sizes 4–1024
+│   ├── interval.rs                 # DiscreteInterval + ParallelIntervals ops
+│   └── rayon_thresholds.rs         # Rayon threshold validation (4 operations)
+│
 ├── tests/                          # Integration tests (public API only)
 │   ├── common/mod.rs               # Shared test helpers: cospan_eq, span_eq, assert_*_eq
 │   ├── composition_laws.rs         # 17 tests: associativity, identity, empty/large boundaries
@@ -251,7 +266,7 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 
 ### catgraph core dependencies
 
-`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`. Dev-only: `env_logger`, `proptest`.
+`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`. Dev-only: `env_logger`, `proptest`, `criterion`.
 
 ## Testing
 
@@ -261,6 +276,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 cargo test --workspace        # Run all 515 tests (407 catgraph + 108 bridge), 1 ignored
 cargo test                    # Run catgraph-only tests (407: 263 unit + 144 integration)
 cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
+cargo test --examples         # Compile-check all 7 examples
+cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
 ```
@@ -386,7 +403,7 @@ Rust 2024 edition. Common patterns:
 | Area | Notes |
 |------|-------|
 | Petri nets | Natural fit for source/target semantics. Chemical use case tests demonstrate the pattern. |
-| Benchmarks | No criterion/divan benchmarks for pushout/pullback performance |
+| Benchmark tuning | Criterion benchmarks exist; rayon thresholds not yet validated with data |
 | WiringDiagram | 18 unit tests + 14 integration tests. No V2 persistence store yet. |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 

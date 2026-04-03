@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Fr
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-515 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
+515 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -160,6 +160,20 @@ let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
 
 108 integration tests cover V1 roundtrips, V2 CRUD/traversal, provenance, and domain-specific use cases (code graphs, chemical reactions, dataflow pipelines, API orchestration, circuit design).
 
+## Examples
+
+Standalone examples in `examples/` demonstrate each module's pub API:
+
+```bash
+cargo run --example interval            # DiscreteInterval + ParallelIntervals
+cargo run --example complexity          # StepCount + Complexity trait
+cargo run --example computation_state   # ComputationState lifecycle
+cargo run --example adjunction          # ZPrimeOps + AdjunctionVerification
+cargo run --example bifunctor           # TensorProduct + IntervalTransform + verify_*
+cargo run --example coherence           # CoherenceVerification + DifferentialCoherence
+cargo run --example stokes              # TemporalComplex + ConservationResult
+```
+
 ## Testing
 
 ```bash
@@ -199,6 +213,25 @@ The library uses rayon for parallel computation with adaptive thresholds:
 
 All parallelism is rayon-based (CPU-bound). For tokio integration, use **tokio-rayon** (not `spawn_blocking`).
 
+## Benchmarks
+
+Criterion benchmarks in `benches/` cover core operations and rayon threshold validation:
+
+```bash
+cargo bench                              # run all benchmarks
+cargo bench --bench pushout              # cospan pushout composition (sizes 4–1024)
+cargo bench --bench pullback             # span pullback composition (sizes 4–1024)
+cargo bench --bench interval             # interval composition, tensor, direct sum
+cargo bench --bench rayon_thresholds     # validate rayon parallel thresholds
+```
+
+HTML reports are generated in `target/criterion/`. For profiling:
+
+```bash
+cargo install flamegraph
+cargo flamegraph --bench pushout -- --bench "pushout_compose/1024"
+```
+
 ## Dependencies
 
 ### catgraph (core)
@@ -211,7 +244,7 @@ All parallelism is rayon-based (CPU-bound). For tokio integration, use **tokio-r
 - `rayon` — data parallelism with adaptive thresholds
 - `log` — warning messages
 - `thiserror` — structured error types
-- Dev: `env_logger`, `proptest`, `rand`
+- Dev: `env_logger`, `proptest`, `rand`, `criterion`
 
 ### catgraph-surreal (bridge)
 - `surrealdb` 3.0.5 (kv-mem) — embedded SurrealDB
