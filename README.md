@@ -1,10 +1,10 @@
 # catgraph
 
-Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
+Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-452 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
+515 tests (including 8 proptest properties), zero clippy warnings. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -163,8 +163,8 @@ let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
 ## Testing
 
 ```bash
-cargo test --workspace        # 452 tests (344 catgraph + 108 bridge), 1 ignored
-cargo test                    # catgraph-only (344: 200 unit + 144 integration)
+cargo test --workspace        # 515 tests (407 catgraph + 108 bridge), 1 ignored
+cargo test                    # catgraph-only (407: 263 unit + 144 integration)
 cargo test -p catgraph-surreal # bridge crate (108: 10 unit + 98 integration)
 cargo clippy                  # zero warnings
 ```

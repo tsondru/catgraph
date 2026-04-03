@@ -44,10 +44,17 @@ catgraph/                           # Workspace root
 │   │
 │   ├── finset.rs                   # Finite set morphisms, permutations, epi-mono factorization
 │   │
+│   ├── interval.rs                 # DiscreteInterval, ParallelIntervals (extracted from irreducible)
+│   ├── complexity.rs               # Complexity trait, StepCount (extracted from irreducible)
+│   ├── computation_state.rs        # ComputationState (extracted from irreducible)
+│   ├── adjunction.rs               # ZPrimeOps, AdjunctionVerification, AdjunctionIrreducibility (extracted from irreducible)
+│   ├── bifunctor.rs                # TensorProduct, IntervalTransform, tensor_bimap/first/second (extracted from irreducible)
+│   ├── coherence.rs                # Monoidal coherence verifiers: associator, unitors, braiding (extracted from irreducible)
+│   ├── stokes.rs                   # TemporalComplex, ConservationResult, StokesError (extracted from irreducible)
+│   │
 │   ├── linear_combination.rs       # Linear combinations over rings
 │   ├── utils.rs                    # Permutation utilities, helpers
-│   ├── lib.rs                      # Library exports (all modules pub)
-│   └── main.rs                     # Demo binary (NamedCospan exercise)
+│   └── lib.rs                      # Library exports (all modules pub)
 │
 ├── tests/                          # Integration tests (public API only)
 │   ├── common/mod.rs               # Shared test helpers: cospan_eq, span_eq, assert_*_eq
@@ -251,8 +258,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 452 tests (344 catgraph + 108 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (344: 200 unit + 144 integration)
+cargo test --workspace        # Run all 515 tests (407 catgraph + 108 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (407: 263 unit + 144 integration)
 cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -319,6 +326,13 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `wiring_diagram.rs` | Operadic substitution built on `NamedCospan` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |
+| `interval.rs` | `DiscreteInterval` (composition, intersection, containment), `ParallelIntervals` (tensor, direct sum) |
+| `complexity.rs` | `Complexity` trait, `StepCount` (sequential composition) |
+| `computation_state.rs` | `ComputationState` (step, complexity, to_interval mapping) |
+| `adjunction.rs` | `ZPrimeOps` trait, `AdjunctionVerification` (triangle identities), `AdjunctionIrreducibility` |
+| `bifunctor.rs` | `TensorProduct` trait, `IntervalTransform`, verify_associativity/unit_laws/symmetry |
+| `coherence.rs` | `CoherenceVerification`, `DifferentialCoherence`, verify_associator/unitor/braiding coherence |
+| `stokes.rs` | `TemporalComplex` (simplicial complex), `ConservationResult`, `StokesError` |
 
 ## Parallelization
 
