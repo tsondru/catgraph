@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::finset::{TryFromFinSetError, TryFromInjError, TryFromSurjError};
+
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CatgraphError {
     #[error("composition error: interface size mismatch (expected {expected}, got {actual})")]
@@ -23,4 +25,25 @@ pub enum CatgraphError {
 
     #[error("relation error: {message}")]
     Relation { message: String },
+
+    #[error("finite set error: {message}")]
+    FinSet { message: String },
+}
+
+impl From<TryFromSurjError> for CatgraphError {
+    fn from(e: TryFromSurjError) -> Self {
+        Self::FinSet { message: e.to_string() }
+    }
+}
+
+impl From<TryFromInjError> for CatgraphError {
+    fn from(e: TryFromInjError) -> Self {
+        Self::FinSet { message: e.to_string() }
+    }
+}
+
+impl From<TryFromFinSetError> for CatgraphError {
+    fn from(e: TryFromFinSetError) -> Self {
+        Self::FinSet { message: e.to_string() }
+    }
 }

@@ -352,3 +352,178 @@ fn e2_change_names_then_substitute() {
     assert!(!final_names.contains(&"disk_1"), "substituted disk should be gone");
     assert_eq!(final_circles.len(), 2);
 }
+
+// --- E1 secondary method integration tests ---
+
+#[test]
+fn e1_random_produces_valid_config() {
+    let mut rng = rand::rng();
+
+    for arity in 1..=10 {
+        let e1 = E1::random(arity, &mut rng);
+        let intervals = e1.extract_sub_intervals();
+
+        assert_eq!(intervals.len(), arity, "arity {arity}: interval count should match");
+
+        for (i, &(a, b)) in intervals.iter().enumerate() {
+            assert!(a >= 0.0, "arity {arity}, interval {i}: start {a} should be >= 0");
+            assert!(b <= 1.0, "arity {arity}, interval {i}: end {b} should be <= 1");
+            assert!(a < b, "arity {arity}, interval {i}: ({a}, {b}) should have positive width");
+        }
+
+        // Intervals should be sorted (canonicalized by extract_sub_intervals)
+        for i in 1..intervals.len() {
+            assert!(
+                intervals[i].0 >= intervals[i - 1].1,
+                "arity {arity}: intervals should be non-overlapping and sorted, \
+                 but interval {} ends at {} while interval {} starts at {}",
+                i - 1, intervals[i - 1].1, i, intervals[i].0,
+            );
+        }
+
+        // The result should be reconstructible with overlap checking enabled
+        let reconstructed = E1::new(intervals, true);
+        assert!(
+            reconstructed.is_ok(),
+            "arity {arity}: random config should pass overlap check: {reconstructed:?}"
+        );
+    }
+}
+
+#[test]
+fn e1_random_zero_arity() {
+    let mut rng = rand::rng();
+    let e1 = E1::random(0, &mut rng);
+    let intervals = e1.extract_sub_intervals();
+    assert!(intervals.is_empty(), "arity 0 should produce no intervals");
+}
+
+#[test]
+fn e1_go_to_monoid_reduces_to_single() {
+    // A 3-interval config mapped through a monoid (f64 multiplication).
+    // Each interval (a, b) maps to its width (b - a), then we multiply them all.
+    let mut e1 = E1::new(vec![(0.0, 0.2), (0.3, 0.6), (0.8, 1.0)], true).unwrap();
+
+    let product: f64 = e1.go_to_monoid(|(a, b)| f64::from(b - a));
+
+    let expected = f64::from(0.2) * f64::from(0.3) * f64::from(0.2);
+    assert!(
+        (product - expected).abs() < 1e-6,
+        "Expected product ~{expected}, got {product}"
+    );
+}
+
+#[test]
+fn e1_go_to_monoid_single_interval() {
+    // Single interval: monoid result should equal the single mapped value.
+    let mut e1 = E1::new(vec![(0.1, 0.9)], true).unwrap();
+    let result: f64 = e1.go_to_monoid(|(a, b)| f64::from(b - a));
+
+    let expected = f64::from(0.8);
+    assert!(
+        (result - expected).abs() < 1e-6,
+        "Single interval monoid should be ~{expected}, got {result}"
+    );
+}
+
+#[test]
+fn e1_go_to_monoid_identity_element() {
+    // Empty config (arity 0): go_to_monoid should return M::one().
+    let mut e1 = E1::new(vec![], true).unwrap();
+    let result: f64 = e1.go_to_monoid(|(_a, _b)| 42.0);
+    assert!(
+        (result - 1.0).abs() < 1e-12,
+        "Empty config should return monoid identity (1.0), got {result}"
+    );
+}
+
+#[test]
+fn e1_coalesce_boxes_merges_adjacent() {
+    // Three intervals; coalesce the first two into one covering interval.
+    let mut e1 = E1::new(vec![(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)], true).unwrap();
+
+    // Coalescing interval (0.0, 0.55) contains the first two intervals
+    // and is disjoint from (0.7, 0.9).
+    let result = e1.coalesce_boxes((0.0, 0.55));
+    assert!(result.is_ok(), "Coalesce should succeed: {result:?}");
+
+    let intervals = e1.extract_sub_intervals();
+    assert_eq!(intervals.len(), 2, "Should have 2 intervals after coalesce");
+    assert!(
+        intervals.contains(&(0.0, 0.55)),
+        "Coalesced interval should be present"
+    );
+    assert!(
+        intervals.contains(&(0.7, 0.9)),
+        "Disjoint interval should remain"
+    );
+}
+
+#[test]
+fn e1_coalesce_boxes_error_partial_overlap() {
+    // Coalescing interval partially overlaps an existing sub-interval.
+    let e1 = E1::new(vec![(0.0, 0.5), (0.6, 0.9)], true).unwrap();
+
+    // (0.3, 0.7) partially overlaps both intervals — neither fully contains
+    // nor is disjoint from either one.
+    let result = e1.can_coalesce_boxes((0.3, 0.7));
+    assert!(result.is_err(), "Partial overlap should fail");
+    assert!(
+        result.unwrap_err().contains("contained within or disjoint"),
+        "Error should mention containment/disjoint requirement"
+    );
+}
+
+#[test]
+fn e1_coalesce_boxes_error_invalid_interval() {
+    let e1 = E1::new(vec![(0.1, 0.5)], true).unwrap();
+
+    // Zero-width interval
+    let result = e1.can_coalesce_boxes((0.3, 0.3));
+    assert!(result.is_err(), "Zero-width coalescing interval should fail");
+
+    // Inverted interval
+    let result = e1.can_coalesce_boxes((0.5, 0.2));
+    assert!(result.is_err(), "Inverted coalescing interval should fail");
+
+    // Interval extending past 1.0
+    let result = e1.can_coalesce_boxes((0.8, 1.5));
+    assert!(result.is_err(), "Coalescing interval past 1.0 should fail");
+}
+
+#[test]
+fn e1_min_closeness_measures_gap() {
+    // Three intervals with known gaps: gap between 1st-2nd = 0.1, gap between 2nd-3rd = 0.2
+    let e1 = E1::new(vec![(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)], true).unwrap();
+    let mc = e1.min_closeness();
+    assert!(mc.is_some());
+    assert!(
+        (mc.unwrap() - 0.1).abs() < 0.001,
+        "Expected min_closeness ~0.1, got {}",
+        mc.unwrap()
+    );
+}
+
+#[test]
+fn e1_min_closeness_touching_intervals() {
+    // Two intervals that touch: gap = 0.0
+    let e1 = E1::new(vec![(0.0, 0.5), (0.5, 1.0)], true).unwrap();
+    let mc = e1.min_closeness();
+    assert!(mc.is_some());
+    assert!(
+        mc.unwrap().abs() < 0.001,
+        "Touching intervals should have min_closeness ~0.0, got {}",
+        mc.unwrap()
+    );
+}
+
+#[test]
+fn e1_min_closeness_single_and_empty() {
+    // Arity 1: no pairs to compare
+    let e1 = E1::new(vec![(0.0, 1.0)], true).unwrap();
+    assert_eq!(e1.min_closeness(), None, "Single interval should return None");
+
+    // Arity 0: also no pairs
+    let e1_empty = E1::new(vec![], true).unwrap();
+    assert_eq!(e1_empty.min_closeness(), None, "Empty config should return None");
+}
