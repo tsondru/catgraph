@@ -28,3 +28,20 @@ thiserror = "2"
 [dev-dependencies]
 env_logger = "^0.11.10"
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "pushout"
+harness = false
+
+[[bench]]
+name = "pullback"
+harness = false
+
+[[bench]]
+name = "interval"
+harness = false
+
+[[bench]]
+name = "rayon_thresholds"
+harness = false
