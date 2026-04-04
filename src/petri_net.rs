@@ -97,6 +97,55 @@ where
     pub fn transition_count(&self) -> usize {
         self.transitions.len()
     }
+
+    /// Returns indices of transitions enabled under the given marking.
+    pub fn enabled(&self, marking: &Marking) -> Vec<usize> {
+        self.transitions
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.pre.iter().all(|(p, w)| marking.get(*p) >= *w))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// Fire a transition, returning the new marking. Pure.
+    /// Fails if out of bounds or not enabled.
+    pub fn fire(
+        &self,
+        transition: usize,
+        marking: &Marking,
+    ) -> Result<Marking, CatgraphError> {
+        if transition >= self.transitions.len() {
+            return Err(CatgraphError::PetriNet {
+                message: format!(
+                    "transition {} out of bounds (net has {} transitions)",
+                    transition,
+                    self.transitions.len()
+                ),
+            });
+        }
+        let t = &self.transitions[transition];
+        for (p, w) in &t.pre {
+            if marking.get(*p) < *w {
+                return Err(CatgraphError::PetriNet {
+                    message: format!(
+                        "transition {} not enabled under current marking",
+                        transition
+                    ),
+                });
+            }
+        }
+        let mut result = marking.clone();
+        for (p, w) in &t.pre {
+            let c = result.get(*p) - w;
+            result.set(*p, c);
+        }
+        for (p, w) in &t.post {
+            let c = result.get(*p) + w;
+            result.set(*p, c);
+        }
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -144,5 +193,67 @@ mod test {
         let t = Transition::new(vec![(0, 1), (1, 2)], vec![(2, 3)]);
         assert_eq!(t.pre(), &[(0, 1), (1, 2)]);
         assert_eq!(t.post(), &[(2, 3)]);
+    }
+
+    // Helper: 2H2 + O2 -> 2H2O
+    fn combustion_net() -> PetriNet<char> {
+        PetriNet::new(
+            vec!['H', 'O', 'W'],
+            vec![Transition::new(vec![(0, 2), (1, 1)], vec![(2, 2)])],
+        )
+    }
+
+    #[test]
+    fn enabled_sufficient_tokens() {
+        let net = combustion_net();
+        let m = Marking::from_vec(vec![(0, 4), (1, 2)]);
+        assert_eq!(net.enabled(&m), vec![0]);
+    }
+
+    #[test]
+    fn enabled_insufficient_tokens() {
+        let net = combustion_net();
+        let m = Marking::from_vec(vec![(0, 1), (1, 2)]);
+        assert!(net.enabled(&m).is_empty());
+    }
+
+    #[test]
+    fn fire_success() {
+        let net = combustion_net();
+        let m = Marking::from_vec(vec![(0, 2), (1, 1)]);
+        let result = net.fire(0, &m).unwrap();
+        assert_eq!(result.get(0), 0);
+        assert_eq!(result.get(1), 0);
+        assert_eq!(result.get(2), 2);
+    }
+
+    #[test]
+    fn fire_not_enabled() {
+        let net = combustion_net();
+        let m = Marking::from_vec(vec![(0, 1)]);
+        assert!(matches!(
+            net.fire(0, &m).unwrap_err(),
+            CatgraphError::PetriNet { .. }
+        ));
+    }
+
+    #[test]
+    fn fire_out_of_bounds() {
+        let net = combustion_net();
+        let m = Marking::new();
+        assert!(matches!(
+            net.fire(5, &m).unwrap_err(),
+            CatgraphError::PetriNet { .. }
+        ));
+    }
+
+    #[test]
+    fn fire_preserves_other_places() {
+        let net = combustion_net();
+        let m = Marking::from_vec(vec![(0, 4), (1, 2), (2, 3)]);
+        let result = net.fire(0, &m).unwrap();
+        assert_eq!(result.get(0), 2);
+        assert_eq!(result.get(1), 1);
+        assert_eq!(result.get(2), 5);
     }
 }
