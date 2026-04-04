@@ -26,6 +26,9 @@ pub enum CatgraphError {
     #[error("relation error: {message}")]
     Relation { message: String },
 
+    #[error("petri net error: {message}")]
+    PetriNet { message: String },
+
     #[error("finite set error: {message}")]
     FinSet { message: String },
 }
