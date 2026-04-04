@@ -294,6 +294,56 @@ where
         }
         Cospan::new(left, right, self.places.clone())
     }
+
+    /// Parallel composition: disjoint union of places and transitions.
+    pub fn parallel(&self, other: &Self) -> Self {
+        let offset = self.places.len();
+        let mut places = self.places.clone();
+        places.extend_from_slice(&other.places);
+        let mut transitions = self.transitions.clone();
+        for t in &other.transitions {
+            let pre: Vec<(usize, u64)> = t.pre.iter().map(|(p, w)| (p + offset, *w)).collect();
+            let post: Vec<(usize, u64)> = t.post.iter().map(|(p, w)| (p + offset, *w)).collect();
+            transitions.push(Transition::new(pre, post));
+        }
+        Self::new(places, transitions)
+    }
+
+    /// Sequential composition: merge sink places of self with source places of other by Lambda match.
+    pub fn sequential(&self, other: &Self) -> Result<Self, CatgraphError> {
+        let self_sinks = self.sink_places();
+        let other_sources = other.source_places();
+        let mut merge_map: HashMap<usize, usize> = HashMap::new();
+        let mut used_sinks: HashSet<usize> = HashSet::new();
+        for &os in &other_sources {
+            for &ss in &self_sinks {
+                if !used_sinks.contains(&ss) && self.places[ss] == other.places[os] {
+                    merge_map.insert(os, ss);
+                    used_sinks.insert(ss);
+                    break;
+                }
+            }
+        }
+        let mut places = self.places.clone();
+        let mut other_index_map: Vec<usize> = Vec::with_capacity(other.places.len());
+        for (i, &lambda) in other.places.iter().enumerate() {
+            if let Some(&merged_idx) = merge_map.get(&i) {
+                other_index_map.push(merged_idx);
+            } else {
+                other_index_map.push(places.len());
+                places.push(lambda);
+            }
+        }
+        let mut transitions = self.transitions.clone();
+        for t in &other.transitions {
+            let pre: Vec<(usize, u64)> =
+                t.pre.iter().map(|(p, w)| (other_index_map[*p], *w)).collect();
+            let post: Vec<(usize, u64)> =
+                t.post.iter().map(|(p, w)| (other_index_map[*p], *w)).collect();
+            transitions.push(Transition::new(pre, post));
+        }
+        Ok(Self::new(places, transitions))
+    }
 }
 
 #[cfg(test)]
@@ -510,5 +560,51 @@ mod test {
         assert_eq!(roundtrip.arc_weight_pre(0, 0), net.arc_weight_pre(0, 0));
         assert_eq!(roundtrip.arc_weight_pre(1, 0), net.arc_weight_pre(1, 0));
         assert_eq!(roundtrip.arc_weight_post(2, 0), net.arc_weight_post(2, 0));
+    }
+
+    #[test]
+    fn parallel_composition() {
+        let a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'b'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let b: PetriNet<char> = PetriNet::new(
+            vec!['c', 'd'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let combined = a.parallel(&b);
+        assert_eq!(combined.place_count(), 4);
+        assert_eq!(combined.transition_count(), 2);
+        assert_eq!(combined.arc_weight_pre(2, 1), 1);
+        assert_eq!(combined.arc_weight_post(3, 1), 1);
+    }
+
+    #[test]
+    fn sequential_composition() {
+        let a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'b'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let b: PetriNet<char> = PetriNet::new(
+            vec!['b', 'c'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let composed = a.sequential(&b).unwrap();
+        assert_eq!(composed.place_count(), 3);
+        assert_eq!(composed.transition_count(), 2);
+    }
+
+    #[test]
+    fn sequential_no_matching_boundary() {
+        let a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'b'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let b: PetriNet<char> = PetriNet::new(
+            vec!['x', 'y'],
+            vec![Transition::new(vec![(0, 1)], vec![(1, 1)])],
+        );
+        let composed = a.sequential(&b).unwrap();
+        assert_eq!(composed.place_count(), 4);
     }
 }
