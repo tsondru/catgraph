@@ -1,10 +1,10 @@
 # catgraph
 
-Category-theoretic graph structures in Rust: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
+Category-theoretic graph structures in Rust: cospans, spans, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-515 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+600 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -125,6 +125,25 @@ An operad built on `NamedCospan` implementing the [wiring diagram operad](https:
 
 ![Wiring Diagram from Spivak 13](./assets/wiring.png)
 
+### Petri Nets
+
+Place/transition Petri nets built on cospan semantics. Places are Lambda-typed, transitions have weighted pre/post arcs, firing is pure.
+
+```rust
+use catgraph::petri_net::{PetriNet, Transition, Marking};
+
+// 2H2 + O2 -> 2H2O
+let net: PetriNet<&str> = PetriNet::new(
+    vec!["H2", "O2", "H2O"],
+    vec![Transition::new(vec![(0, 2), (1, 1)], vec![(2, 2)])],
+);
+let m0 = Marking::from_vec(vec![(0, 4), (1, 2)]);
+let m1 = net.fire(0, &m0).unwrap();     // 2H2 consumed, 2H2O produced
+let reachable = net.reachable(&m0, 10);  // BFS over marking graph
+```
+
+Supports parallel composition (disjoint union), sequential composition (merge boundary places by Lambda match), and bidirectional cospan bridge (`from_cospan`, `transition_as_cospan`).
+
 ### Finite Sets
 
 `finset.rs` provides morphisms between finite sets:
@@ -165,11 +184,23 @@ let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
 Standalone examples in `examples/` demonstrate each module's pub API:
 
 ```bash
+cargo run --example cospan              # Cospan construction, composition, monoidal
+cargo run --example span                # Span, Rel algebra
+cargo run --example named_cospan        # Port-labeled cospans
+cargo run --example monoidal            # Tensor product, braiding
+cargo run --example finset              # Permutations, epi-mono factorization
+cargo run --example frobenius           # String diagrams, MorphismSystem DAG
+cargo run --example petri_net           # Petri net firing, reachability, composition
+cargo run --example e1_operad           # Little intervals operad
+cargo run --example e2_operad           # Little disks operad
+cargo run --example wiring_diagram      # Wiring diagram operad
+cargo run --example temperley_lieb      # TL/Brauer generators
+cargo run --example linear_combination  # Linear combinations over morphisms
 cargo run --example interval            # DiscreteInterval + ParallelIntervals
 cargo run --example complexity          # StepCount + Complexity trait
 cargo run --example computation_state   # ComputationState lifecycle
 cargo run --example adjunction          # ZPrimeOps + AdjunctionVerification
-cargo run --example bifunctor           # TensorProduct + IntervalTransform + verify_*
+cargo run --example bifunctor           # TensorProduct + IntervalTransform
 cargo run --example coherence           # CoherenceVerification + DifferentialCoherence
 cargo run --example stokes              # TemporalComplex + ConservationResult
 ```
@@ -177,8 +208,8 @@ cargo run --example stokes              # TemporalComplex + ConservationResult
 ## Testing
 
 ```bash
-cargo test --workspace        # 515 tests (407 catgraph + 108 bridge), 1 ignored
-cargo test                    # catgraph-only (407: 263 unit + 144 integration)
+cargo test --workspace        # 600 tests (492 catgraph + 108 bridge), 1 ignored
+cargo test                    # catgraph-only (492: 290 unit + 202 integration)
 cargo test -p catgraph-surreal # bridge crate (108: 10 unit + 98 integration)
 cargo clippy                  # zero warnings
 ```
@@ -199,6 +230,7 @@ Integration test suites:
 | `property_laws` | 8 | Proptest: identity, associativity, dagger involution, monoidal |
 | `wiring_diagram` | 14 | Operadic substitution, boundary mutations, map, sequential composition |
 | `mutation_workflows` | 20 | Cospan/Span add/delete/connect/map then compose, identity flags |
+| `petri_net` | 8 | Chemical reactions, reachability, composition, cospan roundtrip |
 
 ## Parallelization
 
@@ -269,6 +301,7 @@ use catgraph::frobenius::MorphismSystem;
 use catgraph::temperley_lieb::BrauerMorphism;
 use catgraph::e1_operad::E1;
 use catgraph::e2_operad::E2;
+use catgraph::petri_net::{PetriNet, Transition, Marking};
 use catgraph::errors::CatgraphError;
 use catgraph::category::{Composable, HasIdentity};
 use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
