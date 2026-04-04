@@ -1,3 +1,8 @@
+//! E1 (little intervals) operad: configurations of disjoint subintervals of \[0, 1\].
+//!
+//! Supports operadic substitution, coalescence, monoid homomorphism, and
+//! minimum closeness between adjacent intervals.
+
 use std::ops::MulAssign;
 
 use itertools::Itertools;
@@ -14,6 +19,7 @@ use crate::{
 type IntervalCoord = f32;
 type CoalesceError = String;
 
+/// An n-ary operation in the E1 operad: a configuration of `n` disjoint subintervals of \[0, 1\].
 #[derive(Debug)]
 pub struct E1 {
     arity: usize,
@@ -21,10 +27,10 @@ pub struct E1 {
 }
 
 impl E1 {
+    /// Create an n-ary E1 configuration from subintervals of \[0, 1\].
+    ///
+    /// When `overlap_check` is true, validates disjointness and sorts by left endpoint.
     pub fn new(sub_intervals: Vec<(IntervalCoord, IntervalCoord)>, overlap_check: bool) -> Result<Self, CatgraphError> {
-        /*
-        new n-ary operation in E1 operad where n is the length of input
-        */
         for (a, b) in &sub_intervals {
             if *a >= *b - F32_EPSILON {
                 return Err(CatgraphError::Operadic {
@@ -64,6 +70,7 @@ impl E1 {
         }
     }
 
+    /// Generate a random E1 configuration with the given arity.
     pub fn random(cur_arity: usize, rng: &mut ThreadRng) -> Self {
         let mut sub_ints: Vec<IntervalCoord> = (0..2 * cur_arity)
             .map(|_| rng.random_range(0.0..1.0))
@@ -81,6 +88,7 @@ impl E1 {
             .sort_by(|i1, i2| i1.0.partial_cmp(&i2.0).unwrap());
     }
 
+    /// Apply a monoid homomorphism: map each interval through `interval_fn` and multiply in order.
     pub fn go_to_monoid<M: One + MulAssign>(
         &mut self,
         interval_fn: impl Fn((IntervalCoord, IntervalCoord)) -> M,
@@ -93,6 +101,7 @@ impl E1 {
         acc
     }
 
+    /// Merge all subintervals contained within `all_in_this_interval` into a single interval.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
@@ -105,6 +114,7 @@ impl E1 {
         Ok(())
     }
 
+    /// Check whether coalescence is valid: each subinterval must be fully contained or disjoint.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
@@ -127,6 +137,7 @@ impl E1 {
         Ok(())
     }
 
+    /// Minimum gap between consecutive intervals. Returns `None` for arity < 2.
     pub fn min_closeness(&self) -> Option<IntervalCoord> {
         if self.arity < 2 {
             return None;
@@ -149,6 +160,7 @@ impl E1 {
         Some(min_closeness)
     }
 
+    /// Consume self and return the subintervals in canonical (sorted) order.
     pub fn extract_sub_intervals(mut self) -> Vec<(IntervalCoord, IntervalCoord)> {
         self.canonicalize();
         self.sub_intervals

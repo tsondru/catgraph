@@ -1,3 +1,8 @@
+//! Formal linear combinations over a coefficient ring.
+//!
+//! `LinearCombination<Coeffs, Target>` represents an element of the free module R\[T\],
+//! supporting addition, scalar multiplication, and convolution (when `Target` has `Mul`).
+
 use {
     num::{One, Zero},
     rayon::prelude::*,
@@ -13,9 +18,7 @@ use {
 /// Below this, sequential iteration is faster due to rayon overhead.
 const PARALLEL_MUL_THRESHOLD: usize = 32;
 
-/*
-a formal linear combination of terms from Target with coefficients drawn from Coeffs
-*/
+/// A formal linear combination: a map from basis elements to coefficients.
 #[repr(transparent)]
 #[derive(PartialEq, Eq, Debug, Default, Clone)]
 pub struct LinearCombination<Coeffs, Target: Eq + Hash>(HashMap<Target, Coeffs>);
@@ -32,9 +35,6 @@ impl<Coeffs, Target: Eq + Hash> Add for LinearCombination<Coeffs, Target>
 where
     Coeffs: Copy + AddAssign,
 {
-    /*
-    add two formal sums
-    */
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -53,9 +53,6 @@ impl<Coeffs, Target: Eq + Hash> AddAssign for LinearCombination<Coeffs, Target>
 where
     Coeffs: Copy + AddAssign,
 {
-    /*
-    add two formal sums
-    */
     fn add_assign(&mut self, rhs: Self) {
         for (k, v) in rhs.0 {
             self.0
@@ -70,9 +67,6 @@ impl<Coeffs, Target: Eq + Hash> Sub for LinearCombination<Coeffs, Target>
 where
     Coeffs: Copy + SubAssign + Neg<Output = Coeffs>,
 {
-    /*
-    subtract two formal sums
-    */
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -91,9 +85,6 @@ impl<Coeffs, Target: Eq + Hash> Neg for LinearCombination<Coeffs, Target>
 where
     Coeffs: Copy + Neg<Output = Coeffs>,
 {
-    /*
-    negate a formal sum
-    */
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -109,9 +100,6 @@ impl<Coeffs, Target: Eq + Hash> Mul<Coeffs> for LinearCombination<Coeffs, Target
 where
     Coeffs: Copy + MulAssign,
 {
-    /*
-    multiply a formal sum by a coefficient
-    */
     type Output = Self;
 
     fn mul(self, rhs: Coeffs) -> Self {
@@ -128,9 +116,6 @@ where
     Coeffs: Copy + AddAssign + Mul<Output = Coeffs> + MulAssign + One + Send + Sync,
     Target: Mul<Output = Target> + Send + Sync,
 {
-    /*
-    multiply two formal sums provided the target has a multiplication operation
-    */
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -201,9 +186,6 @@ impl<Coeffs, Target: Eq + Hash> MulAssign<Coeffs> for LinearCombination<Coeffs, 
 where
     Coeffs: Copy + MulAssign,
 {
-    /*
-    multiply a formal sum by a coefficient
-    */
     fn mul_assign(&mut self, rhs: Coeffs) {
         for val in self.0.values_mut() {
             *val *= rhs;
@@ -213,6 +195,8 @@ where
 
 #[allow(clippy::needless_pass_by_value)]
 impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
+    /// Generalized convolution: combine two linear combinations over different
+    /// basis types using the given combiner function as the "multiplication".
     pub fn linear_combine<U, V, F>(
         &self,
         rhs: LinearCombination<Coeffs, U>,
@@ -225,11 +209,6 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
         V: Eq + Hash + Send,
         F: Fn(Target, U) -> V + Sync,
     {
-        /*
-        given a linear combination of T's and a linear combination of U's
-        and an operation that acts like multiplication of T and U to produce V
-        perform the multiplication
-        */
         if self.0.len() >= PARALLEL_MUL_THRESHOLD && rhs.0.len() >= PARALLEL_MUL_THRESHOLD {
             // Parallel path
             let self_vec: Vec<_> = self.0.iter().collect();
@@ -261,29 +240,22 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
         }
     }
 
+    /// Apply a ring endomorphism to every coefficient.
     pub fn change_coeffs<F>(&mut self, coeff_changer: F)
     where
         Coeffs: Copy,
         F: Fn(Coeffs) -> Coeffs,
     {
-        /*
-        change all the coefficients by a function
-        should be by some endomorphism of a coefficient ring
-        so that this is the induced on endomorphism on R[Target]
-        */
         for val in self.0.values_mut() {
             *val = coeff_changer(*val);
         }
     }
 
+    /// True if every basis element satisfies the predicate (ignoring coefficients).
     pub fn all_terms_satisfy<F>(&self, term_predicate: F) -> bool
     where
         F: Fn(&Target) -> bool,
     {
-        /*
-        do all the terms without their coefficients
-        satisfy some predicate
-        */
         self.0.keys().all(term_predicate)
     }
 }
@@ -292,24 +264,23 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target>
 where
     Coeffs: One,
 {
+    /// A single basis element with coefficient one.
     pub fn singleton(t: Target) -> Self {
-        /*
-        a single term with coefficient 1
-        */
         Self([(t, <_>::one())].into())
     }
 }
 
 impl<Coeffs: Zero, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
+    /// Remove all terms with zero coefficient.
     pub fn simplify(&mut self) {
-        /*
-        get rid of all the terms that have 0 coefficient
-        */
         self.0.retain(|_, v| !v.is_zero());
     }
 }
 
 impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
+    /// Extend an injective map T1 -> T2 to a linear map R\[T1\] -> R\[T2\].
+    ///
+    /// Panics if the function is not actually injective.
     pub fn inj_linearly_extend<Target2: Eq + Hash, F>(
         &self,
         injection: F,
@@ -318,10 +289,6 @@ impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
         F: Fn(Target) -> Target2,
         Coeffs: Copy,
     {
-        /*
-        do an injective map T1->T2 to induce a map
-        R[T1] -> R[T2]
-        */
         let mut new_map = HashMap::with_capacity(self.0.len());
         for (k, v) in &self.0 {
             let new_key = injection(k.clone());
@@ -335,15 +302,13 @@ impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
         LinearCombination(new_map)
     }
 
+    /// Extend a (possibly non-injective) map T1 -> T2 to a linear map R\[T1\] -> R\[T2\],
+    /// summing coefficients when distinct keys collide.
     pub fn linearly_extend<Target2: Eq + Hash, F>(&self, f: F) -> LinearCombination<Coeffs, Target2>
     where
         F: Fn(Target) -> Target2,
         Coeffs: Copy + Add<Output = Coeffs>,
     {
-        /*
-        do a map T1->T2 (but this time not necessarily injective) to induce a map
-        R[T1] -> R[T2]
-        */
         let mut new_map = HashMap::with_capacity(self.0.len());
         for (k, v) in &self.0 {
             let new_key = f(k.clone());

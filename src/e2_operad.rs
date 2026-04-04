@@ -1,3 +1,8 @@
+//! E2 (little disks) operad: configurations of named disjoint disks inside the unit disk.
+//!
+//! Supports operadic substitution, coalescence, minimum closeness, embedding from E1,
+//! and name management for disk labels.
+
 use itertools::Itertools;
 use num::pow;
 use std::collections::HashSet;
@@ -47,6 +52,7 @@ fn disk_overlaps(a: PointCenter, b: Radius, c: PointCenter, d: Radius) -> bool {
     disk_closeness(a, b, c, d) < -F32_EPSILON
 }
 
+/// An n-ary operation in the E2 operad: a configuration of `n` named disjoint disks in the unit disk.
 #[derive(Debug)]
 pub struct E2<Name> {
     arity: usize,
@@ -57,10 +63,10 @@ impl<Name> E2<Name>
 where
     Name: Eq + std::hash::Hash + Clone + std::fmt::Debug,
 {
+    /// Create an n-ary E2 configuration from named disks inside the unit disk.
+    ///
+    /// When `overlap_check` is true, validates pairwise disjointness. Names must be unique.
     pub fn new(sub_circles: Vec<(Name, PointCenter, Radius)>, overlap_check: bool) -> Result<Self, CatgraphError> {
-        /*
-        new n-ary operation in E2 operad where n is the length of input
-        */
         for (_a, b, c) in &sub_circles {
             if !disk_contains((0.0, 0.0), 1.0, *b, Some(*c)) {
                 return Err(CatgraphError::Operadic {
@@ -90,6 +96,7 @@ where
         })
     }
 
+    /// Merge all subdisks contained within the given disk into a single named disk.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_circle: (Name, PointCenter, Radius),
@@ -103,6 +110,7 @@ where
         Ok(())
     }
 
+    /// Check whether coalescence is valid: each subdisk must be fully contained or disjoint.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_disk: (PointCenter, Radius),
@@ -123,6 +131,7 @@ where
         Ok(())
     }
 
+    /// Minimum gap between any pair of subdisks. Returns `None` for arity < 2.
     pub fn min_closeness(&self) -> Option<Radius> {
         if self.arity < 2 {
             return None;
@@ -139,6 +148,7 @@ where
         Some(min_seen)
     }
 
+    /// Embed an E1 configuration into E2 by mapping \[0, 1\] intervals to disks along the x-axis.
     pub fn from_e1_config(e1_config: E1, disk_namer: impl Fn(usize) -> Name) -> Self {
         let sub_intervals = e1_config.extract_sub_intervals();
         // Map E1 interval [a,b] ⊂ [0,1] to E2 disk in unit disk:
@@ -155,6 +165,7 @@ where
         }
     }
 
+    /// Transform all disk names via `name_changer`, producing an `E2<Name2>`.
     pub fn change_names<Name2: Eq + std::hash::Hash + Clone + std::fmt::Debug>(
         self,
         name_changer: impl Fn(Name) -> Name2,
@@ -170,10 +181,12 @@ where
         }
     }
 
+    /// Consume self and return the named subdisks.
     pub fn extract_sub_circles(self) -> Vec<(Name, PointCenter, Radius)> {
         self.sub_circles
     }
 
+    /// Rename a single disk. No-op if the old name is not found. Panics if the new name collides.
     pub fn change_name(&mut self, name_change: (Name, Name)) {
         let idx_change = self.sub_circles.iter().position(|p| p.0 == name_change.0);
         if let Some(real_idx_change) = idx_change {

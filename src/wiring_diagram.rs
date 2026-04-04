@@ -1,3 +1,8 @@
+//! Wiring diagram operad built on named cospans.
+//!
+//! A `WiringDiagram` wraps a `NamedCospan` with inner circles (named sub-boxes) and an
+//! outer circle. Supports operadic substitution: replacing an inner circle with another diagram.
+
 use either::Either::{Left, Right};
 
 use crate::errors::CatgraphError;
@@ -15,6 +20,7 @@ use {
     std::fmt::Debug,
 };
 
+/// Port direction: inward, outward, or undirected.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Dir {
     In,
@@ -23,6 +29,7 @@ pub enum Dir {
 }
 
 impl Dir {
+    /// Reverse the direction (`In` <-> `Out`); `Undirected` is unchanged.
     pub fn flipped(self) -> Self {
         match self {
             Self::In => Self::Out,
@@ -35,17 +42,11 @@ impl Dir {
 type Pair<T> = (T, T);
 type EitherPair<T, U> = Either<Pair<T>, Pair<U>>;
 
-/*
-a wiring diagram with wires labelled using Lambda
-is a cospan between sets A and B
-A describes a set of nodes on internal circles each one being labelled with
-    an Dir for orientation
-    an InterCircle for which of multiple internal circles we are on
-    an IntraCircle to label which node on that circle it is
-B describes a set of nodes on the single external circle
-    an Dir for orientation
-    an IntraCircle to label which node on that circle it is
-*/
+/// A wiring diagram: a cospan whose left boundary nodes sit on named inner circles
+/// and whose right boundary nodes sit on a single outer circle.
+///
+/// Wire labels are typed by `Lambda`. Inner-circle ports are identified by
+/// `(Dir, InterCircle, IntraCircle)`, outer-circle ports by `(Dir, IntraCircle)`.
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct WiringDiagram<
@@ -60,25 +61,22 @@ where
     InterCircle: Eq + Clone,
     IntraCircle: Eq + Clone,
 {
+    /// Wrap a `NamedCospan` as a wiring diagram.
     pub fn new(
         inside: NamedCospan<Lambda, (Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) -> Self {
         Self(inside)
     }
 
+    /// Rename a boundary node. No-op with a warning if the old name is not found.
     pub fn change_boundary_node_name(
         &mut self,
         name_pair: EitherPair<(Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) {
-        /*
-        change a name of a boundary node
-        specific to LeftPortName and RightPortName of WiringDiagram being in the specific format
-            with Dir,InterCircle and IntraCircle
-        gives warning and makes no change when there is no node with the desired name
-        */
         self.0.change_boundary_node_name(name_pair);
     }
 
+    /// Flip `In` <-> `Out` on all ports of the specified side.
     pub fn toggle_orientation(&mut self, of_left_side: bool) {
         let toggler = if of_left_side {
             Left(|z: &mut (Dir, InterCircle, IntraCircle)| {
@@ -92,57 +90,40 @@ where
         self.0.change_boundary_node_names(toggler);
     }
 
+    /// Add a new boundary node connected to a fresh, isolated middle node of the given type.
     pub fn add_boundary_node_unconnected(
         &mut self,
         type_: Lambda,
         new_name: Either<(Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) {
-        /*
-        add a new boundary node that maps to a new middle node of specified label type_
-        name it according to new_name
-        which side depends on whether new_name is Left/Right
-        that new middle node connects to nothing else, so this new node is unconnected to the
-            rest of the diagram
-        */
         let _ = self.0.add_boundary_node_unknown_target(type_, new_name);
     }
 
+    /// Merge the middle nodes behind two boundary nodes (by name).
+    ///
+    /// No-op if either name is missing or the two middle nodes have different labels.
     pub fn connect_pair(
         &mut self,
         node_1: Either<(Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
         node_2: Either<(Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) {
-        /*
-        first find node_1 and node_2 by their names
-        if nodes with those names do not exist, then make no change
-        collapse the middle nodes that node_1 and node_2 connect to (A and B)
-        into a single middle node with the same label as the shared label
-        of A and B
-        if A and B do not have the same label, give a warning and make no change
-        */
         self.0.connect_pair(node_1, node_2);
     }
 
+    /// Delete a boundary node by name. No-op with a warning if not found.
     pub fn delete_boundary_node(
         &mut self,
         which_node: Either<(Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) {
-        /*
-        find a node by it's name
-        if it is not found, there is nothing to delet so give a warning and no change made
-        if it is found, delete that node (see delete_boundary_node in NamedCospan and the CAUTION therein)
-        */
         self.0.delete_boundary_node_by_name(which_node);
     }
 
+    /// Apply `f` to every wire label, producing a new diagram.
     pub fn map<F, Mu>(&self, f: F) -> WiringDiagram<Mu, InterCircle, IntraCircle>
     where
         F: Fn(Lambda) -> Mu,
         Mu: Sized + Eq + Copy + Debug,
     {
-        /*
-        change the labels with the function f
-        */
         WiringDiagram::new(self.0.map(f))
     }
 }
@@ -159,13 +140,6 @@ where
         which_circle: InterCircle,
         mut internal_other: Self,
     ) -> Result<(), CatgraphError> {
-        /*
-        replace the internal circle of self labelled by which_circle (call it C)
-        with the contents of internal_other
-        so that the external circle of internal_other is interpreted as C
-        the new internal circles of self are all the old internal circles except for C
-            and all the internal circles of internal_other
-        */
         let found_nodes: Vec<_> = NamedCospan::find_nodes_by_name_predicate(
             &self.0,
             |z| z.1 == which_circle,
@@ -181,29 +155,12 @@ where
         let mut self_inner_names_unaffected = self.0.left_names().clone();
         remove_multiple(&mut self_inner_names_unaffected, found_nodes);
 
-        /*
-        identity on all the other internal circles
-        the names are orientation reversed for the identity
-        if we draw a line connecting the endpoints on internal and external circles
-        the one on the internal circle pointing into the boundary
-            means the one on the external circle points away from the boundary
-        and vice versa
-        */
         internal_other.0.monoidal(NamedCospan::identity(
             &self_inner_interface_unaffected,
             &self_inner_names_unaffected,
             |left_name| (left_name, (left_name.0.flipped(), left_name.2)),
         ));
 
-        /*
-        permute the codomain of internal so it lines up with the domain of self
-        by name
-        the composition only has a trouble if the types don't match up
-        it ignores the names on the internal junction
-        so if we want to glue by node name, we must permute first
-        the orientations flip so that across the internal junction all lines
-        have consistent orientation upon gluing
-        */
         let p = necessary_permutation(
             internal_other.0.right_names(),
             &self

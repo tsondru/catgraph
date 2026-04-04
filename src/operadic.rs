@@ -1,19 +1,14 @@
+//! Operadic substitution trait for plugging one n-ary operation into a slot of another.
+
 use crate::errors::CatgraphError;
 
+/// An operad element supporting substitution of one operation into an input slot.
 #[allow(clippy::module_name_repetitions)]
 pub trait Operadic<InputLabel> {
-    /*
-    change the n-ary operation self to the one where
-        the argument specified by which_input has been
-        grafted with the m-ary operation other_obj
-    This can fail for reasons as follows
-        none of the n for self
-            are labelled as which_input
-        the types for
-            - the output of other_obj
-            - the which_input of self
-        don't line up
-    */
+    /// Substitute `other_obj` into the input slot identified by `which_input`.
+    ///
+    /// Fails if `which_input` does not match any input of `self`, or if the
+    /// output type of `other_obj` is incompatible with the designated slot.
     fn operadic_substitution(
         &mut self,
         which_input: InputLabel,
