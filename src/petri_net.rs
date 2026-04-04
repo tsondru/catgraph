@@ -3,7 +3,8 @@
 //! Firing is pure (returns new marking). Composition via cospan bridge
 //! connects to catgraph's pushout and monoidal infrastructure.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::{Hash, Hasher};
 use std::fmt::Debug;
 
 use crate::cospan::Cospan;
@@ -62,6 +63,17 @@ impl Marking {
 impl Default for Marking {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Hash for Marking {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries: Vec<_> = self.tokens.iter().collect();
+        entries.sort_by_key(|(k, _)| *k);
+        for (k, v) in entries {
+            k.hash(state);
+            v.hash(state);
+        }
     }
 }
 
@@ -197,6 +209,54 @@ where
                     .any(|t| t.pre.iter().any(|(tp, _)| tp == p))
             })
             .collect()
+    }
+
+    /// All markings reachable from the initial marking within max_depth firing steps (BFS).
+    pub fn reachable(&self, initial: &Marking, max_depth: usize) -> Vec<Marking> {
+        let mut visited: HashSet<Marking> = HashSet::new();
+        let mut queue: VecDeque<(Marking, usize)> = VecDeque::new();
+        visited.insert(initial.clone());
+        queue.push_back((initial.clone(), 0));
+        while let Some((marking, depth)) = queue.pop_front() {
+            if depth >= max_depth {
+                continue;
+            }
+            for t in self.enabled(&marking) {
+                if let Ok(next) = self.fire(t, &marking) {
+                    if visited.insert(next.clone()) {
+                        queue.push_back((next, depth + 1));
+                    }
+                }
+            }
+        }
+        visited.into_iter().collect()
+    }
+
+    /// True if the target marking is reachable from initial within max_depth steps.
+    pub fn can_reach(&self, initial: &Marking, target: &Marking, max_depth: usize) -> bool {
+        if initial == target {
+            return true;
+        }
+        let mut visited: HashSet<Marking> = HashSet::new();
+        let mut queue: VecDeque<(Marking, usize)> = VecDeque::new();
+        visited.insert(initial.clone());
+        queue.push_back((initial.clone(), 0));
+        while let Some((marking, depth)) = queue.pop_front() {
+            if depth >= max_depth {
+                continue;
+            }
+            for t in self.enabled(&marking) {
+                if let Ok(next) = self.fire(t, &marking) {
+                    if &next == target {
+                        return true;
+                    }
+                    if visited.insert(next.clone()) {
+                        queue.push_back((next, depth + 1));
+                    }
+                }
+            }
+        }
+        false
     }
 }
 
@@ -349,5 +409,48 @@ mod test {
         let sinks = net.sink_places();
         assert!(sinks.contains(&2));
         assert!(!sinks.contains(&0));
+    }
+
+    #[test]
+    fn reachable_single_step() {
+        let net = combustion_net();
+        let m0 = Marking::from_vec(vec![(0, 2), (1, 1)]);
+        let reachable = net.reachable(&m0, 1);
+        assert_eq!(reachable.len(), 2);
+        assert!(reachable.contains(&m0));
+        assert!(reachable.contains(&Marking::from_vec(vec![(2, 2)])));
+    }
+
+    #[test]
+    fn reachable_no_enabled() {
+        let net = combustion_net();
+        let m0 = Marking::new();
+        let reachable = net.reachable(&m0, 10);
+        assert_eq!(reachable.len(), 1);
+    }
+
+    #[test]
+    fn can_reach_true() {
+        let net = combustion_net();
+        let m0 = Marking::from_vec(vec![(0, 2), (1, 1)]);
+        let target = Marking::from_vec(vec![(2, 2)]);
+        assert!(net.can_reach(&m0, &target, 5));
+    }
+
+    #[test]
+    fn can_reach_false() {
+        let net = combustion_net();
+        let m0 = Marking::from_vec(vec![(0, 2), (1, 1)]);
+        let target = Marking::from_vec(vec![(2, 99)]);
+        assert!(!net.can_reach(&m0, &target, 10));
+    }
+
+    #[test]
+    fn reachable_multi_step() {
+        let net = combustion_net();
+        let m0 = Marking::from_vec(vec![(0, 4), (1, 2)]);
+        let reachable = net.reachable(&m0, 3);
+        assert_eq!(reachable.len(), 3);
+        assert!(reachable.contains(&Marking::from_vec(vec![(2, 4)])));
     }
 }
