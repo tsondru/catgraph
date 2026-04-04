@@ -258,6 +258,42 @@ where
         }
         false
     }
+
+    /// Construct a single-transition Petri net from a cospan.
+    /// Left leg multiplicities become pre-arc weights, right leg become post-arc weights.
+    pub fn from_cospan(cospan: &Cospan<Lambda>) -> Self {
+        let places = cospan.middle().to_vec();
+        let mut pre_counts: HashMap<usize, u64> = HashMap::new();
+        for &idx in cospan.left_to_middle() {
+            *pre_counts.entry(idx).or_insert(0) += 1;
+        }
+        let mut post_counts: HashMap<usize, u64> = HashMap::new();
+        for &idx in cospan.right_to_middle() {
+            *post_counts.entry(idx).or_insert(0) += 1;
+        }
+        let pre: Vec<(usize, u64)> = pre_counts.into_iter().collect();
+        let post: Vec<(usize, u64)> = post_counts.into_iter().collect();
+        Self::new(places, vec![Transition::new(pre, post)])
+    }
+
+    /// Convert a single transition to its cospan representation.
+    /// Pre-arc weights become left leg multiplicities, post-arc weights become right leg multiplicities.
+    pub fn transition_as_cospan(&self, transition: usize) -> Cospan<Lambda> {
+        let t = &self.transitions[transition];
+        let mut left = Vec::new();
+        for (p, w) in &t.pre {
+            for _ in 0..*w {
+                left.push(*p);
+            }
+        }
+        let mut right = Vec::new();
+        for (p, w) in &t.post {
+            for _ in 0..*w {
+                right.push(*p);
+            }
+        }
+        Cospan::new(left, right, self.places.clone())
+    }
 }
 
 #[cfg(test)]
@@ -452,5 +488,27 @@ mod test {
         let reachable = net.reachable(&m0, 3);
         assert_eq!(reachable.len(), 3);
         assert!(reachable.contains(&Marking::from_vec(vec![(2, 4)])));
+    }
+
+    #[test]
+    fn from_cospan_single_transition() {
+        let cospan: Cospan<char> = Cospan::new(vec![0, 1, 1, 1], vec![2, 2], vec!['N', 'H', 'A']);
+        let net = PetriNet::from_cospan(&cospan);
+        assert_eq!(net.place_count(), 3);
+        assert_eq!(net.transition_count(), 1);
+        assert_eq!(net.arc_weight_pre(0, 0), 1);
+        assert_eq!(net.arc_weight_pre(1, 0), 3);
+        assert_eq!(net.arc_weight_post(2, 0), 2);
+    }
+
+    #[test]
+    fn transition_as_cospan_roundtrip() {
+        let net = combustion_net();
+        let cospan = net.transition_as_cospan(0);
+        let roundtrip = PetriNet::from_cospan(&cospan);
+        assert_eq!(roundtrip.place_count(), net.place_count());
+        assert_eq!(roundtrip.arc_weight_pre(0, 0), net.arc_weight_pre(0, 0));
+        assert_eq!(roundtrip.arc_weight_pre(1, 0), net.arc_weight_pre(1, 0));
+        assert_eq!(roundtrip.arc_weight_post(2, 0), net.arc_weight_post(2, 0));
     }
 }
