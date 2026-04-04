@@ -39,6 +39,8 @@ catgraph/                           # Workspace root
 │   │
 │   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
 │   │
+│   ├── petri_net.rs                # PetriNet, Transition, Marking, firing, reachability, cospan bridge
+│   │
 │   ├── e1_operad.rs                # E1 operad (intervals in [0,1])
 │   ├── e2_operad.rs                # E2 operad (disks in unit disk)
 │   │
@@ -63,7 +65,19 @@ catgraph/                           # Workspace root
 │   ├── adjunction.rs               # ZPrimeOps + AdjunctionVerification
 │   ├── bifunctor.rs                # TensorProduct + IntervalTransform + verify_*
 │   ├── coherence.rs                # CoherenceVerification + DifferentialCoherence
-│   └── stokes.rs                   # TemporalComplex + ConservationResult
+│   ├── stokes.rs                   # TemporalComplex + ConservationResult
+│   ├── cospan.rs                   # Cospan construction, composition, monoidal
+│   ├── span.rs                     # Span, Rel algebra
+│   ├── named_cospan.rs             # Port-labeled cospans
+│   ├── monoidal.rs                 # Tensor product, braiding, GenericMonoidalMorphism
+│   ├── finset.rs                   # Permutations, epi-mono factorization
+│   ├── frobenius.rs                # String diagrams, MorphismSystem DAG
+│   ├── e1_operad.rs                # Little intervals operad
+│   ├── e2_operad.rs                # Little disks operad
+│   ├── wiring_diagram.rs           # Wiring diagram operad
+│   ├── temperley_lieb.rs           # TL/Brauer generators, braid relation
+│   ├── linear_combination.rs       # Linear combinations over morphisms
+│   └── petri_net.rs                # Petri net firing, reachability, composition
 │
 ├── benches/                        # Criterion benchmarks
 │   ├── pushout.rs                  # Cospan::compose at sizes 4–1024
@@ -84,7 +98,8 @@ catgraph/                           # Workspace root
 │   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
 │   ├── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
 │   ├── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
-│   └── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
+│   ├── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
+│   └── petri_net.rs                # 8 tests: chemical reactions, reachability, composition, cospan roundtrip
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
     ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
@@ -273,8 +288,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 515 tests (407 catgraph + 108 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (407: 263 unit + 144 integration)
+cargo test --workspace        # Run all 600 tests (492 catgraph + 108 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (492: 290 unit + 202 integration)
 cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
 cargo test --examples         # Compile-check all 7 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
@@ -341,6 +356,7 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `e2_operad.rs` | Little disks operad: 2D containment, coalescence, `from_e1_config` embedding. Fallible constructor with epsilon tolerance. |
 | `temperley_lieb.rs` | Brauer/Temperley-Lieb algebra generators (`e_i`, `s_i`), dagger, `simplify`, composition via `ExtendedPerfectMatching` |
 | `wiring_diagram.rs` | Operadic substitution built on `NamedCospan` |
+| `petri_net.rs` | `PetriNet`, `Transition`, `Marking`: construction, `enabled`, `fire`, `reachable`, `can_reach`, `from_cospan`, `transition_as_cospan`, `parallel`, `sequential` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |
 | `interval.rs` | `DiscreteInterval` (composition, intersection, containment), `ParallelIntervals` (tensor, direct sum) |
