@@ -146,6 +146,58 @@ where
         }
         Ok(result)
     }
+
+    /// Pre-arc weight for a (place, transition) pair. Zero if no arc.
+    pub fn arc_weight_pre(&self, place: usize, transition: usize) -> u64 {
+        self.transitions
+            .get(transition)
+            .map(|t| {
+                t.pre
+                    .iter()
+                    .filter(|(p, _)| *p == place)
+                    .map(|(_, w)| w)
+                    .sum()
+            })
+            .unwrap_or(0)
+    }
+
+    /// Post-arc weight for a (place, transition) pair. Zero if no arc.
+    pub fn arc_weight_post(&self, place: usize, transition: usize) -> u64 {
+        self.transitions
+            .get(transition)
+            .map(|t| {
+                t.post
+                    .iter()
+                    .filter(|(p, _)| *p == place)
+                    .map(|(_, w)| w)
+                    .sum()
+            })
+            .unwrap_or(0)
+    }
+
+    /// Places with no post-arcs from any transition (no transition produces tokens here).
+    pub fn source_places(&self) -> Vec<usize> {
+        (0..self.places.len())
+            .filter(|p| {
+                !self
+                    .transitions
+                    .iter()
+                    .any(|t| t.post.iter().any(|(tp, _)| tp == p))
+            })
+            .collect()
+    }
+
+    /// Places with no pre-arcs to any transition (no transition consumes tokens from here).
+    pub fn sink_places(&self) -> Vec<usize> {
+        (0..self.places.len())
+            .filter(|p| {
+                !self
+                    .transitions
+                    .iter()
+                    .any(|t| t.pre.iter().any(|(tp, _)| tp == p))
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -255,5 +307,47 @@ mod test {
         assert_eq!(result.get(0), 2);
         assert_eq!(result.get(1), 1);
         assert_eq!(result.get(2), 5);
+    }
+
+    #[test]
+    fn arc_weight_pre_existing() {
+        let net = combustion_net();
+        assert_eq!(net.arc_weight_pre(0, 0), 2);
+        assert_eq!(net.arc_weight_pre(1, 0), 1);
+    }
+
+    #[test]
+    fn arc_weight_pre_missing() {
+        let net = combustion_net();
+        assert_eq!(net.arc_weight_pre(2, 0), 0);
+    }
+
+    #[test]
+    fn arc_weight_post_existing() {
+        let net = combustion_net();
+        assert_eq!(net.arc_weight_post(2, 0), 2);
+    }
+
+    #[test]
+    fn arc_weight_post_missing() {
+        let net = combustion_net();
+        assert_eq!(net.arc_weight_post(0, 0), 0);
+    }
+
+    #[test]
+    fn source_places_combustion() {
+        let net = combustion_net();
+        let sources = net.source_places();
+        assert!(sources.contains(&0));
+        assert!(sources.contains(&1));
+        assert!(!sources.contains(&2));
+    }
+
+    #[test]
+    fn sink_places_combustion() {
+        let net = combustion_net();
+        let sinks = net.sink_places();
+        assert!(sinks.contains(&2));
+        assert!(!sinks.contains(&0));
     }
 }
