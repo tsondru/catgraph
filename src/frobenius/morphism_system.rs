@@ -5,18 +5,23 @@ use {
     std::{collections::HashMap, marker::PhantomData},
 };
 
-// ── Traits and types from frobenius_system ──
-
+/// Trait for types that reference other labels (used for dependency tracking).
 pub trait Contains<BlackBoxLabel> {
     fn contained_labels(&self) -> Vec<BlackBoxLabel>;
 }
 
+/// Trait for morphisms that can be constructed by interpreting a general (possibly black-boxed) description.
 pub trait InterpretableMorphism<GeneralVersion, Lambda, BlackBoxLabel>: Sized {
+    /// Interpret a general morphism description, resolving black boxes via the provided closure.
     fn interpret<F>(r#gen: &GeneralVersion, black_box_interpreter: F) -> Result<Self, CatgraphError>
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>;
 }
 
+/// DAG of named morphisms resolved via topological sort.
+///
+/// Composite definitions may reference other labels; `fill_black_boxes` resolves them
+/// bottom-up into concrete `T` values using `InterpretableMorphism::interpret`.
 pub struct MorphismSystem<BlackBoxLabel, Lambda, GeneralBlackBoxed, T>
 where
     BlackBoxLabel: std::hash::Hash + Eq,
@@ -38,6 +43,7 @@ where
     T: InterpretableMorphism<GeneralBlackBoxed, Lambda, BlackBoxLabel> + Clone,
     GeneralBlackBoxed: Contains<BlackBoxLabel>,
 {
+    /// Create an empty system with the given main entry point label.
     pub fn new(main_name: BlackBoxLabel) -> Self {
         Self {
             composite_pieces: HashMap::new(),
@@ -111,6 +117,7 @@ where
         Ok(())
     }
 
+    /// Change which label is treated as the top-level entry point for resolution.
     pub fn set_main(&mut self, main_name: BlackBoxLabel) {
         self.main = main_name;
     }
@@ -147,6 +154,8 @@ where
         }
     }
 
+    /// Resolve all definitions in topological order, returning the concrete morphism for
+    /// `interpret_target` (or `main` if `None`). Resolved composites are cached as simple pieces.
     pub fn fill_black_boxes(
         &mut self,
         interpret_target: Option<BlackBoxLabel>,

@@ -1,3 +1,7 @@
+//! Span of finite sets (dual of cospan) and the `Rel` relation algebra wrapper.
+//!
+//! Composition is via pullback. Middle pairs map into Lambda-typed domain and codomain sets.
+
 use crate::errors::CatgraphError;
 
 use {
@@ -15,14 +19,18 @@ type LeftIndex = usize;
 type RightIndex = usize;
 type MiddleIndex = usize;
 
+/// A span of finite sets: the middle (apex) set maps into Lambda-typed left (domain) and right (codomain) sets.
 #[derive(Clone)]
 pub struct Span<Lambda>
 where
     Lambda: Sized + Eq + Copy + Debug,
 {
-    middle: Vec<(LeftIndex, RightIndex)>, // the leg maps from the source to the domain and codomain sets
-    left: Vec<Lambda>,                    // the labels on the domain
-    right: Vec<Lambda>,                   // the labels on the codomain
+    /// Pairs `(left_idx, right_idx)` forming the apex-to-boundary leg maps.
+    middle: Vec<(LeftIndex, RightIndex)>,
+    /// Lambda-typed domain set.
+    left: Vec<Lambda>,
+    /// Lambda-typed codomain set.
+    right: Vec<Lambda>,
     is_left_id: bool,
     is_right_id: bool,
 }
@@ -31,6 +39,7 @@ impl<Lambda> Span<Lambda>
 where
     Lambda: Sized + Eq + Copy + Debug,
 {
+    /// Debug-asserts structural invariants: leg indices in bounds, type consistency, identity flags.
     pub fn assert_valid(&self, check_id_strong: bool, check_id_weak: bool) {
         let left_size = self.left.len();
         let left_in_bounds = self.middle.iter().all(|(z, _)| *z < left_size);
@@ -68,6 +77,7 @@ where
         }
     }
 
+    /// Construct a span from domain labels, codomain labels, and middle pairs, computing identity flags.
     pub fn new(
         left: Vec<Lambda>,
         right: Vec<Lambda>,
@@ -114,17 +124,14 @@ where
         self.middle.iter().map(|tup| tup.1).collect()
     }
 
+    /// Add a boundary node with the given label. `Left` adds to domain, `Right` to codomain.
+    ///
+    /// The new node is not yet in the image of any middle pair; the caller should
+    /// add middle entries via [`add_middle`](Self::add_middle) to connect it.
     pub fn add_boundary_node(
         &mut self,
         new_boundary: Either<Lambda, Lambda>,
     ) -> Either<LeftIndex, RightIndex> {
-        /*
-        add a new boundary node with specified label
-        which side depends on whether Left or Right
-        it is not in the image of the leg maps
-        but the index is returned so the caller
-            can put it in the image of the leg maps later
-        */
         match new_boundary {
             Left(z) => {
                 self.left.push(z);
@@ -137,16 +144,13 @@ where
         }
     }
 
+    /// Add a middle pair mapping to the given left and right indices. Returns the new middle index.
+    ///
+    /// Fails if the domain and codomain labels at those indices differ.
     pub fn add_middle(
         &mut self,
         new_middle: (LeftIndex, RightIndex),
     ) -> Result<MiddleIndex, CatgraphError> {
-        /*
-        add a new node at the source
-        the leg maps on this new node send it to the specified indices
-        the labels of these two targets must match up
-        upon success, the index of this new node is returned
-        */
         let type_left = self.left[new_middle.0];
         let type_right = self.right[new_middle.1];
         if type_left != type_right {
@@ -160,14 +164,12 @@ where
         Ok(self.middle.len() - 1)
     }
 
+    /// Apply a function to all boundary labels, producing a new span.
     pub fn map<F, Mu>(&self, f: F) -> Span<Mu>
     where
         F: Fn(Lambda) -> Mu,
         Mu: Sized + Eq + Copy + Debug,
     {
-        /*
-        change the labels with the function f
-        */
         Span::new(
             self.left.iter().map(|l| f(*l)).collect(),
             self.right.iter().map(|l| f(*l)).collect(),
@@ -175,19 +177,14 @@ where
         )
     }
 
+    /// True if the leg maps are jointly injective (no duplicate middle pairs).
+    /// A jointly injective span can be lifted to a [`Rel`].
     pub fn is_jointly_injective(&self) -> bool {
-        /*
-        could this span be interpreted as a Relation instead of just a span
-        if the leg maps are jointly injective, then might as well say the source node
-        is a subset of the domain \times codomain, instead of it's own new set
-        */
         crate::utils::is_unique(&self.middle)
     }
 
+    /// Swap domain and codomain (dagger / adjoint involution).
     pub fn dagger(&self) -> Self {
-        /*
-        flip the domain and codomain
-        */
         Self::new(
             self.codomain(),
             self.domain(),
@@ -320,11 +317,10 @@ where
     }
 }
 
-/*
-wrapper around span for rel
-where the source is now always assumed to be a subset of the product
-by the leg maps being jointly injective
-*/
+/// A relation: a jointly-injective span, i.e. a subset of domain x codomain.
+///
+/// Supports relational algebra: union, intersection, complement, subsumption,
+/// and classification (reflexive, symmetric, transitive, equivalence, partial order).
 #[repr(transparent)]
 pub struct Rel<Lambda: Eq + Sized + Debug + Copy>(Span<Lambda>);
 
@@ -370,10 +366,12 @@ where
 impl<Lambda> MonoidalMorphism<Vec<Lambda>> for Rel<Lambda> where Lambda: Sized + Eq + Copy + Debug {}
 
 impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
+    /// View the underlying span (for bridge crate access).
     pub fn as_span(&self) -> &Span<Lambda> {
         &self.0
     }
 
+    /// Construct a relation from a span, failing if the span is not jointly injective.
     pub fn new(x: Span<Lambda>) -> Result<Self, CatgraphError> {
         if !x.is_jointly_injective() {
             return Err(CatgraphError::Relation {
@@ -383,10 +381,12 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         Ok(Self(x))
     }
 
+    /// Construct a relation without checking joint injectivity. Caller must guarantee the invariant.
     pub fn new_unchecked(x: Span<Lambda>) -> Self {
         Self(x)
     }
 
+    /// True if every pair in `other` also appears in `self`. Fails on domain/codomain mismatch.
     pub fn subsumes(&self, other: &Rel<Lambda>) -> Result<bool, CatgraphError> {
         if self.domain() != other.domain() || self.codomain() != other.codomain() {
             return Err(CatgraphError::Relation {
@@ -409,6 +409,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         Ok(self_pairs.is_superset(&other_pairs))
     }
 
+    /// Set union of two relations. Fails on domain/codomain mismatch.
     pub fn union(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.domain() != other.domain() || self.codomain() != other.codomain() {
             return Err(CatgraphError::Relation {
@@ -427,18 +428,14 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         let mut ret_val = self.0.clone();
         for (x, y) in &other.0.middle {
             if !self_pairs.contains(&(*x, *y)) {
-                /*
-                the reason this would panic is if the labels mismatched
-                but because the labels for the Left(x) and Right(y) nodes
-                matched when other was created, we know they do
-                so the unwrap should never panic
-                */
+                // Labels guaranteed to match since `other` was validated at creation.
                 ret_val.add_middle((*x, *y)).unwrap();
             }
         }
         Ok(Self(ret_val))
     }
 
+    /// Set intersection of two relations. Fails on domain/codomain mismatch.
     pub fn intersection(&self, other: &Self) -> Result<Self, CatgraphError> {
         if self.domain() != other.domain() || self.codomain() != other.codomain() {
             return Err(CatgraphError::Relation {
@@ -469,12 +466,8 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         Ok(Self(ret_val))
     }
 
+    /// Complement: `(domain x codomain) \ self`. Fails if label mismatches prevent construction.
     pub fn complement(&self) -> Result<Self, CatgraphError> {
-        /*
-        say self is a relation with domain and codomain A and B
-        make a new relation with (A \times B) \setminus self
-        there can be errors if there are label mismatches
-        */
         let source_size = self.domain().len();
         let target_size = self.codomain().len();
 
@@ -495,10 +488,8 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         Ok(Self(ret_val))
     }
 
+    /// True if domain and codomain are identical (required for reflexivity/symmetry/transitivity).
     pub fn is_homogeneous(&self) -> bool {
-        /*
-        a relation with the same domain and codomain
-        */
         self.0.domain() == self.0.codomain()
     }
 
@@ -509,11 +500,8 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         self.subsumes(&identity_rel).unwrap()
     }
 
+    /// True if no diagonal pair `(x,x)` is present. Returns false on label mismatch.
     pub fn is_irreflexive(&self) -> bool {
-        /*
-        is the complement reflexive
-        if there are label mismatches when trying to create the complement, then return false
-        */
         self.complement().map(|x| x.is_reflexive()).unwrap_or(false)
     }
 
@@ -541,21 +529,13 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
         self.subsumes(&twice).unwrap()
     }
 
+    /// True if the relation is an equivalence relation (reflexive, symmetric, transitive).
     pub fn is_equivalence_rel(&self) -> bool {
-        /*
-        is this an equivalence relation
-        so we can interpret a pair (x,y) being in the source of this relation as x \equiv y
-        and not equivalent otherwise
-        */
         self.is_homogeneous() && self.is_reflexive() && self.is_symmetric() && self.is_transitive()
     }
 
+    /// True if the relation is a partial order (reflexive, antisymmetric, transitive).
     pub fn is_partial_order(&self) -> bool {
-        /*
-        is this a partial order
-        so we can interpret a pair (x,y) being in the source of this relation as x \leq y
-        and not \leq otherwise
-        */
         self.is_homogeneous()
             && self.is_reflexive()
             && self.is_antisymmetric()

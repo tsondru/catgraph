@@ -1,3 +1,8 @@
+//! Monoidal and symmetric monoidal category traits, plus a generic layered morphism type.
+//!
+//! `Monoidal` provides the tensor product. `SymmetricMonoidalMorphism` adds permutation-based
+//! braiding. `GenericMonoidalMorphism` is a concrete layered representation with black-box blocks.
+
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -12,25 +17,21 @@ use {
     std::fmt::Debug,
 };
 
+/// Tensor product: mutates `self` to become `self ⊗ other`.
 pub trait Monoidal {
-    /*
-    change the morphism self to the morphism (self \otimes other)
-    */
+    /// Replaces `self` with the tensor product `self ⊗ other`.
     fn monoidal(&mut self, other: Self);
 }
 
+/// A single horizontal layer of black-box blocks in a monoidal morphism.
+///
+/// Each block is labelled with `BoxType`; the layer maps `left_type` to `right_type`.
 #[derive(PartialEq, Eq, Clone)]
 pub struct GenericMonoidalMorphismLayer<BoxType, Lambda>
 where
     Lambda: Eq + Copy,
     BoxType: Eq + Clone,
 {
-    /*
-    a single layer for a black box filled morphism
-    in a monoidal category whose objects
-        are presented as tensor products of Lambda
-    the black boxes are labelled with BoxType
-    */
     pub blocks: Vec<BoxType>,
     pub left_type: Vec<Lambda>,
     pub right_type: Vec<Lambda>,
@@ -99,22 +100,16 @@ where
     }
 }
 
+/// A layered monoidal morphism built from black-box blocks.
+///
+/// Interpreted into a concrete category by supplying a function from `BoxType`
+/// to actual morphisms, then composing layers and tensoring blocks within each layer.
 #[derive(Clone, PartialEq, Eq)]
 pub struct GenericMonoidalMorphism<BoxType, Lambda>
 where
     Lambda: Eq + Copy,
     BoxType: Eq + Clone,
 {
-    /*
-    a black box filled morphism
-    in a monoidal category whose objects
-        are presented as tensor products of Lambda
-    the black boxes are labelled with BoxType
-    when given a function from BoxType to the
-        actual type for the morphisms in the desired category
-        one can interpret this as the aforementioned type
-        by building up with composition and monoidal
-    */
     layers: Vec<GenericMonoidalMorphismLayer<BoxType, Lambda>>,
 }
 
@@ -151,6 +146,7 @@ where
         Self { layers: vec![] }
     }
 
+    /// Number of sequential layers in this morphism.
     pub fn depth(&self) -> usize {
         self.layers.len()
     }
@@ -175,6 +171,7 @@ where
         Ok(())
     }
 
+    /// Consumes the morphism, returning its layers.
     pub fn extract_layers(self) -> Vec<GenericMonoidalMorphismLayer<BoxType, Lambda>> {
         self.layers
     }
@@ -296,21 +293,21 @@ where
     }
 }
 
+/// A composable morphism that also supports tensor product (immutable composition).
 #[allow(clippy::module_name_repetitions)]
 pub trait MonoidalMorphism<T: Eq>: Monoidal + Composable<T> {}
+/// A composable morphism that also supports tensor product (in-place composition).
 #[allow(clippy::module_name_repetitions)]
 pub trait MonoidalMutatingMorphism<T: Eq>: Monoidal + ComposableMutating<T> {}
 
+// Blanket: GenericMonoidalMorphism satisfies MonoidalMutatingMorphism by
+// concatenating blocks (monoidal) and appending layers (compose).
 impl<Lambda, BoxType> MonoidalMutatingMorphism<Vec<Lambda>>
     for GenericMonoidalMorphism<BoxType, Lambda>
 where
     Lambda: Eq + Copy + Debug,
     BoxType: Eq + HasIdentity<Lambda> + Clone,
 {
-    /*
-    the most obvious implementation of MonoidalMutatingMorphism is GenericMonoidalMorphism itself
-    use all the structure of monoidal, compose, identity provided by concatenating blocks and layers appropriately
-    */
 }
 
 #[allow(dead_code)] // constructed via From::from() in InterpretableMorphism impls
@@ -359,6 +356,8 @@ where
     }
 }
 
+// Interpret a GenericMonoidalMorphism into a concrete monoidal morphism type
+// by tensoring blocks within each layer, then composing layers sequentially.
 impl<Lambda, BoxType, T>
     InterpretableMorphism<GenericMonoidalMorphism<BoxType, Lambda>, Lambda, BoxType>
     for InterpretableMut<T, Lambda>
@@ -367,12 +366,6 @@ where
     BoxType: Eq + Clone,
     T: Monoidal + ComposableMutating<Vec<Lambda>> + HasIdentity<Vec<Lambda>>,
 {
-    /*
-    given a function from BoxType to the
-        actual type (Self) for the morphisms in the desired category
-        one can interpret a GenericaMonoidalMorphism as a Self
-        by building up with composition and monoidal
-    */
     fn interpret<F>(
         morphism: &GenericMonoidalMorphism<BoxType, Lambda>,
         black_box_interpreter: F,
@@ -395,6 +388,7 @@ where
     }
 }
 
+// Same interpretation as InterpretableMut, but using immutable Composable::compose.
 impl<Lambda, BoxType, T>
     InterpretableMorphism<GenericMonoidalMorphism<BoxType, Lambda>, Lambda, BoxType>
     for InterpretableNoMut<T, Lambda>
@@ -403,15 +397,6 @@ where
     BoxType: Eq + Clone,
     T: Monoidal + Composable<Vec<Lambda>> + HasIdentity<Vec<Lambda>>,
 {
-    /*
-    given a function from BoxType to the
-        actual type (Self) for the morphisms in the desired category
-        one can interpret a GenericaMonoidalMorphism as a Self
-        by building up with composition and monoidal
-    only different from above because of the distinction between compositions
-        that are done by modifying self to the composition self;other
-        or that return a new self;other
-    */
     fn interpret<F>(
         morphism: &GenericMonoidalMorphism<BoxType, Lambda>,
         black_box_interpreter: F,
@@ -438,27 +423,26 @@ where
 
 use permutations::Permutation;
 
+/// Symmetric monoidal morphism: supports pre/post-composition with permutations.
+///
+/// `types` is the typed tensor factors; `types_as_on_domain` controls which side is permuted.
 #[allow(clippy::module_name_repetitions)]
 pub trait SymmetricMonoidalMorphism<T: Eq> {
-    /*
-    can pre/post compose a given morphism with a permutation (possibly panic if the permutation is not of the right cardinality)
-    give the morphism : types[0] otimes \cdots -> types[p[0]] \otimes \cdots
-        or the inverse (depending on types_as_on_domain)
-        again can panic if the cardinality of the permutation does not match the cardinality of types
-    */
+    /// Pre- or post-composes this morphism with permutation `p`.
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
+    /// Constructs a morphism that applies permutation `p` to typed tensor factors.
     fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Result<Self, CatgraphError>
     where
         Self: Sized;
 }
 
+/// Like [`SymmetricMonoidalMorphism`] but for the discrete category (FinSet),
+/// where objects are `usize` cardinalities rather than typed tensor factor slices.
 #[allow(clippy::module_name_repetitions)]
 pub trait SymmetricMonoidalDiscreteMorphism<T: Eq> {
-    /*
-    for finset they are morphisms on finite sets, but rather than specify the domain/codomain as Vec<Singleton>
-    the domain and codomain are just treated as usize, so we can't use the above trait where types was a slice
-    */
+    /// Pre- or post-composes this morphism with permutation `p`.
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
+    /// Constructs a morphism from a permutation on a set of the given size.
     fn from_permutation(p: Permutation, types: T, types_as_on_domain: bool) -> Self;
 }
 

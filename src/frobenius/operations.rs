@@ -22,16 +22,28 @@ use super::morphism_system::Contains;
 /// Threshold for parallelizing block mutations in Frobenius layers.
 const PARALLEL_BLOCK_THRESHOLD: usize = 64;
 
+/// A single generator of a Frobenius algebra, typed by `Lambda`.
+///
+/// Six standard generators plus `Spider(z, m, n)` (m-to-n special Frobenius morphism)
+/// and `UnSpecifiedBox` for opaque black-box operations.
 #[allow(clippy::module_name_repetitions)]
 #[derive(PartialEq, Eq, Clone)]
 pub enum FrobeniusOperation<Lambda: Eq + Copy, BlackBoxLabel: Eq + Clone> {
+    /// η: \[\] → \[z\] — the unit (creation).
     Unit(Lambda),
+    /// μ: \[z, z\] → \[z\] — the multiplication (merge).
     Multiplication(Lambda),
+    /// δ: \[z\] → \[z, z\] — the comultiplication (split).
     Comultiplication(Lambda),
+    /// ε: \[z\] → \[\] — the counit (destruction).
     Counit(Lambda),
+    /// id: \[z\] → \[z\] — identity wire.
     Identity(Lambda),
+    /// σ: [z₁, z₂] → [z₂, z₁] — symmetric braiding (wire crossing).
     SymmetricBraiding(Lambda, Lambda),
+    /// Special Frobenius morphism: m inputs to n outputs of type z.
     Spider(Lambda, usize, usize),
+    /// Opaque black box with labeled source and target types.
     UnSpecifiedBox(BlackBoxLabel, Vec<Lambda>, Vec<Lambda>),
 }
 
@@ -448,6 +460,9 @@ where
     }
 }
 
+/// A string diagram morphism: a sequence of horizontal layers, each containing parallel generators.
+///
+/// Composition appends layers with automatic `two_layer_simplify` at the boundary.
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, PartialEq, Eq)]
 pub struct FrobeniusMorphism<Lambda: Eq + Copy + Debug, BlackBoxLabel: Eq + Clone> {
@@ -471,10 +486,6 @@ where
 impl<Lambda: Eq + Copy + Debug, BlackBoxLabel: Eq + Clone>
     From<FrobeniusOperation<Lambda, BlackBoxLabel>> for FrobeniusMorphism<Lambda, BlackBoxLabel>
 {
-    /*
-    convert a single frobenius generator to a layer with only that operation
-    and then to a morphism with only that layer
-    */
     fn from(op: FrobeniusOperation<Lambda, BlackBoxLabel>) -> Self {
         let mut answer_layer = FrobeniusLayer::new();
         answer_layer.append_block(op);
@@ -499,15 +510,13 @@ where
     Lambda: Eq + Copy + Debug,
     BlackBoxLabel: Eq + Clone,
 {
+    /// Create an empty morphism with no layers.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Number of layers in this morphism (presentation depth, reducible via simplification).
     pub fn depth(&self) -> usize {
-        /*
-        how many layers deep is this morphism presented as
-        use of identities could lower this
-        */
         self.layers.len()
     }
 
@@ -822,6 +831,10 @@ where
     }
 }
 
+/// Build the special Frobenius (spider) morphism with `m` inputs and `n` outputs of `wire_type`.
+///
+/// Base cases map to the six generators; larger arities decompose recursively
+/// via binary tree of multiplications/comultiplications.
 pub fn special_frobenius_morphism<
     Lambda: Eq + Copy + Debug + Send + Sync,
     BlackBoxLabel: Eq + Clone + Send + Sync,
@@ -861,6 +874,10 @@ pub fn special_frobenius_morphism<
     }
 }
 
+/// Build a `FrobeniusMorphism` from an epi-mono `Decomposition` of a finite set map.
+///
+/// The decomposition is realized as: permutation, then surjection (spider merges),
+/// then injection (identities interleaved with units).
 #[allow(clippy::needless_pass_by_value)]
 pub fn from_decomposition<Lambda, BlackBoxLabel>(
     v: Decomposition,

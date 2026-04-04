@@ -1,3 +1,8 @@
+//! Cospan of finite sets with typed middle vertices.
+//!
+//! Composition is via pushout (union-find, nearly linear time). Source/target semantics:
+//! an edge `[a,b] -> [c,d]` forms the bipartite complete subgraph between sources and targets.
+
 use {
     crate::{
         category::{Composable, HasIdentity},
@@ -23,11 +28,15 @@ type RightIndex = usize;
 type MiddleIndex = usize;
 type MiddleIndexOrLambda<Lambda> = Either<MiddleIndex, Lambda>;
 
+/// A cospan of finite sets: left (domain) and right (codomain) legs map into a Lambda-typed middle set.
 #[derive(Clone, Debug)]
 pub struct Cospan<Lambda: Sized + Eq + Copy + Debug> {
-    left: Vec<MiddleIndex>, // the map from left (the domain side) nodes to the sink
-    right: Vec<MiddleIndex>, // the map from right (the codomain side) nodes to the sink
-    middle: Vec<Lambda>,    // the sink is a finite set with Lambda labels
+    /// Domain leg: maps each left boundary node to a middle index.
+    left: Vec<MiddleIndex>,
+    /// Codomain leg: maps each right boundary node to a middle index.
+    right: Vec<MiddleIndex>,
+    /// The middle (apex) set, with Lambda-typed vertices.
+    middle: Vec<Lambda>,
     is_left_id: bool,
     is_right_id: bool,
 }
@@ -36,6 +45,7 @@ impl<Lambda> Cospan<Lambda>
 where
     Lambda: Sized + Eq + Copy + Debug,
 {
+    /// Debug-asserts structural invariants: leg indices in bounds, identity flags consistent.
     pub fn assert_valid(&self, check_id_strong: bool, check_id_weak: bool) {
         let middle_size = self.middle.len();
         let left_in_bounds = self.left.iter().all(|z| *z < middle_size);
@@ -64,6 +74,7 @@ where
         }
     }
 
+    /// Construct a cospan from explicit leg maps and middle set, computing identity flags.
     pub fn new(left: Vec<MiddleIndex>, right: Vec<MiddleIndex>, middle: Vec<Lambda>) -> Self {
         // Identity requires the leg to be a bijection onto the full middle set:
         // values must be [0, 1, ..., n-1] AND length must equal middle.len()
@@ -80,10 +91,12 @@ where
         answer
     }
 
+    /// The cospan with empty domain, codomain, and middle set.
     pub fn empty() -> Self {
         Self::new(vec![], vec![], vec![])
     }
 
+    /// True when all three sets (left, right, middle) are empty.
     pub fn is_empty(&self) -> bool {
         self.left.is_empty() && self.right.is_empty() && self.middle.is_empty()
     }
@@ -108,36 +121,31 @@ where
         self.is_right_id
     }
 
+    /// Add a boundary node targeting an existing middle index. `Left` adds to domain, `Right` to codomain.
     pub fn add_boundary_node_known_target(
         &mut self,
         new_arrow: Either<MiddleIndex, MiddleIndex>,
     ) -> Either<LeftIndex, RightIndex> {
-        /*
-        add a new boundary node that maps to the specified middle index of new_arrow
-        which side depends on whether new_arrow is Left/Right
-        */
         self.add_boundary_node(new_arrow.bimap(|z| Left(z), |z| Left(z)))
     }
 
+    /// Add a boundary node that creates a new middle vertex with the given label.
+    /// `Left` adds to domain, `Right` to codomain.
     pub fn add_boundary_node_unknown_target(
         &mut self,
         new_arrow: Either<Lambda, Lambda>,
     ) -> Either<LeftIndex, RightIndex> {
-        /*
-        add a new boundary node that maps to a new middle node of specified label
-        which side depends on whether new_arrow is Left/Right
-        */
         self.add_boundary_node(new_arrow.bimap(|z| Right(z), |z| Right(z)))
     }
 
+    /// Add a boundary node mapping to a new or existing middle vertex.
+    ///
+    /// Outer `Left`/`Right` selects domain/codomain side.
+    /// Inner `Left(idx)` targets existing middle; `Right(label)` creates a new middle vertex.
     pub fn add_boundary_node(
         &mut self,
         new_arrow: Either<MiddleIndexOrLambda<Lambda>, MiddleIndexOrLambda<Lambda>>,
     ) -> Either<LeftIndex, RightIndex> {
-        /*
-        add a new boundary node that maps to a new or existing middle node specified by new_arrow
-        which side depends on whether new_arrow is Left/Right
-        */
         match new_arrow {
             Left(tgt_info) => {
                 match tgt_info {
@@ -170,12 +178,8 @@ where
         }
     }
 
+    /// Remove a boundary node from domain (`Left`) or codomain (`Right`) via `swap_remove`.
     pub fn delete_boundary_node(&mut self, which_node: Either<LeftIndex, RightIndex>) {
-        /*
-        deletes a node from one side
-        in this the sides are merely a Lambda labelled set
-        so is ok to mix up the order of self.left/right
-        */
         match which_node {
             Left(z) => {
                 self.is_left_id &= z == self.left.len() - 1;
@@ -188,14 +192,12 @@ where
         }
     }
 
+    /// True if both boundary nodes map to the same middle vertex.
     pub fn map_to_same(
         &self,
         node_1: Either<LeftIndex, RightIndex>,
         node_2: Either<LeftIndex, RightIndex>,
     ) -> bool {
-        /*
-        are the middle nodes that node_1 and node_2 connect to the same
-        */
         let mid_for_node_1 = match node_1 {
             Left(z) => self.left[z],
             Right(z) => self.right[z],
@@ -207,17 +209,14 @@ where
         mid_for_node_1 == mid_for_node_2
     }
 
+    /// Merge the middle vertices that two boundary nodes map to.
+    ///
+    /// No-op if they already share a vertex. Warns and makes no change if their labels differ.
     pub fn connect_pair(
         &mut self,
         node_1: Either<LeftIndex, RightIndex>,
         node_2: Either<LeftIndex, RightIndex>,
     ) {
-        /*
-        collapse the middle nodes that node_1 and node_2 connect to (A and B)
-        into a single middle node with the same label as the shared label
-        of A and B
-        if A and B do not have the same label, give a warning and make no change
-        */
         let mid_for_node_1 = match node_1 {
             Left(z) => self.left[z],
             Right(z) => self.right[z],
@@ -257,24 +256,20 @@ where
         });
     }
 
+    /// Append a new vertex to the middle set with the given label. Returns its index.
     pub fn add_middle(&mut self, new_middle: Lambda) -> MiddleIndex {
-        /*
-        add a new node to the sink with specified label
-        */
         self.middle.push(new_middle);
         self.is_left_id = false;
         self.is_right_id = false;
         self.middle.len() - 1
     }
 
+    /// Apply a function to all middle vertex labels, producing a new cospan.
     pub fn map<F, Mu>(&self, f: F) -> Cospan<Mu>
     where
         F: Fn(Lambda) -> Mu,
         Mu: Sized + Eq + Copy + Debug,
     {
-        /*
-        change the labels with the function f
-        */
         Cospan::new(
             self.left.clone(),
             self.right.clone(),
@@ -282,6 +277,9 @@ where
         )
     }
 
+    /// Convert to a petgraph `Graph`. Returns `(left_nodes, middle_nodes, right_nodes, graph)`.
+    ///
+    /// `lambda_decorator` maps each label to `(node_weight, edge_weight)`.
     #[allow(clippy::type_complexity)]
     pub fn to_graph<T, U, F>(
         &self,
@@ -295,13 +293,6 @@ where
     where
         F: Fn(Lambda) -> (T, U),
     {
-        /*
-        make this into a graph
-        vertices for every node in left,right and middle
-        the vertices are colored by the first output of lambda_decorator based on their label
-        the edges are colored by the second output of lambda_decorator
-            based on the (shared) label of their endpoints
-        */
         let mut graph = Graph::<T, U>::new();
 
         let all_middle_nodes: Vec<_> = self
@@ -468,12 +459,18 @@ where
     }
 }
 
+/// `(pushout_size, left_reindex, right_reindex, representatives)`.
 type PushoutResult = (
     MiddleIndex,
     Vec<MiddleIndex>,
     Vec<MiddleIndex>,
     Vec<Either<LeftIndex, RightIndex>>,
 );
+
+/// Compute the pushout of two finite-set leg maps via union-find.
+///
+/// Fast-paths when either leg is an identity. Returns reindexing maps and
+/// a representative (Left or Right original index) for each equivalence class.
 fn perform_pushout<T>(
     left_leg: &[LeftIndex],
     left_leg_max_target: LeftIndex,

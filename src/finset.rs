@@ -1,3 +1,8 @@
+//! Finite set morphisms with epi-mono factorization.
+//!
+//! Provides `FinSetMorphism` (general maps), `OrderPresSurj` (order-preserving surjections),
+//! `OrderPresInj` (order-preserving injections), and `Decomposition` (permutation + epi + mono).
+
 use crate::errors::CatgraphError;
 
 use {
@@ -10,7 +15,9 @@ use {
     std::{collections::HashSet, error, fmt},
 };
 
+/// A finite set map represented as a vector of target indices.
 pub type FinSetMap = Vec<usize>;
+/// A finite set morphism: `(map, extra_codomain)` where codomain = max(map)+1 + extra.
 pub type FinSetMorphism = (Vec<usize>, usize);
 
 impl HasIdentity<usize> for FinSetMorphism {
@@ -69,6 +76,7 @@ impl Composable<usize> for FinSetMorphism {
 
 impl MonoidalMorphism<usize> for FinSetMorphism {}
 
+/// Order-preserving surjection, stored as preimage cardinalities minus one.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OrderPresSurj {
     preimage_card_minus_1: Vec<usize>,
@@ -152,11 +160,13 @@ impl OrderPresSurj {
         self.to_ordinary().0[test_pt]
     }
 
+    /// Returns the preimage cardinality for each codomain element.
     pub fn preimage_cardinalities(&self) -> Vec<usize> {
         self.preimage_card_minus_1.iter().map(|z| z + 1).collect()
     }
 }
 
+/// Order-preserving injection, stored as alternating identity/gap run lengths.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrderPresInj {
     counts_iden_unit_alternating: Vec<usize>,
@@ -247,6 +257,7 @@ impl OrderPresInj {
         self.to_ordinary().0[test_pt]
     }
 
+    /// Returns the alternating identity/gap run-length encoding.
     pub fn iden_unit_counts(&self) -> Vec<usize> {
         self.counts_iden_unit_alternating.clone()
     }
@@ -276,6 +287,7 @@ fn is_injective(v: &[usize]) -> bool {
     crate::utils::is_unique(v)
 }
 
+/// Error converting a `FinSetMorphism` to an `OrderPresSurj`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromSurjError;
 impl fmt::Display for TryFromSurjError {
@@ -322,6 +334,7 @@ impl TryFrom<FinSetMorphism> for OrderPresSurj {
 }
 impl error::Error for TryFromSurjError {}
 
+/// Error converting a `FinSetMorphism` to an `OrderPresInj`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromInjError;
 impl fmt::Display for TryFromInjError {
@@ -382,6 +395,7 @@ fn permutation_sort<T: Ord>(x: &mut [T]) -> Permutation {
     Permutation::try_from(answer).unwrap()
 }
 
+/// Constructs a permutation on `n` elements from a cycle notation.
 pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
     if cycle.len() < 2 {
         return Permutation::identity(n);
@@ -390,6 +404,7 @@ pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
     from_cycle(n, &cycle[1..]) * part1
 }
 
+/// Epi-mono factorization of a finite set map: permutation, then surjection, then injection.
 pub struct Decomposition {
     permutation_part: Permutation,
     order_preserving_surjection: OrderPresSurj,
@@ -499,6 +514,7 @@ impl Decomposition {
         }
     }
 
+    /// Returns references to the (permutation, surjection, injection) components.
     pub const fn get_parts(&self) -> (&Permutation, &OrderPresSurj, &OrderPresInj) {
         (
             &self.permutation_part,
@@ -508,6 +524,7 @@ impl Decomposition {
     }
 }
 
+/// Error converting a `FinSetMorphism` to a `Decomposition`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromFinSetError;
 impl fmt::Display for TryFromFinSetError {

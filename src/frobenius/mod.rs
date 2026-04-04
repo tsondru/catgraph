@@ -1,3 +1,8 @@
+//! Frobenius algebra string diagrams: generators, layers, morphisms, and DAG-based interpretation.
+//!
+//! A Frobenius algebra has six generators (unit, counit, multiplication, comultiplication,
+//! braiding, identity) composed into layered morphisms and interpreted via `MorphismSystem`.
+
 mod morphism_system;
 mod operations;
 mod trait_impl;

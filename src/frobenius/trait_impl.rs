@@ -17,20 +17,23 @@ use super::{
     },
 };
 
+/// Trait for morphisms in a symmetric monoidal category where each basic object is a Frobenius algebra.
+///
+/// Implementors provide interpretations of the four Frobenius generators (unit, counit,
+/// multiplication, comultiplication); braiding and identity come from `SymmetricMonoidalMorphism`.
 pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq + Clone + Send + Sync>:
     SymmetricMonoidalMorphism<Lambda> + HasIdentity<Vec<Lambda>> + MonoidalMutatingMorphism<Vec<Lambda>>
 {
-    /*
-    the implementor (Self) of this trait is a type for a morphism in a symmetric monoidal category with
-    objects built as tensor products of basic objects labelled from Lambda
-    and each such basic object is a frobenius object with interpretations
-    so one can interpret each of unit/counit/multiplication/comultiplication as a Self
-    */
+    /// Interpret the unit η: \[\] → \[z\].
     fn interpret_unit(z: Lambda) -> Self;
+    /// Interpret the counit ε: \[z\] → \[\].
     fn interpret_counit(z: Lambda) -> Self;
+    /// Interpret the multiplication μ: \[z, z\] → \[z\].
     fn interpret_multiplication(z: Lambda) -> Self;
+    /// Interpret the comultiplication δ: \[z\] → \[z, z\].
     fn interpret_comultiplication(z: Lambda) -> Self;
 
+    /// Interpret a single `FrobeniusOperation` as `Self`, delegating black boxes to the closure.
     fn basic_interpret<F>(
         single_step: &FrobeniusOperation<Lambda, BlackBoxLabel>,
         black_box_interpreter: &F,
@@ -38,13 +41,6 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
     {
-        /*
-        interpret a single frobenius operation as a Self
-        with black_box_interpreter saying how to interpret the black boxes
-            the black boxes do not have to be morphisms that can be built from Frobenius operations (though they might)
-        the identity and symmetric braiding are interpreted
-            using the fact that Self was a morphism in a symmetric monoidal category
-        */
         Ok(match single_step {
             FrobeniusOperation::Unit(z) => Self::interpret_unit(*z),
             FrobeniusOperation::Counit(z) => Self::interpret_counit(*z),
@@ -63,6 +59,8 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
         })
     }
 
+    /// Interpret a full `FrobeniusMorphism` by composing layer-by-layer, each layer built
+    /// from monoidal products of `basic_interpret` calls.
     fn interpret_frob<F>(
         morphism: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
         black_box_interpreter: &F,
@@ -70,10 +68,6 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
     {
-        /*
-        interpret a complicated frobenius morphism as a Self
-        built up from all the basic_interpret using composition and monoidal
-        */
         let mut answer = Self::identity(&morphism.domain());
         for layer in &morphism.layers {
             if layer.blocks.is_empty() {
@@ -90,15 +84,13 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
     }
 }
 
+/// Canonical self-interpretation: each generator becomes a single-layer morphism.
 impl<Lambda, BlackBoxLabel> Frobenius<Lambda, BlackBoxLabel>
     for FrobeniusMorphism<Lambda, BlackBoxLabel>
 where
     Lambda: Eq + Copy + Debug + Send + Sync,
     BlackBoxLabel: Eq + Clone + Send + Sync,
 {
-    /*
-    the most obvious implementation of Frobenius is FrobeniusMorphism itself
-    */
     fn interpret_unit(z: Lambda) -> Self {
         FrobeniusOperation::Unit(z).into()
     }
@@ -112,6 +104,7 @@ where
         FrobeniusOperation::Comultiplication(z).into()
     }
 
+    /// Identity interpretation: wraps the operation as-is, ignoring the black box interpreter.
     fn basic_interpret<F>(
         single_step: &FrobeniusOperation<Lambda, BlackBoxLabel>,
         _black_box_interpreter: &F,
@@ -119,13 +112,10 @@ where
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
     {
-        /*
-        ignores black_box_interpreter as if it was just the simple
-        |label,src,tgt| Ok(FrobeniusOperation::UnSpecifiedBox(label, src, tgt))
-        */
         Ok(single_step.clone().into())
     }
 
+    /// Identity interpretation: clones the morphism as-is, ignoring the black box interpreter.
     fn interpret_frob<F>(
         morphism: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
         _black_box_interpreter: &F,
@@ -133,14 +123,11 @@ where
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
     {
-        /*
-        ignores black_box_interpreter as if it was just the simple
-        |label,src,tgt| Ok(FrobeniusOperation::UnSpecifiedBox(label, src, tgt))
-        */
         Ok(morphism.clone())
     }
 }
 
+/// Blanket impl: any `Frobenius` implementor can interpret a `FrobeniusMorphism` description.
 impl<Lambda, BlackBoxLabel, T>
     InterpretableMorphism<FrobeniusMorphism<Lambda, BlackBoxLabel>, Lambda, BlackBoxLabel> for T
 where

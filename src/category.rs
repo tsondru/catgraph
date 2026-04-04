@@ -1,13 +1,23 @@
+//! Core category-theoretic composition traits.
+//!
+//! Provides identity morphisms and two composition interfaces (immutable and
+//! mutating) that form the backbone of all categorical structures in catgraph.
+
 use crate::errors::CatgraphError;
 
+/// A type that can produce identity morphisms on objects of type `T`.
 pub trait HasIdentity<T>: Sized {
+    /// Returns the identity morphism on the given object.
     fn identity(on_this: &T) -> Self;
 }
 
+/// Immutable composition of morphisms with domain/codomain of type `T`.
 pub trait Composable<T: Eq>: Sized {
+    /// Composes `self` with `other` (self ; other), returning a new morphism.
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError>;
     fn domain(&self) -> T;
     fn codomain(&self) -> T;
+    /// Checks that `self.codomain() == other.domain()`.
     fn composable(&self, other: &Self) -> Result<(), CatgraphError> {
         if self.codomain() == other.domain() {
             Ok(())
@@ -19,10 +29,13 @@ pub trait Composable<T: Eq>: Sized {
     }
 }
 
+/// In-place composition of morphisms, consuming `other` and mutating `self`.
 pub trait ComposableMutating<T: Eq>: Sized {
+    /// Composes `self` with `other` in place (self := self ; other).
     fn compose(&mut self, other: Self) -> Result<(), CatgraphError>;
     fn domain(&self) -> T;
     fn codomain(&self) -> T;
+    /// Checks that `self.codomain() == other.domain()`.
     fn composable(&self, other: &Self) -> Result<(), CatgraphError> {
         if self.codomain() == other.domain() {
             Ok(())
