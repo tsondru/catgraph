@@ -435,6 +435,7 @@ Rust 2024 edition. Common patterns:
 | Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds not yet validated with data |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
+| Pedantic clippy cleanup | ~300 warnings at `clippy::pedantic`: 89 `must_use`, 87 doc backticks, 78 `# Errors`, 15 `# Panics`, ~31 code fixes. Run `cargo clippy --fix` for mechanical ones first, then address doc lints vs crate-level `#[allow]`. |
 
 ## API Scope
 
