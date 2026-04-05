@@ -1,7 +1,19 @@
 //! Wiring diagram operad built on named cospans.
 //!
-//! A `WiringDiagram` wraps a `NamedCospan` with inner circles (named sub-boxes) and an
-//! outer circle. Supports operadic substitution: replacing an inner circle with another diagram.
+//! A [`WiringDiagram`] wraps a [`NamedCospan`] where the left (domain) boundary
+//! nodes sit on named **inner circles** (sub-boxes) and the right (codomain)
+//! boundary nodes sit on a single **outer circle**. Wires are typed by `Lambda`;
+//! ports are identified by direction ([`Dir`]) and circle/position names.
+//!
+//! The key operation is **operadic substitution** via the [`Operadic`] trait:
+//! replacing an inner circle with another wiring diagram by composing the
+//! underlying named cospans (matching outer ports of the substituted diagram
+//! to the inner ports of the host diagram).
+//!
+//! Also supports boundary mutation (add/delete/connect/rename ports), orientation
+//! flipping, and functorial mapping over wire types.
+//!
+//! See also `examples/wiring_diagram.rs`.
 
 use either::Either::{Left, Right};
 
@@ -20,7 +32,7 @@ use {
     std::fmt::Debug,
 };
 
-/// Port direction: inward, outward, or undirected.
+/// Port direction on a wiring diagram circle: inward, outward, or undirected.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Dir {
     In,
@@ -42,11 +54,15 @@ impl Dir {
 type Pair<T> = (T, T);
 type EitherPair<T, U> = Either<Pair<T>, Pair<U>>;
 
-/// A wiring diagram: a cospan whose left boundary nodes sit on named inner circles
-/// and whose right boundary nodes sit on a single outer circle.
+/// A wiring diagram in the operad of wiring diagrams.
 ///
+/// Internally a [`NamedCospan`] whose left boundary nodes sit on named inner
+/// circles (sub-boxes) and whose right boundary nodes sit on a single outer circle.
 /// Wire labels are typed by `Lambda`. Inner-circle ports are identified by
 /// `(Dir, InterCircle, IntraCircle)`, outer-circle ports by `(Dir, IntraCircle)`.
+///
+/// Implements [`Operadic<InterCircle>`] for substitution, [`Composable`] for
+/// sequential wiring, and [`Monoidal`] for parallel composition.
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct WiringDiagram<
@@ -61,11 +77,16 @@ where
     InterCircle: Eq + Clone,
     IntraCircle: Eq + Clone,
 {
-    /// Wrap a `NamedCospan` as a wiring diagram.
+    /// Wrap a [`NamedCospan`] as a wiring diagram (zero-cost newtype construction).
     pub fn new(
         inside: NamedCospan<Lambda, (Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) -> Self {
         Self(inside)
+    }
+
+    /// Access the underlying [`NamedCospan`].
+    pub fn inner(&self) -> &NamedCospan<Lambda, (Dir, InterCircle, IntraCircle), (Dir, IntraCircle)> {
+        &self.0
     }
 
     /// Rename a boundary node. No-op with a warning if the old name is not found.
@@ -76,7 +97,7 @@ where
         self.0.change_boundary_node_name(name_pair);
     }
 
-    /// Flip `In` <-> `Out` on all ports of the specified side.
+    /// Flip `In` ↔ `Out` on all ports of the specified side (left = inner circles, right = outer).
     pub fn toggle_orientation(&mut self, of_left_side: bool) {
         let toggler = if of_left_side {
             Left(|z: &mut (Dir, InterCircle, IntraCircle)| {
@@ -118,7 +139,8 @@ where
         self.0.delete_boundary_node_by_name(which_node);
     }
 
-    /// Apply `f` to every wire label, producing a new diagram.
+    /// Apply `f` to every wire label (middle set element), producing a new diagram
+    /// with mapped types. Port names and structure are preserved.
     pub fn map<F, Mu>(&self, f: F) -> WiringDiagram<Mu, InterCircle, IntraCircle>
     where
         F: Fn(Lambda) -> Mu,
