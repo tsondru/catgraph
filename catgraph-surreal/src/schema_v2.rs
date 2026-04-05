@@ -15,6 +15,16 @@ DEFINE FIELD IF NOT EXISTS created_at ON graph_node TYPE datetime DEFAULT time::
 DEFINE INDEX IF NOT EXISTS idx_node_kind ON graph_node FIELDS kind;
 DEFINE INDEX IF NOT EXISTS idx_node_name ON graph_node FIELDS name;
 
+-- Full-text search on node names with prefix autocomplete
+DEFINE ANALYZER IF NOT EXISTS node_name_analyzer
+    TOKENIZERS blank, class
+    FILTERS lowercase, edgengram(2, 10);
+
+DEFINE INDEX IF NOT EXISTS ft_node_name ON graph_node
+    FIELDS name FULLTEXT
+    ANALYZER node_name_analyzer
+    BM25 HIGHLIGHTS;
+
 -- Pairwise RELATE edges between graph_node records
 DEFINE TABLE IF NOT EXISTS graph_edge SCHEMAFULL TYPE RELATION FROM graph_node TO graph_node;
 DEFINE FIELD IF NOT EXISTS kind ON graph_edge TYPE string;
@@ -35,10 +45,16 @@ DEFINE FIELD IF NOT EXISTS created_at ON hyperedge_hub TYPE datetime DEFAULT tim
 -- Source participation: graph_node -> hyperedge_hub (with ordered position)
 DEFINE TABLE IF NOT EXISTS source_of SCHEMAFULL TYPE RELATION FROM graph_node TO hyperedge_hub;
 DEFINE FIELD IF NOT EXISTS position ON source_of TYPE int;
+DEFINE FIELD IF NOT EXISTS weight ON source_of TYPE option<decimal> DEFAULT NONE;
 
 -- Target participation: hyperedge_hub -> graph_node (with ordered position)
 DEFINE TABLE IF NOT EXISTS target_of SCHEMAFULL TYPE RELATION FROM hyperedge_hub TO graph_node;
 DEFINE FIELD IF NOT EXISTS position ON target_of TYPE int;
+DEFINE FIELD IF NOT EXISTS weight ON target_of TYPE option<decimal> DEFAULT NONE;
+
+-- Indexes for efficient participation counting via traversal
+DEFINE INDEX IF NOT EXISTS cnt_source_of_out ON source_of FIELDS out;
+DEFINE INDEX IF NOT EXISTS cnt_target_of_in ON target_of FIELDS in;
 
 -- Record references for composition provenance
 DEFINE FIELD IF NOT EXISTS parent_hubs ON hyperedge_hub
