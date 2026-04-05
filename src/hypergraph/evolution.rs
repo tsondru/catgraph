@@ -840,7 +840,8 @@ impl HypergraphEvolution {
     ///
     /// The apex is the union of both vertex sets, with labels as vertex IDs.
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-    fn build_cospan_for_pair(&self, parent_id: usize, child_id: usize) -> Cospan<u32> {
+    #[must_use]
+    pub fn build_cospan_for_pair(&self, parent_id: usize, child_id: usize) -> Cospan<u32> {
         let parent = self.get_node(parent_id).unwrap();
         let child = self.get_node(child_id).unwrap();
 
