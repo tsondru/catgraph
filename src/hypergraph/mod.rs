@@ -9,6 +9,8 @@
 pub mod hyperedge;
 #[allow(clippy::module_inception)]
 pub mod hypergraph;
+pub mod rewrite_rule;
 
 pub use hyperedge::Hyperedge;
 pub use hypergraph::Hypergraph;
+pub use rewrite_rule::{RewriteMatch, RewriteRule, RewriteSpan};
