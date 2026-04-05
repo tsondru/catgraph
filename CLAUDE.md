@@ -21,7 +21,7 @@ This differs from path semantics where `[a,b,c,d]` means a→b→c→d (sequenti
 catgraph/                           # Workspace root
 ├── Cargo.toml                      # Workspace: members = [".", "catgraph-surreal"]
 ├── src/
-│   ├── errors.rs                   # CatgraphError with thiserror (CompositionSizeMismatch, CompositionLabelMismatch, Composition, Interpret, Operadic, Relation)
+│   ├── errors.rs                   # CatgraphError with thiserror (..., PetriNet, FinSet)
 │   ├── category.rs                 # Core traits: HasIdentity, Composable, ComposableMutating
 │   ├── monoidal.rs                 # Monoidal + symmetric monoidal traits, GenericMonoidalMorphism
 │   ├── operadic.rs                 # Operadic trait for substitution
@@ -39,7 +39,7 @@ catgraph/                           # Workspace root
 │   │
 │   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
 │   │
-│   ├── petri_net.rs                # PetriNet, Transition, Marking, firing, reachability, cospan bridge
+│   ├── petri_net.rs                # PetriNet, Transition (Decimal weights), Marking, firing, reachability, cospan bridge
 │   │
 │   ├── e1_operad.rs                # E1 operad (intervals in [0,1])
 │   ├── e2_operad.rs                # E2 operad (disks in unit disk)
@@ -106,11 +106,11 @@ catgraph/                           # Workspace root
     ├── src/
     │   ├── lib.rs                  # init_schema() + init_schema_v2() + module re-exports
     │   ├── error.rs                # PersistError enum (thiserror)
-    │   ├── persist.rs              # Persistable trait + impls (char, (), u32, i32, i64, u64, String)
+    │   ├── persist.rs              # Persistable trait + impls (char, (), u32, i32, i64, u64, String, Decimal)
     │   ├── schema.rs               # V1 SurrealQL DDL (embedded arrays)
-    │   ├── schema_v2.rs            # V2 SurrealQL DDL (RELATE-based graph tables)
+    │   ├── schema_v2.rs            # V2 SurrealQL DDL (RELATE-based graph tables, FTS, HNSW, Petri net)
     │   ├── types.rs                # V1 record types (SurrealValue derives)
-    │   ├── types_v2.rs             # V2 record types (GraphNodeRecord, GraphEdgeRecord, HyperedgeHubRecord)
+    │   ├── types_v2.rs             # V2 record types (GraphNode, GraphEdge, HyperedgeHub, PetriNet, Marking)
     │   ├── cospan_store.rs         # V1 CospanStore: save/load/delete/list
     │   ├── named_cospan_store.rs   # V1 NamedCospanStore (composes with CospanStore)
     │   ├── span_store.rs           # V1 SpanStore: save/load/delete/list
@@ -121,7 +121,10 @@ catgraph/                           # Workspace root
     │   │   ├── decompose.rs        # decompose_cospan/span/named_cospan, atomic, retry
     │   │   ├── reconstruct.rs      # reconstruct_cospan/span, sources/targets
     │   │   └── provenance.rs       # composition provenance tracking
-    │   └── query.rs                # V2 QueryHelper: outbound/inbound neighbors, BFS reachable (batched IN query)
+    │   ├── petri_net_store.rs       # V2 PetriNetStore: save/load/delete topology + markings
+    │   ├── wiring_store.rs         # V2 WiringDiagramStore: decompose/reconstruct via hub-node
+    │   ├── fingerprint.rs          # Structural fingerprint computation (petgraph) + HNSW search
+    │   └── query.rs                # V2 QueryHelper: neighbors, reachable, shortest_path, collect
     └── tests/
         ├── v1_cospan_roundtrip.rs          # 9 tests: V1 char/unit roundtrip, identity, compose-persist
         ├── v1_named_cospan_roundtrip.rs    # 5 tests: V1 port name preservation, record references
@@ -132,6 +135,11 @@ catgraph/                           # Workspace root
         ├── v2_span_decompose.rs            # 5 tests: V2 span decompose/reconstruct
         ├── v2_provenance.rs                # 11 tests: provenance + schema features (REFERENCE, ON DELETE UNSET, COMPUTED)
         ├── domain_api_orchestration.rs     # 4 tests: API orchestration (hub properties)
+        ├── v2_petri_net.rs                 # 6 tests: PetriNet store roundtrip, marking persistence
+        ├── v2_wiring_diagram.rs            # 8 tests: WiringDiagram store roundtrip, port metadata
+        ├── v2_graph_recursion.rs           # 10 tests: shortest_path, collect_reachable, depth limits
+        ├── v2_fingerprint_search.rs        # 5 tests: fingerprint compute/store, HNSW similarity
+        ├── v2_schema_modernization.rs      # 2 tests: FTS node name search
         ├── domain_chemical_reactions.rs    # 5 tests: chemical reactions (Cospan hyperedges)
         ├── domain_circuit_design.rs        # 5 tests: cascaded logic gates, shared nodes
         ├── domain_code_analysis.rs         # 5 tests: code graph (pairwise, multi-hop)
@@ -247,8 +255,11 @@ Graph-native persistence with first-class nodes, pairwise edges, and hub-node re
 - **`NodeStore`** — CRUD for `graph_node` records (name, kind, labels, properties).
 - **`EdgeStore`** — `RELATE`-based pairwise edges with traversal (outbound/inbound/between).
 - **`HyperedgeStore`** — Decompose `Cospan`/`Span`/`NamedCospan` into hub-node reification pattern (`hyperedge_hub` + `source_of`/`target_of` edges). Reconstruct `Cospan<Lambda>` from hub.
-- **`QueryHelper`** — Graph traversal: `outbound_neighbors`, `inbound_neighbors`, `reachable` (BFS to depth N).
-- Tables: `graph_node`, `graph_edge`, `hyperedge_hub`, `source_of`, `target_of`.
+- **`PetriNetStore`** — Native Petri net persistence: save/load/delete topology + marking snapshots.
+- **`WiringDiagramStore`** — WiringDiagram V2 persistence via hub-node reification with port metadata.
+- **`FingerprintEngine`** — Structural fingerprint computation (petgraph) + HNSW similarity search.
+- **`QueryHelper`** — Graph traversal: `outbound_neighbors`, `inbound_neighbors`, `reachable` (BFS), `shortest_path`, `collect_reachable`.
+- Tables: `graph_node` (with FTS + HNSW indexes), `graph_edge`, `hyperedge_hub`, `source_of` (with decimal weight), `target_of` (with decimal weight), `petri_net`, `petri_place`, `petri_transition`, `pre_arc`, `post_arc`, `petri_marking`.
 
 ### Usage
 
@@ -277,21 +288,21 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 
 ### Dependencies
 
-`catgraph`, `surrealdb` 3.0.5 (kv-mem), `surrealdb-types` 3.0.5, `serde` + `serde_json`, `tokio`, `thiserror`
+`catgraph`, `surrealdb` 3.0.5 (kv-mem), `surrealdb-types` 3.0.5, `serde` + `serde_json`, `tokio`, `thiserror`, `rust_decimal`, `petgraph`
 
 ### catgraph core dependencies
 
-`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`. Dev-only: `env_logger`, `proptest`, `criterion`.
+`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`, `rust_decimal`. Dev-only: `env_logger`, `proptest`, `criterion`.
 
 ## Testing
 
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 600 tests (492 catgraph + 108 bridge), 1 ignored
+cargo test --workspace        # Run all 640 tests (492 catgraph + 148 bridge), 1 ignored
 cargo test                    # Run catgraph-only tests (492: 290 unit + 202 integration)
-cargo test -p catgraph-surreal # Run bridge crate tests (108: 10 unit + 98 integration)
-cargo test --examples         # Compile-check all 7 examples
+cargo test -p catgraph-surreal # Run bridge crate tests (148: 19 unit + 129 integration)
+cargo test --examples         # Compile-check all 19 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -418,9 +429,11 @@ Rust 2024 edition. Common patterns:
 
 | Area | Notes |
 |------|-------|
-| Petri nets | Natural fit for source/target semantics. Chemical use case tests demonstrate the pattern. |
+| Compact closure (Fong-Spivak §3.1) | Cup/cap morphisms, name bijection — schema ready (hub with source_count=0) |
+| CospanAlgebra trait (Fong-Spivak §2.1) | Lax monoidal functor from cospans to sets |
+| WeightedCospan | `weight: option<decimal>` on source_of/target_of already in schema |
+| Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds not yet validated with data |
-| WiringDiagram | 18 unit tests + 14 integration tests. No V2 persistence store yet. |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope

@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, Petri nets, wiring 
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-600 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+640 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -127,17 +127,21 @@ An operad built on `NamedCospan` implementing the [wiring diagram operad](https:
 
 ### Petri Nets
 
-Place/transition Petri nets built on cospan semantics. Places are Lambda-typed, transitions have weighted pre/post arcs, firing is pure.
+Place/transition Petri nets built on cospan semantics. Places are Lambda-typed, transitions have `rust_decimal::Decimal` arc weights (exact arithmetic), firing is pure.
 
 ```rust
 use catgraph::petri_net::{PetriNet, Transition, Marking};
+use rust_decimal::Decimal;
 
 // 2H2 + O2 -> 2H2O
 let net: PetriNet<&str> = PetriNet::new(
     vec!["H2", "O2", "H2O"],
-    vec![Transition::new(vec![(0, 2), (1, 1)], vec![(2, 2)])],
+    vec![Transition::new(
+        vec![(0, Decimal::from(2)), (1, Decimal::from(1))],
+        vec![(2, Decimal::from(2))],
+    )],
 );
-let m0 = Marking::from_vec(vec![(0, 4), (1, 2)]);
+let m0 = Marking::from_vec(vec![(0, Decimal::from(4)), (1, Decimal::from(2))]);
 let m1 = net.fire(0, &m0).unwrap();     // 2H2 consumed, 2H2O produced
 let reachable = net.reachable(&m0, 10);  // BFS over marking graph
 ```
@@ -161,23 +165,43 @@ The `catgraph-surreal` workspace member provides typed persistence for catgraph 
 
 **V1 (embedded arrays)** — O(1) reconstruction via `CospanStore`, `NamedCospanStore`, `SpanStore`. Each n-ary hyperedge is a single record with embedded arrays encoding the structural maps.
 
-**V2 (RELATE-based graph)** — Graph-native persistence with `NodeStore`, `EdgeStore`, `HyperedgeStore`, and `QueryHelper`. Supports edge properties, multi-hop traversal, hub-node reification for n-ary hyperedges, record references with `ON DELETE UNSET`, and computed provenance fields.
+**V2 (RELATE-based graph)** — Graph-native persistence with `NodeStore`, `EdgeStore`, `HyperedgeStore`, `PetriNetStore`, `WiringDiagramStore`, `FingerprintEngine`, and `QueryHelper`. Supports:
+- Hub-node reification for n-ary hyperedges with decimal participation weights
+- Full-text search on node names (BM25 with edgengram analyzer)
+- HNSW vector similarity search on structural fingerprints (configurable dimension)
+- Graph traversal: BFS reachable, shortest path, collect all reachable
+- Native Petri net persistence with marking snapshots
+- Record references with `ON DELETE UNSET` and computed provenance fields
 
 ```rust
 use catgraph_surreal::{init_schema, init_schema_v2};
 use catgraph_surreal::hyperedge_store::HyperedgeStore;
+use catgraph_surreal::petri_net_store::PetriNetStore;
+use catgraph_surreal::fingerprint::FingerprintEngine;
 
 let db = Surreal::new::<Mem>(()).await?;
 db.use_ns("test").use_db("test").await?;
 init_schema(&db).await?;
 init_schema_v2(&db).await?;
 
+// Hyperedge decomposition
 let store = HyperedgeStore::new(&db);
 let hub_id = store.decompose_cospan(&cospan, "reaction", props, |c| c.to_string()).await?;
 let reconstructed: Cospan<char> = store.reconstruct_cospan(&hub_id).await?;
+
+// Petri net persistence
+let pn_store = PetriNetStore::new(&db);
+let net_id = pn_store.save(&net, "combustion").await?;
+let mark_id = pn_store.save_marking(&net_id, &marking, "initial").await?;
+
+// Structural similarity search
+let engine = FingerprintEngine::new(&db, 32);
+engine.init_index().await?;
+let fp = engine.index_node(&node_id).await?;
+let similar = engine.search_similar(&fp, 10, 50).await?;
 ```
 
-108 integration tests cover V1 roundtrips, V2 CRUD/traversal, provenance, and domain-specific use cases (code graphs, chemical reactions, dataflow pipelines, API orchestration, circuit design).
+148 integration tests cover V1 roundtrips, V2 CRUD/traversal, provenance, Petri net persistence, wiring diagrams, graph recursion, fingerprint search, FTS, and domain-specific use cases.
 
 ## Examples
 
@@ -208,9 +232,9 @@ cargo run --example stokes              # TemporalComplex + ConservationResult
 ## Testing
 
 ```bash
-cargo test --workspace        # 600 tests (492 catgraph + 108 bridge), 1 ignored
+cargo test --workspace        # 640 tests (492 catgraph + 148 bridge), 1 ignored
 cargo test                    # catgraph-only (492: 290 unit + 202 integration)
-cargo test -p catgraph-surreal # bridge crate (108: 10 unit + 98 integration)
+cargo test -p catgraph-surreal # bridge crate (148: 19 unit + 129 integration)
 cargo clippy                  # zero warnings
 ```
 
@@ -275,6 +299,7 @@ cargo flamegraph --bench pushout -- --bench "pushout_compose/1024"
 - `union-find` — QuickUnionUf for pushout composition
 - `rayon` — data parallelism with adaptive thresholds
 - `log` — warning messages
+- `rust_decimal` — exact decimal arithmetic for Petri net weights
 - `thiserror` — structured error types
 - Dev: `env_logger`, `proptest`, `rand`, `criterion`
 
@@ -282,6 +307,8 @@ cargo flamegraph --bench pushout -- --bench "pushout_compose/1024"
 - `surrealdb` 3.0.5 (kv-mem) — embedded SurrealDB
 - `surrealdb-types` 3.0.5 — SurrealValue derive macro
 - `serde` + `serde_json` — JSON serialization for Lambda labels
+- `rust_decimal` — exact decimal arithmetic for weights
+- `petgraph` — structural fingerprint computation
 - `tokio` — async runtime
 - `thiserror` — error type derivation
 
