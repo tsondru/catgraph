@@ -58,13 +58,13 @@ impl<'a> HyperedgeStore<'a> {
 
         // RELATE sources: left[i] maps to middle[left_map[i]]
         for (pos, &mid_idx) in left_map.iter().enumerate() {
-            self.relate_source(&middle_node_ids[mid_idx], &hub_id, pos)
+            self.relate_source(&middle_node_ids[mid_idx], &hub_id, pos, None)
                 .await?;
         }
 
         // RELATE targets: right[j] maps to middle[right_map[j]]
         for (pos, &mid_idx) in right_map.iter().enumerate() {
-            self.relate_target(&hub_id, &middle_node_ids[mid_idx], pos)
+            self.relate_target(&hub_id, &middle_node_ids[mid_idx], pos, None)
                 .await?;
         }
 
@@ -135,7 +135,7 @@ impl<'a> HyperedgeStore<'a> {
                 .node_store
                 .create(&name, "source", vec![], props)
                 .await?;
-            self.relate_source(&node_id, &hub_id, pos).await?;
+            self.relate_source(&node_id, &hub_id, pos, None).await?;
             left_node_ids.push(node_id);
         }
 
@@ -148,7 +148,7 @@ impl<'a> HyperedgeStore<'a> {
                 .node_store
                 .create(&name, "target", vec![], props)
                 .await?;
-            self.relate_target(&hub_id, &node_id, pos).await?;
+            self.relate_target(&hub_id, &node_id, pos, None).await?;
             right_node_ids.push(node_id);
         }
 
