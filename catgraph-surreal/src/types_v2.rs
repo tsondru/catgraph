@@ -85,3 +85,52 @@ pub struct TargetOfRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<String>, // decimal stored as string for exact representation
 }
+
+/// A Petri net record.
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct PetriNetRecord {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    pub name: String,
+    pub label_type: String,
+    #[serde(default)]
+    pub properties: serde_json::Value,
+}
+
+/// A place in a Petri net.
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct PetriPlaceRecord {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    pub net: RecordId,
+    pub position: i64,
+    pub label: String,
+    pub label_type: String,
+    #[serde(default)]
+    pub properties: serde_json::Value,
+}
+
+/// A transition in a Petri net.
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct PetriTransitionRecord {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    pub net: RecordId,
+    pub position: i64,
+    #[serde(default)]
+    pub properties: serde_json::Value,
+}
+
+/// A marking snapshot (token distribution).
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct MarkingRecord {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    pub net: RecordId,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub tokens: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<i64>,
+}

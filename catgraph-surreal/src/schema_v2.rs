@@ -69,4 +69,45 @@ DEFINE FIELD IF NOT EXISTS created_at ON composed_from TYPE datetime DEFAULT tim
 -- Computed provenance flag (evaluated only when selected, v3.0.5)
 DEFINE FIELD IF NOT EXISTS has_provenance ON hyperedge_hub TYPE bool
     COMPUTED parent_hubs IS NOT NONE AND array::len(parent_hubs) > 0;
+
+-- Petri net topology
+DEFINE TABLE IF NOT EXISTS petri_net SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS name ON petri_net TYPE string;
+DEFINE FIELD IF NOT EXISTS label_type ON petri_net TYPE string;
+DEFINE FIELD IF NOT EXISTS properties ON petri_net TYPE object FLEXIBLE DEFAULT {};
+DEFINE FIELD IF NOT EXISTS created_at ON petri_net TYPE datetime DEFAULT time::now();
+DEFINE INDEX IF NOT EXISTS idx_petri_name ON petri_net FIELDS name;
+
+-- Petri net place: linked to a petri_net record
+DEFINE TABLE IF NOT EXISTS petri_place SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS net ON petri_place TYPE record<petri_net>;
+DEFINE FIELD IF NOT EXISTS position ON petri_place TYPE int;
+DEFINE FIELD IF NOT EXISTS label ON petri_place TYPE string;
+DEFINE FIELD IF NOT EXISTS label_type ON petri_place TYPE string;
+DEFINE FIELD IF NOT EXISTS properties ON petri_place TYPE object FLEXIBLE DEFAULT {};
+DEFINE INDEX IF NOT EXISTS idx_place_net ON petri_place FIELDS net;
+
+-- Petri net transition: linked to a petri_net record
+DEFINE TABLE IF NOT EXISTS petri_transition SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS net ON petri_transition TYPE record<petri_net>;
+DEFINE FIELD IF NOT EXISTS position ON petri_transition TYPE int;
+DEFINE FIELD IF NOT EXISTS properties ON petri_transition TYPE object FLEXIBLE DEFAULT {};
+DEFINE INDEX IF NOT EXISTS idx_transition_net ON petri_transition FIELDS net;
+
+-- Pre-arc: place -> transition with weight
+DEFINE TABLE IF NOT EXISTS pre_arc SCHEMAFULL TYPE RELATION FROM petri_place TO petri_transition;
+DEFINE FIELD IF NOT EXISTS weight ON pre_arc TYPE decimal;
+
+-- Post-arc: transition -> place with weight
+DEFINE TABLE IF NOT EXISTS post_arc SCHEMAFULL TYPE RELATION FROM petri_transition TO petri_place;
+DEFINE FIELD IF NOT EXISTS weight ON post_arc TYPE decimal;
+
+-- Marking snapshot: token distribution at a point in time
+DEFINE TABLE IF NOT EXISTS petri_marking SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS net ON petri_marking TYPE record<petri_net>;
+DEFINE FIELD IF NOT EXISTS label ON petri_marking TYPE string DEFAULT '';
+DEFINE FIELD IF NOT EXISTS tokens ON petri_marking TYPE object FLEXIBLE DEFAULT {};
+DEFINE FIELD IF NOT EXISTS step ON petri_marking TYPE option<int> DEFAULT NONE;
+DEFINE FIELD IF NOT EXISTS created_at ON petri_marking TYPE datetime DEFAULT time::now();
+DEFINE INDEX IF NOT EXISTS idx_marking_net ON petri_marking FIELDS net;
 "#;
