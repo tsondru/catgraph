@@ -1,11 +1,15 @@
 //! V2 persistence for [`WiringDiagram`] via hub-node reification.
 //!
-//! Decomposes the underlying [`NamedCospan`] into a hyperedge hub,
-//! storing inner-circle port metadata `(Dir, InterCircle, IntraCircle)`
-//! and outer-circle port metadata `(Dir, IntraCircle)` in hub properties.
+//! A wiring diagram is an operadic structure built on [`NamedCospan`]. This
+//! module decomposes the underlying cospan into a `hyperedge_hub` record
+//! (via [`HyperedgeStore`]) and serializes the port name metadata as JSON
+//! in the hub's `properties` field:
 //!
-//! [`Dir`] is not serde-serializable (catgraph core has no serde dependency),
-//! so the store converts it to/from string representation manually.
+//! - **Left ports** carry `(Dir, InterCircle, IntraCircle)` triples (inner circle).
+//! - **Right ports** carry `(Dir, IntraCircle)` pairs (outer circle).
+//!
+//! [`Dir`] has no serde derives in catgraph core, so conversion to/from
+//! `"In"` / `"Out"` / `"Undirected"` strings is handled manually.
 
 use std::fmt::Debug;
 
@@ -24,12 +28,16 @@ use crate::hyperedge::HyperedgeStore;
 use crate::persist::Persistable;
 use crate::types_v2::HyperedgeHubRecord;
 
-/// V2 persistence for [`WiringDiagram`] via hub-node reification.
+/// Async CRUD store for [`WiringDiagram`] persistence in SurrealDB.
 ///
-/// Saves the underlying cospan structure through [`HyperedgeStore::decompose_cospan`],
-/// with port name metadata serialized in the hub's `properties` JSON.
+/// Delegates cospan decomposition/reconstruction to [`HyperedgeStore`] and
+/// layers port name serialization on top. All diagrams are stored as
+/// `hyperedge_hub` records with `kind = "wiring_diagram"`, allowing
+/// [`list`](Self::list) to filter them from other hub types.
 pub struct WiringDiagramStore<'a> {
+    /// Underlying hub store used for cospan decomposition and reconstruction.
     hyperedge_store: HyperedgeStore<'a>,
+    /// Borrowed database connection for direct queries (e.g., [`list`](Self::list)).
     db: &'a Surreal<Db>,
 }
 
@@ -43,8 +51,18 @@ impl<'a> WiringDiagramStore<'a> {
 
     /// Save a [`WiringDiagram`] by decomposing its inner [`NamedCospan`].
     ///
-    /// Port name metadata is stored in the hub's properties JSON.
-    /// `Dir` is serialized as `"In"`, `"Out"`, or `"Undirected"`.
+    /// The cospan structure is persisted via [`HyperedgeStore::decompose_cospan`]
+    /// with `kind = "wiring_diagram"`. Port name tuples are serialized into
+    /// the hub's `properties` JSON under `"left_port_names"` and
+    /// `"right_port_names"` keys. [`Dir`] variants are stored as plain
+    /// strings (`"In"`, `"Out"`, `"Undirected"`).
+    ///
+    /// Returns the hub [`RecordId`] which can be used with [`load`](Self::load).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if port name serialization fails.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn save<Lambda, InterCircle, IntraCircle>(
         &self,
         diagram: &WiringDiagram<Lambda, InterCircle, IntraCircle>,
@@ -78,8 +96,15 @@ impl<'a> WiringDiagramStore<'a> {
 
     /// Reconstruct a [`WiringDiagram`] from a stored hub record.
     ///
-    /// Rebuilds the underlying cospan via [`HyperedgeStore::reconstruct_cospan`]
-    /// and restores port name metadata from hub properties.
+    /// Rebuilds the underlying cospan via [`HyperedgeStore::reconstruct_cospan`],
+    /// verifies the hub `kind` is `"wiring_diagram"`, then deserializes port
+    /// name metadata from the hub's `properties` JSON back into typed tuples.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the hub kind is wrong,
+    /// port name JSON is missing or malformed, or cospan reconstruction fails.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn load<Lambda, InterCircle, IntraCircle>(
         &self,
         hub_id: &RecordId,
@@ -113,17 +138,39 @@ impl<'a> WiringDiagramStore<'a> {
         Ok(WiringDiagram::new(named))
     }
 
-    /// Get the hub record for a stored wiring diagram.
+    /// Fetch the raw [`HyperedgeHubRecord`] for a stored wiring diagram.
+    ///
+    /// Useful for inspecting hub properties without fully reconstructing the
+    /// [`WiringDiagram`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no hub with the given ID exists.
     pub async fn get_hub(&self, hub_id: &RecordId) -> Result<HyperedgeHubRecord, PersistError> {
         self.hyperedge_store.get_hub(hub_id).await
     }
 
-    /// Delete a stored wiring diagram and its participation edges.
+    /// Delete a stored wiring diagram and its `source_of` / `target_of` edges.
+    ///
+    /// Delegates to [`HyperedgeStore::delete_hub`] which removes the hub
+    /// record and all participation edges in dependency order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn delete(&self, hub_id: &RecordId) -> Result<(), PersistError> {
         self.hyperedge_store.delete_hub(hub_id).await
     }
 
-    /// List all wiring diagram hubs.
+    /// List all stored wiring diagram hubs.
+    ///
+    /// Filters `hyperedge_hub` records to those with `kind = "wiring_diagram"`.
+    /// Returns header-level metadata only -- use [`load`](Self::load) to
+    /// reconstruct a full [`WiringDiagram`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn list(&self) -> Result<Vec<HyperedgeHubRecord>, PersistError> {
         let mut result = self
             .db
@@ -138,6 +185,7 @@ impl<'a> WiringDiagramStore<'a> {
 // Dir ↔ JSON helpers (catgraph's Dir has no serde derives)
 // ---------------------------------------------------------------------------
 
+/// Convert a [`Dir`] variant to its string representation for JSON storage.
 fn dir_to_str(d: &Dir) -> &'static str {
     match d {
         Dir::In => "In",
@@ -146,6 +194,12 @@ fn dir_to_str(d: &Dir) -> &'static str {
     }
 }
 
+/// Parse a [`Dir`] variant from its string representation.
+///
+/// # Errors
+///
+/// Returns [`PersistError::InvalidData`] if the string is not one of
+/// `"In"`, `"Out"`, or `"Undirected"`.
 fn dir_from_str(s: &str) -> Result<Dir, PersistError> {
     match s {
         "In" => Ok(Dir::In),
