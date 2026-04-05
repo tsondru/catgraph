@@ -91,11 +91,17 @@ impl<'a> HyperedgeStore<'a> {
         node_id: &RecordId,
         hub_id: &RecordId,
         position: usize,
+        weight: Option<&str>,
     ) -> Result<(), PersistError> {
         let pos = i64::try_from(position)
             .map_err(|_| PersistError::InvalidData(format!("position overflow: {position}")))?;
+        let query = if let Some(w) = weight {
+            format!("RELATE $node->source_of->$hub SET position = $pos, weight = <decimal>'{w}'")
+        } else {
+            "RELATE $node->source_of->$hub SET position = $pos".to_string()
+        };
         self.db
-            .query("RELATE $node->source_of->$hub SET position = $pos")
+            .query(&query)
             .bind(("node", node_id.clone()))
             .bind(("hub", hub_id.clone()))
             .bind(("pos", pos))
@@ -108,11 +114,17 @@ impl<'a> HyperedgeStore<'a> {
         hub_id: &RecordId,
         node_id: &RecordId,
         position: usize,
+        weight: Option<&str>,
     ) -> Result<(), PersistError> {
         let pos = i64::try_from(position)
             .map_err(|_| PersistError::InvalidData(format!("position overflow: {position}")))?;
+        let query = if let Some(w) = weight {
+            format!("RELATE $hub->target_of->$node SET position = $pos, weight = <decimal>'{w}'")
+        } else {
+            "RELATE $hub->target_of->$node SET position = $pos".to_string()
+        };
         self.db
-            .query("RELATE $hub->target_of->$node SET position = $pos")
+            .query(&query)
             .bind(("hub", hub_id.clone()))
             .bind(("node", node_id.clone()))
             .bind(("pos", pos))
@@ -127,7 +139,7 @@ impl<'a> HyperedgeStore<'a> {
     ) -> Result<Vec<ParticipationEntry>, PersistError> {
         let mut result = self
             .db
-            .query("SELECT in AS node, position FROM source_of WHERE out = $hub ORDER BY position ASC")
+            .query("SELECT in AS node, position, weight FROM source_of WHERE out = $hub ORDER BY position ASC")
             .bind(("hub", hub_id.clone()))
             .await?;
         let entries: Vec<ParticipationEntry> = result.take(0)?;
@@ -141,7 +153,7 @@ impl<'a> HyperedgeStore<'a> {
     ) -> Result<Vec<ParticipationEntry>, PersistError> {
         let mut result = self
             .db
-            .query("SELECT out AS node, position FROM target_of WHERE in = $hub ORDER BY position ASC")
+            .query("SELECT out AS node, position, weight FROM target_of WHERE in = $hub ORDER BY position ASC")
             .bind(("hub", hub_id.clone()))
             .await?;
         let entries: Vec<ParticipationEntry> = result.take(0)?;
@@ -149,7 +161,7 @@ impl<'a> HyperedgeStore<'a> {
     }
 }
 
-/// Internal: a participation edge entry (node RecordId + position).
+/// Internal: a participation edge entry (node RecordId + position + optional weight).
 ///
 /// Uses typed `SurrealValue` deserialization to correctly handle `RecordId`
 /// (which cannot round-trip through `serde_json::Value`).
@@ -158,6 +170,8 @@ pub(crate) struct ParticipationEntry {
     pub(crate) node: RecordId,
     #[allow(dead_code)]
     pub(crate) position: i64,
+    #[serde(default)]
+    pub(crate) weight: Option<String>,
 }
 
 /// Format a `RecordId` as a `"table:key"` string.
