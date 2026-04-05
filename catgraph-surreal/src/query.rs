@@ -10,9 +10,17 @@ use crate::error::PersistError;
 use crate::node_store::NodeStore;
 use crate::types_v2::GraphNodeRecord;
 
-/// Thin query helper for common SurrealQL graph traversal patterns.
+/// Query helper for common SurrealQL graph traversal patterns.
+///
+/// Wraps a borrowed database connection and a [`NodeStore`] to provide
+/// BFS-based traversal methods (outbound/inbound neighbors, reachability,
+/// shortest path) over V2 `graph_edge` records. Each traversal method
+/// filters by `edge_kind` so different relationship types can coexist in
+/// the same graph without interference.
 pub struct QueryHelper<'a> {
+    /// Borrowed database connection used for all queries.
     db: &'a Surreal<Db>,
+    /// Node store used to fetch full [`GraphNodeRecord`] values from IDs.
     node_store: NodeStore<'a>,
 }
 
@@ -29,6 +37,11 @@ impl<'a> QueryHelper<'a> {
     /// Queries the edge table directly to find target node IDs, then fetches
     /// each node. Avoids `serde_json::Value` intermediary which cannot
     /// deserialize `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a referenced target node no
+    /// longer exists. Returns [`PersistError::Surreal`] on database errors.
     pub async fn outbound_neighbors(
         &self,
         node: &RecordId,
@@ -52,6 +65,11 @@ impl<'a> QueryHelper<'a> {
     ///
     /// Queries the edge table directly to find source node IDs, then fetches
     /// each node.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a referenced source node no
+    /// longer exists. Returns [`PersistError::Surreal`] on database errors.
     pub async fn inbound_neighbors(
         &self,
         node: &RecordId,
@@ -80,7 +98,12 @@ impl<'a> QueryHelper<'a> {
     ///
     /// SurrealDB's native recursion syntax (`record.{N}->edge->table`)
     /// requires a literal record ID expression, not a bind parameter, and does not
-    /// support edge-property filtering — so we do iterative expansion here.
+    /// support edge-property filtering -- so we do iterative expansion here.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a discovered node cannot be
+    /// fetched. Returns [`PersistError::Surreal`] on database errors.
     pub async fn reachable(
         &self,
         node: &RecordId,
@@ -128,8 +151,15 @@ impl<'a> QueryHelper<'a> {
     /// or `None` if the target is unreachable within `max_depth` hops.
     /// When `from == to`, returns a single-element path containing just that node.
     ///
-    /// Uses BFS with parent tracking — O(depth) queries, each batched over
+    /// Uses BFS with parent tracking -- O(depth) queries, each batched over
     /// the frontier.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the BFS parent chain is
+    /// inconsistent (should not happen in normal operation). Returns
+    /// [`PersistError::NotFound`] if a path node cannot be fetched.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn shortest_path(
         &self,
         from: &RecordId,
@@ -209,8 +239,12 @@ impl<'a> QueryHelper<'a> {
     /// Collect all unique nodes reachable within `max_depth` hops via edges of
     /// a specific kind, deduplicated.
     ///
-    /// Delegates to [`reachable`](Self::reachable) — this is a convenience
+    /// Delegates to [`reachable`](Self::reachable) -- this is a convenience
     /// alias with clearer naming for the "collect all" use case.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`reachable`](Self::reachable).
     pub async fn collect_reachable(
         &self,
         node: &RecordId,
@@ -220,7 +254,16 @@ impl<'a> QueryHelper<'a> {
         self.reachable(node, edge_kind, max_depth).await
     }
 
-    /// Execute a raw SurrealQL query with bindings.
+    /// Execute a raw SurrealQL query with named bind parameters.
+    ///
+    /// Escape hatch for queries not covered by the typed traversal methods.
+    /// Bind parameters are applied in order; keys must match `$name`
+    /// placeholders in the SurrealQL string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] on database communication or query
+    /// execution errors.
     pub async fn raw(
         &self,
         surql: &str,

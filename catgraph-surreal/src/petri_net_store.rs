@@ -1,3 +1,13 @@
+//! Persistence layer for [`PetriNet<Lambda>`] in SurrealDB.
+//!
+//! Decomposes a Petri net into first-class records: `petri_net` (the net itself),
+//! `petri_place` (typed places), `petri_transition` (transitions), plus `pre_arc`
+//! and `post_arc` RELATE edges encoding the bipartite incidence structure.
+//! Markings are stored as separate `petri_marking` snapshots with token counts
+//! serialized as `{"place_index": "decimal_value"}` JSON objects.
+//!
+//! Arc weights use SurrealDB's `decimal` type to preserve exact [`Decimal`] values.
+
 use std::collections::HashMap;
 
 use catgraph::petri_net::{Marking, PetriNet, Transition};
@@ -11,32 +21,48 @@ use crate::error::PersistError;
 use crate::persist::Persistable;
 use crate::types_v2::{MarkingRecord, PetriNetRecord, PetriPlaceRecord, PetriTransitionRecord};
 
-/// Store for `PetriNet<Lambda>` persistence in SurrealDB.
+/// Async CRUD store for [`PetriNet<Lambda>`] persistence in SurrealDB.
 ///
-/// Decomposes a Petri net into first-class `petri_net`, `petri_place`,
-/// `petri_transition`, `pre_arc`, and `post_arc` records.
-/// Markings are stored as separate `petri_marking` snapshots.
+/// Each Petri net is decomposed into a `petri_net` header record, one
+/// `petri_place` record per place (ordered by position), one
+/// `petri_transition` record per transition, and RELATE-based `pre_arc` /
+/// `post_arc` edges encoding the bipartite incidence between places and
+/// transitions. [`Marking`] snapshots are stored independently and linked
+/// back to their parent net via a `net` foreign key.
+///
+/// Reconstruction (`load`) re-sorts arcs by place index to guarantee
+/// deterministic ordering regardless of SurrealDB query return order.
 pub struct PetriNetStore<'a> {
+    /// Borrowed database connection used for all queries.
     db: &'a Surreal<Db>,
 }
 
-/// Helper for deserializing arc query results.
+/// Deserialization helper for pre-arc query results.
 ///
-/// SurrealDB `in` is a reserved word, so we alias it as `src` in pre-arc
-/// queries and `dst` in post-arc queries. The `SurrealValue` derive does
-/// not support `#[serde(rename)]`, so we use aliases matching the query.
+/// SurrealDB's `in` is a reserved keyword, so the query aliases it as `src`.
+/// The `SurrealValue` derive does not support `#[serde(rename)]`, hence the
+/// alias must match the struct field name exactly.
 ///
 /// Weight is cast to string in the query (`<string>weight`) because SurrealDB's
-/// `decimal` type deserializes as a number, not a string.
+/// `decimal` type deserializes as a number rather than a string, which would
+/// lose precision for [`Decimal`] parsing.
 #[derive(Debug, serde::Deserialize, SurrealValue)]
 struct PreArcEntry {
+    /// Source place `RecordId` (aliased from `in`).
     src: RecordId,
+    /// Arc weight as a string-cast decimal for lossless [`Decimal`] parsing.
     weight: String,
 }
 
+/// Deserialization helper for post-arc query results.
+///
+/// Mirrors [`PreArcEntry`] but for the outbound direction: the query aliases
+/// `out` as `dst`.
 #[derive(Debug, serde::Deserialize, SurrealValue)]
 struct PostArcEntry {
+    /// Target place `RecordId` (aliased from `out`).
     dst: RecordId,
+    /// Arc weight as a string-cast decimal for lossless [`Decimal`] parsing.
     weight: String,
 }
 
@@ -45,7 +71,18 @@ impl<'a> PetriNetStore<'a> {
         Self { db }
     }
 
-    /// Save a `PetriNet<Lambda>` to SurrealDB, returning the net's `RecordId`.
+    /// Save a [`PetriNet<Lambda>`] to SurrealDB, returning the net's [`RecordId`].
+    ///
+    /// Creates records in dependency order: the net header, then places
+    /// (preserving index order via a `position` field), then transitions
+    /// with their pre-arc and post-arc RELATE edges. Arc weights are stored
+    /// as SurrealDB `decimal` values for exact representation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if record creation fails or a
+    /// position index overflows `i64`. Returns [`PersistError::Surreal`] on
+    /// database communication errors.
     pub async fn save<Lambda: Persistable + Copy>(
         &self,
         net: &PetriNet<Lambda>,
@@ -142,7 +179,19 @@ impl<'a> PetriNetStore<'a> {
         Ok(net_id)
     }
 
-    /// Load a `PetriNet<Lambda>` from SurrealDB by its net `RecordId`.
+    /// Load a [`PetriNet<Lambda>`] from SurrealDB by its net [`RecordId`].
+    ///
+    /// Fetches the net header, verifies the stored `label_type` matches
+    /// `Lambda::type_name()`, then reconstructs places (ordered by position),
+    /// transitions, and their pre/post arcs. Arcs are sorted by place index
+    /// after loading to guarantee deterministic [`Transition`] construction.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the net record does not exist.
+    /// Returns [`PersistError::TypeMismatch`] if `Lambda` does not match the
+    /// stored label type. Returns [`PersistError::InvalidData`] on malformed
+    /// label JSON or dangling arc references.
     pub async fn load<Lambda: Persistable + Copy>(
         &self,
         net_id: &RecordId,
@@ -252,7 +301,17 @@ impl<'a> PetriNetStore<'a> {
         Ok(PetriNet::new(places, transitions))
     }
 
-    /// Save a marking snapshot for a Petri net.
+    /// Save a [`Marking`] snapshot for a Petri net.
+    ///
+    /// Token counts are serialized as a JSON object mapping place indices
+    /// (as string keys) to decimal values (as string values). Zero-count
+    /// entries are omitted for compactness. The optional `label` field
+    /// allows tagging snapshots (e.g., `"initial"`, `"after_fire_t0"`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the marking record cannot be
+    /// created. Returns [`PersistError::Surreal`] on database errors.
     pub async fn save_marking(
         &self,
         net_id: &RecordId,
@@ -284,7 +343,15 @@ impl<'a> PetriNetStore<'a> {
             .ok_or_else(|| PersistError::InvalidData("created marking has no id".into()))
     }
 
-    /// Load a marking snapshot by its `RecordId`.
+    /// Load a [`Marking`] snapshot by its [`RecordId`].
+    ///
+    /// Parses the stored JSON token object back into `(place_index, Decimal)`
+    /// pairs and constructs a [`Marking`] via [`Marking::from_vec`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the marking record does not exist.
+    /// Returns [`PersistError::InvalidData`] if the token JSON is malformed.
     pub async fn load_marking(
         &self,
         marking_id: &RecordId,
@@ -297,9 +364,15 @@ impl<'a> PetriNetStore<'a> {
         Ok(Marking::from_vec(pairs))
     }
 
-    /// Delete a Petri net and all its related records.
+    /// Delete a Petri net and all its dependent records.
     ///
-    /// Deletes in dependency order: arcs, transitions, places, markings, then the net itself.
+    /// Deletes in reverse-dependency order to avoid dangling references:
+    /// pre-arcs, post-arcs, transitions, places, markings, then the net
+    /// header itself.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn delete(&self, net_id: &RecordId) -> Result<(), PersistError> {
         // Delete pre-arcs referencing places in this net
         self.db
@@ -336,14 +409,25 @@ impl<'a> PetriNetStore<'a> {
         Ok(())
     }
 
-    /// List all Petri net records.
+    /// List all stored Petri net header records.
+    ///
+    /// Returns [`PetriNetRecord`] values without loading places, transitions,
+    /// or arcs -- use [`load`](Self::load) to reconstruct a full
+    /// [`PetriNet<Lambda>`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn list(&self) -> Result<Vec<PetriNetRecord>, PersistError> {
         let records: Vec<PetriNetRecord> = self.db.select("petri_net").await?;
         Ok(records)
     }
 }
 
-/// Format a `RecordId` as a `"table:key"` string for use as a map key.
+/// Format a [`RecordId`] as a `"table:key"` string for use as a [`HashMap`] key.
+///
+/// Handles the four `RecordIdKey` variants (`String`, `Number`, `Uuid`, and
+/// fallback `Debug`) to produce a stable, equality-safe map key.
 fn format_record_id(id: &RecordId) -> String {
     use surrealdb::types::RecordIdKey;
     let table = id.table.as_str();
@@ -355,7 +439,16 @@ fn format_record_id(id: &RecordId) -> String {
     }
 }
 
-/// Parse the tokens JSON object into `Vec<(usize, Decimal)>` pairs.
+/// Parse the stored tokens JSON object into `Vec<(usize, Decimal)>` pairs.
+///
+/// Expects a JSON object of the form `{"0": "3", "2": "1.5"}` where keys
+/// are place indices and values are string-encoded [`Decimal`] token counts.
+/// Zero-valued entries are silently discarded.
+///
+/// # Errors
+///
+/// Returns [`PersistError::InvalidData`] if the value is not a JSON object,
+/// a key is not a valid `usize`, or a value is not a parseable decimal string.
 fn parse_tokens_object(
     tokens: &serde_json::Value,
 ) -> Result<Vec<(usize, Decimal)>, PersistError> {
