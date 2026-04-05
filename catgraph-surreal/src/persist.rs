@@ -113,6 +113,75 @@ impl Persistable for i32 {
     }
 }
 
+impl Persistable for i64 {
+    fn to_json_value(&self) -> serde_json::Value {
+        serde_json::Value::Number((*self).into())
+    }
+
+    fn from_json_value(v: &serde_json::Value) -> Result<Self, PersistError> {
+        v.as_i64()
+            .ok_or_else(|| PersistError::TypeMismatch {
+                expected: "i64".into(),
+                got: format!("{v}"),
+            })
+    }
+
+    fn type_name() -> &'static str {
+        "i64"
+    }
+}
+
+impl Persistable for u64 {
+    fn to_json_value(&self) -> serde_json::Value {
+        serde_json::Value::Number((*self).into())
+    }
+
+    fn from_json_value(v: &serde_json::Value) -> Result<Self, PersistError> {
+        v.as_u64()
+            .ok_or_else(|| PersistError::TypeMismatch {
+                expected: "u64".into(),
+                got: format!("{v}"),
+            })
+    }
+
+    fn type_name() -> &'static str {
+        "u64"
+    }
+}
+
+impl Persistable for rust_decimal::Decimal {
+    fn to_json_value(&self) -> serde_json::Value {
+        serde_json::Value::String(self.to_string())
+    }
+
+    fn from_json_value(v: &serde_json::Value) -> Result<Self, PersistError> {
+        match v {
+            serde_json::Value::String(s) => {
+                s.parse::<rust_decimal::Decimal>().map_err(|e| PersistError::TypeMismatch {
+                    expected: "decimal string".into(),
+                    got: format!("{e}"),
+                })
+            }
+            serde_json::Value::Number(n) => {
+                n.to_string()
+                    .parse::<rust_decimal::Decimal>()
+                    .map_err(|e| PersistError::TypeMismatch {
+                        expected: "decimal number".into(),
+                        got: format!("{e}"),
+                    })
+            }
+            _ => Err(PersistError::TypeMismatch {
+                expected: "decimal".into(),
+                got: format!("{v}"),
+            }),
+        }
+    }
+
+    fn type_name() -> &'static str {
+        "decimal"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,5 +250,42 @@ mod tests {
     fn string_invalid() {
         let v = serde_json::Value::Number(42.into());
         assert!(String::from_json_value(&v).is_err());
+    }
+
+    #[test]
+    fn i64_roundtrip() {
+        let n: i64 = -9_000_000_000;
+        let v = n.to_json_value();
+        assert_eq!(i64::from_json_value(&v).unwrap(), n);
+    }
+
+    #[test]
+    fn u64_roundtrip() {
+        let n: u64 = 18_000_000_000;
+        let v = n.to_json_value();
+        assert_eq!(u64::from_json_value(&v).unwrap(), n);
+    }
+
+    #[test]
+    fn decimal_roundtrip() {
+        use rust_decimal::Decimal;
+        let d = Decimal::new(314159, 5); // 3.14159
+        let v = d.to_json_value();
+        assert_eq!(Decimal::from_json_value(&v).unwrap(), d);
+    }
+
+    #[test]
+    fn decimal_zero() {
+        use rust_decimal::Decimal;
+        let d = Decimal::ZERO;
+        let v = d.to_json_value();
+        assert_eq!(Decimal::from_json_value(&v).unwrap(), d);
+    }
+
+    #[test]
+    fn decimal_from_number() {
+        use rust_decimal::Decimal;
+        let v = serde_json::Value::Number(serde_json::Number::from(42));
+        assert_eq!(Decimal::from_json_value(&v).unwrap(), Decimal::from(42));
     }
 }
