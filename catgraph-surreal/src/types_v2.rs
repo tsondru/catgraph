@@ -68,6 +68,8 @@ pub struct SourceOfRecord {
     #[serde(rename = "out")]
     pub out_hub: RecordId,
     pub position: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<String>, // decimal stored as string for exact representation
 }
 
 /// Target participation edge: hyperedge_hub -> graph_node.
@@ -80,4 +82,6 @@ pub struct TargetOfRecord {
     #[serde(rename = "out")]
     pub out_node: RecordId,
     pub position: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<String>, // decimal stored as string for exact representation
 }
