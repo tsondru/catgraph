@@ -307,10 +307,10 @@ where
                 continue;
             }
             for t in self.enabled(&marking) {
-                if let Ok(next) = self.fire(t, &marking) {
-                    if visited.insert(next.clone()) {
-                        queue.push_back((next, depth + 1));
-                    }
+                if let Ok(next) = self.fire(t, &marking)
+                    && visited.insert(next.clone())
+                {
+                    queue.push_back((next, depth + 1));
                 }
             }
         }
