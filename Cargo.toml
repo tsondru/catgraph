@@ -23,6 +23,7 @@ rand = "^0.10.0"
 num = "^0.4.3"
 itertools = "^0.14.0"
 rayon = "^1.11"
+rust_decimal = "1"
 thiserror = "2"
 
 [dev-dependencies]
