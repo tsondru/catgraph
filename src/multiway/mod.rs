@@ -12,8 +12,18 @@
 
 pub mod wasserstein;
 pub mod evolution_graph;
+pub mod branchial;
+pub mod curvature;
+pub mod ollivier_ricci;
 
 pub use evolution_graph::{
     run_multiway_bfs, BranchId, MergePoint, MultiwayCycle, MultiwayEdge, MultiwayEdgeKind,
     MultiwayEvolutionGraph, MultiwayNode, MultiwayNodeId, MultiwayStatistics,
 };
+pub use branchial::{
+    branchial_to_parallel_intervals, extract_branchial_foliation, find_all_merge_points,
+    BranchialGraph, BranchialStepStats, BranchialSummary,
+};
+pub use curvature::{CurvatureFoliation, DiscreteCurvature};
+pub use ollivier_ricci::{OllivierFoliation, OllivierRicciCurvature};
+pub use wasserstein::wasserstein_1;
