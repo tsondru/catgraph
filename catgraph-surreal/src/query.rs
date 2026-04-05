@@ -122,6 +122,104 @@ impl<'a> QueryHelper<'a> {
         Ok(nodes)
     }
 
+    /// Find the shortest path between two nodes via edges of a specific kind.
+    ///
+    /// Returns the path as a sequence of `GraphNodeRecord` (start to end),
+    /// or `None` if the target is unreachable within `max_depth` hops.
+    /// When `from == to`, returns a single-element path containing just that node.
+    ///
+    /// Uses BFS with parent tracking — O(depth) queries, each batched over
+    /// the frontier.
+    pub async fn shortest_path(
+        &self,
+        from: &RecordId,
+        to: &RecordId,
+        edge_kind: &str,
+        max_depth: u32,
+    ) -> Result<Option<Vec<GraphNodeRecord>>, PersistError> {
+        // Same node: trivial path of length 1.
+        if from == to {
+            let node = self.node_store.get(from).await?;
+            return Ok(Some(vec![node]));
+        }
+
+        // BFS with parent map for path reconstruction.
+        // RecordId contains a regex cache (interior mutability) but Hash/Eq are stable.
+        #[allow(clippy::mutable_key_type)]
+        let mut visited: HashSet<RecordId> = HashSet::from([from.clone()]);
+        // Map child -> parent for path reconstruction.
+        #[allow(clippy::mutable_key_type)]
+        let mut parent: std::collections::HashMap<RecordId, RecordId> =
+            std::collections::HashMap::new();
+        let mut frontier: Vec<RecordId> = vec![from.clone()];
+        let mut found = false;
+
+        for _ in 0..max_depth {
+            if frontier.is_empty() {
+                break;
+            }
+            let mut result = self
+                .db
+                .query("SELECT `in` AS src, out FROM graph_edge WHERE `in` IN $nodes AND kind = $kind")
+                .bind(("nodes", frontier.clone()))
+                .bind(("kind", edge_kind.to_string()))
+                .await?;
+            let refs: Vec<InOutRef> = result.take(0)?;
+            let mut next_frontier = Vec::new();
+            for r in refs {
+                if visited.insert(r.out.clone()) {
+                    parent.insert(r.out.clone(), r.src.clone());
+                    if r.out == *to {
+                        found = true;
+                        break;
+                    }
+                    next_frontier.push(r.out);
+                }
+            }
+            if found {
+                break;
+            }
+            frontier = next_frontier;
+        }
+
+        if !found {
+            return Ok(None);
+        }
+
+        // Reconstruct path by walking parent chain backward.
+        let mut path_ids = vec![to.clone()];
+        let mut current = to.clone();
+        while current != *from {
+            let p = parent
+                .get(&current)
+                .ok_or_else(|| PersistError::InvalidData("BFS parent chain broken".into()))?;
+            path_ids.push(p.clone());
+            current = p.clone();
+        }
+        path_ids.reverse();
+
+        // Fetch node records in path order.
+        let mut path = Vec::with_capacity(path_ids.len());
+        for id in &path_ids {
+            path.push(self.node_store.get(id).await?);
+        }
+        Ok(Some(path))
+    }
+
+    /// Collect all unique nodes reachable within `max_depth` hops via edges of
+    /// a specific kind, deduplicated.
+    ///
+    /// Delegates to [`reachable`](Self::reachable) — this is a convenience
+    /// alias with clearer naming for the "collect all" use case.
+    pub async fn collect_reachable(
+        &self,
+        node: &RecordId,
+        edge_kind: &str,
+        max_depth: u32,
+    ) -> Result<Vec<GraphNodeRecord>, PersistError> {
+        self.reachable(node, edge_kind, max_depth).await
+    }
+
     /// Execute a raw SurrealQL query with bindings.
     pub async fn raw(
         &self,
@@ -149,4 +247,14 @@ struct OutRef {
 #[derive(Debug, serde::Deserialize, surrealdb_types::SurrealValue)]
 struct InRef {
     src: RecordId,
+}
+
+/// Helper struct for extracting both `in` (as `src`) and `out` RecordId from edge
+/// query results. Used by `shortest_path` to track parent→child relationships.
+///
+/// The query must alias `in` as `src`: `SELECT `in` AS src, out FROM ...`.
+#[derive(Debug, serde::Deserialize, surrealdb_types::SurrealValue)]
+struct InOutRef {
+    src: RecordId,
+    out: RecordId,
 }
