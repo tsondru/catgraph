@@ -16,6 +16,7 @@ pub use hyperedge as hyperedge_store;
 pub mod query;
 pub mod petri_net_store;
 pub mod wiring_store;
+pub mod fingerprint;
 
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;

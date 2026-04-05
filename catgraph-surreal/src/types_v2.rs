@@ -13,6 +13,8 @@ pub struct GraphNodeRecord {
     pub labels: Vec<String>,
     #[serde(default)]
     pub properties: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub embedding: Option<Vec<f64>>,
 }
 
 /// A pairwise RELATE edge between two graph_node records.

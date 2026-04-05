@@ -29,6 +29,7 @@ impl<'a> NodeStore<'a> {
             kind: kind.to_string(),
             labels,
             properties,
+            embedding: None,
         };
         let created: Option<GraphNodeRecord> =
             self.db.create("graph_node").content(record).await?;
