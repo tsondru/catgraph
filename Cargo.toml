@@ -3,7 +3,7 @@ members = [".", "catgraph-surreal"]
 
 [package]
 name = "catgraph"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 license = "MIT"
 description = "Category-theoretic graph structures: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, and morphisms in symmetric monoidal categories"
