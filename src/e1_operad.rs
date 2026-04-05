@@ -30,6 +30,15 @@ impl E1 {
     /// Create an n-ary E1 configuration from subintervals of \[0, 1\].
     ///
     /// When `overlap_check` is true, validates disjointness and sorts by left endpoint.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError::Operadic`] if any interval extends outside \[0, 1\] or overlaps
+    /// when `overlap_check` is true.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `partial_cmp` returns `None` for `IntervalCoord` — should not occur with finite floats.
     pub fn new(sub_intervals: Vec<(IntervalCoord, IntervalCoord)>, overlap_check: bool) -> Result<Self, CatgraphError> {
         for (a, b) in &sub_intervals {
             if *a >= *b - F32_EPSILON {
@@ -71,6 +80,10 @@ impl E1 {
     }
 
     /// Generate a random E1 configuration with the given arity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if random `f64` values produce `None` on `partial_cmp` — should not occur.
     pub fn random(cur_arity: usize, rng: &mut ThreadRng) -> Self {
         let mut sub_ints: Vec<IntervalCoord> = (0..2 * cur_arity)
             .map(|_| rng.random_range(0.0..1.0))
@@ -102,6 +115,10 @@ impl E1 {
     }
 
     /// Merge all subintervals contained within `all_in_this_interval` into a single interval.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CoalesceError` if the interval doesn't contain all sub-intervals.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
@@ -115,6 +132,10 @@ impl E1 {
     }
 
     /// Check whether coalescence is valid: each subinterval must be fully contained or disjoint.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CoalesceError` if coalescence is invalid.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
@@ -138,6 +159,11 @@ impl E1 {
     }
 
     /// Minimum gap between consecutive intervals. Returns `None` for arity < 2.
+    ///
+    /// # Panics
+    ///
+    /// Panics if sub-intervals are not in canonical sorted order.
+    #[must_use]
     pub fn min_closeness(&self) -> Option<IntervalCoord> {
         if self.arity < 2 {
             return None;
@@ -161,6 +187,7 @@ impl E1 {
     }
 
     /// Consume self and return the subintervals in canonical (sorted) order.
+    #[must_use] 
     pub fn extract_sub_intervals(mut self) -> Vec<(IntervalCoord, IntervalCoord)> {
         self.canonicalize();
         self.sub_intervals

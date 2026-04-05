@@ -511,11 +511,13 @@ where
     BlackBoxLabel: Eq + Clone,
 {
     /// Create an empty morphism with no layers.
+    #[must_use] 
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Number of layers in this morphism (presentation depth, reducible via simplification).
+    #[must_use] 
     pub fn depth(&self) -> usize {
         self.layers.len()
     }
@@ -878,6 +880,14 @@ pub fn special_frobenius_morphism<
 ///
 /// The decomposition is realized as: permutation, then surjection (spider merges),
 /// then injection (identities interleaved with units).
+///
+/// # Errors
+///
+/// - Decomposition is incompatible with source/target types.
+///
+/// # Panics
+///
+/// - Panics if all types in a homogeneous block are not equal (internal invariant).
 #[allow(clippy::needless_pass_by_value)]
 pub fn from_decomposition<Lambda, BlackBoxLabel>(
     v: Decomposition,

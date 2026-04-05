@@ -52,16 +52,19 @@ pub struct Transition {
 
 impl Transition {
     /// Construct a transition from its pre-arc and post-arc weight lists.
+    #[must_use] 
     pub fn new(pre: Vec<(usize, Decimal)>, post: Vec<(usize, Decimal)>) -> Self {
         Self { pre, post }
     }
 
     /// The pre-arcs (input places and their weights).
+    #[must_use] 
     pub fn pre(&self) -> &[(usize, Decimal)] {
         &self.pre
     }
 
     /// The post-arcs (output places and their weights).
+    #[must_use] 
     pub fn post(&self) -> &[(usize, Decimal)] {
         &self.post
     }
@@ -80,6 +83,7 @@ pub struct Marking {
 
 impl Marking {
     /// Create an empty marking (no tokens anywhere).
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             tokens: HashMap::new(),
@@ -88,6 +92,7 @@ impl Marking {
 
     /// Create a marking from `(place_index, count)` pairs.
     /// Pairs with count zero are silently dropped.
+    #[must_use] 
     pub fn from_vec(pairs: Vec<(usize, Decimal)>) -> Self {
         let tokens: HashMap<usize, Decimal> = pairs.into_iter().filter(|(_, c)| !c.is_zero()).collect();
         Self { tokens }
@@ -103,11 +108,13 @@ impl Marking {
     }
 
     /// Get the token count at a place (zero if absent).
+    #[must_use] 
     pub fn get(&self, place: usize) -> Decimal {
         self.tokens.get(&place).copied().unwrap_or(Decimal::ZERO)
     }
 
     /// The underlying sparse token map.
+    #[must_use] 
     pub fn tokens(&self) -> &HashMap<usize, Decimal> {
         &self.tokens
     }
@@ -156,6 +163,7 @@ where
     Lambda: Sized + Eq + Copy + Debug,
 {
     /// Construct a Petri net from its places and transitions.
+    #[must_use] 
     pub fn new(places: Vec<Lambda>, transitions: Vec<Transition>) -> Self {
         Self {
             places,
@@ -164,21 +172,25 @@ where
     }
 
     /// The Lambda-typed places.
+    #[must_use] 
     pub fn places(&self) -> &[Lambda] {
         &self.places
     }
 
     /// The transitions in this net.
+    #[must_use] 
     pub fn transitions(&self) -> &[Transition] {
         &self.transitions
     }
 
     /// Number of places.
+    #[must_use] 
     pub fn place_count(&self) -> usize {
         self.places.len()
     }
 
     /// Number of transitions.
+    #[must_use] 
     pub fn transition_count(&self) -> usize {
         self.transitions.len()
     }
@@ -187,6 +199,7 @@ where
     ///
     /// A transition is enabled when every pre-arc place holds at least as many
     /// tokens as the arc weight requires.
+    #[must_use] 
     pub fn enabled(&self, marking: &Marking) -> Vec<usize> {
         self.transitions
             .iter()
@@ -223,8 +236,7 @@ where
             if marking.get(*p) < *w {
                 return Err(CatgraphError::PetriNet {
                     message: format!(
-                        "transition {} not enabled under current marking",
-                        transition
+                        "transition {transition} not enabled under current marking"
                     ),
                 });
             }
@@ -242,34 +254,35 @@ where
     }
 
     /// Pre-arc weight for a (place, transition) pair. Zero if no arc.
+    #[must_use] 
     pub fn arc_weight_pre(&self, place: usize, transition: usize) -> Decimal {
         self.transitions
             .get(transition)
-            .map(|t| {
+            .map_or(Decimal::ZERO, |t| {
                 t.pre
                     .iter()
                     .filter(|(p, _)| *p == place)
                     .map(|(_, w)| w)
                     .sum()
             })
-            .unwrap_or(Decimal::ZERO)
     }
 
     /// Post-arc weight for a (place, transition) pair. Zero if no arc.
+    #[must_use] 
     pub fn arc_weight_post(&self, place: usize, transition: usize) -> Decimal {
         self.transitions
             .get(transition)
-            .map(|t| {
+            .map_or(Decimal::ZERO, |t| {
                 t.post
                     .iter()
                     .filter(|(p, _)| *p == place)
                     .map(|(_, w)| w)
                     .sum()
             })
-            .unwrap_or(Decimal::ZERO)
     }
 
     /// Places with no post-arcs from any transition (no transition produces tokens here).
+    #[must_use] 
     pub fn source_places(&self) -> Vec<usize> {
         (0..self.places.len())
             .filter(|p| {
@@ -282,6 +295,7 @@ where
     }
 
     /// Places with no pre-arcs to any transition (no transition consumes tokens from here).
+    #[must_use] 
     pub fn sink_places(&self) -> Vec<usize> {
         (0..self.places.len())
             .filter(|p| {
@@ -297,6 +311,7 @@ where
     ///
     /// Performs a breadth-first search over the firing graph. The returned set
     /// always includes the initial marking itself.
+    #[must_use] 
     pub fn reachable(&self, initial: &Marking, max_depth: usize) -> Vec<Marking> {
         let mut visited: HashSet<Marking> = HashSet::new();
         let mut queue: VecDeque<(Marking, usize)> = VecDeque::new();
@@ -321,6 +336,7 @@ where
     ///
     /// Short-circuits as soon as the target is found. Returns `true` immediately
     /// if `initial == target`.
+    #[must_use] 
     pub fn can_reach(&self, initial: &Marking, target: &Marking, max_depth: usize) -> bool {
         if initial == target {
             return true;
@@ -353,6 +369,7 @@ where
     /// (how many domain nodes map to each middle node) become pre-arc weights;
     /// right-leg multiplicities become post-arc weights. This establishes the
     /// cospan bridge between Petri net firing semantics and categorical composition.
+    #[must_use] 
     pub fn from_cospan(cospan: &Cospan<Lambda>) -> Self {
         let places = cospan.middle().to_vec();
         let mut pre_counts: HashMap<usize, Decimal> = HashMap::new();
@@ -373,6 +390,11 @@ where
     /// Each pre-arc weight becomes a multiplicity in the left (domain) leg,
     /// and each post-arc weight becomes a multiplicity in the right (codomain)
     /// leg. Inverse of [`PetriNet::from_cospan`] for single-transition nets.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any arc weight is not representable as `u64`.
+    #[must_use]
     pub fn transition_as_cospan(&self, transition: usize) -> Cospan<Lambda> {
         let t = &self.transitions[transition];
         let mut left = Vec::new();
@@ -396,6 +418,7 @@ where
     ///
     /// Place indices in `other` are shifted by `self.place_count()`. Neither net
     /// is modified; a new combined net is returned.
+    #[must_use] 
     pub fn parallel(&self, other: &Self) -> Self {
         let offset = self.places.len();
         let mut places = self.places.clone();
@@ -414,6 +437,10 @@ where
     /// Matching is by Lambda equality: each unmatched source place in `other` is
     /// paired with an unused sink place in `self` that carries the same Lambda type.
     /// Unmatched places from `other` are appended as new places.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError`] if boundary place types don't match between nets.
     pub fn sequential(&self, other: &Self) -> Result<Self, CatgraphError> {
         let self_sinks = self.sink_places();
         let other_sources = other.source_places();

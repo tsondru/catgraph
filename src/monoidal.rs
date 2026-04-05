@@ -52,6 +52,7 @@ where
     Lambda: Eq + Copy,
     BoxType: Eq + Clone,
 {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             blocks: vec![],
@@ -142,11 +143,13 @@ where
     Lambda: Eq + Copy,
     BoxType: Eq + Clone,
 {
+    #[must_use] 
     pub fn new() -> Self {
         Self { layers: vec![] }
     }
 
     /// Number of sequential layers in this morphism.
+    #[must_use] 
     pub fn depth(&self) -> usize {
         self.layers.len()
     }
@@ -172,6 +175,7 @@ where
     }
 
     /// Consumes the morphism, returning its layers.
+    #[must_use] 
     pub fn extract_layers(self) -> Vec<GenericMonoidalMorphismLayer<BoxType, Lambda>> {
         self.layers
     }
@@ -431,12 +435,16 @@ pub trait SymmetricMonoidalMorphism<T: Eq> {
     /// Pre- or post-composes this morphism with permutation `p`.
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool);
     /// Constructs a morphism that applies permutation `p` to typed tensor factors.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError`] if the permutation size does not match the `types` length.
     fn from_permutation(p: Permutation, types: &[T], types_as_on_domain: bool) -> Result<Self, CatgraphError>
     where
         Self: Sized;
 }
 
-/// Like [`SymmetricMonoidalMorphism`] but for the discrete category (FinSet),
+/// Like [`SymmetricMonoidalMorphism`] but for the discrete category (`FinSet`),
 /// where objects are `usize` cardinalities rather than typed tensor factor slices.
 #[allow(clippy::module_name_repetitions)]
 pub trait SymmetricMonoidalDiscreteMorphism<T: Eq> {

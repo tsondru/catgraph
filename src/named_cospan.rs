@@ -69,6 +69,11 @@ where
     /// Construct from explicit legs, middle set, and port names.
     ///
     /// Name uniqueness is assumed but not enforced (port names may lack `Hash`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `left_names.len() != left.len()` or `right_names.len() != right.len()`.
+    #[must_use]
     pub fn new(
         left: Vec<MiddleIndex>,
         right: Vec<MiddleIndex>,
@@ -92,23 +97,31 @@ where
     }
 
     /// The named cospan with empty domain, codomain, and middle set.
+    #[must_use] 
     pub fn empty() -> Self {
         Self::new(vec![], vec![], vec![], vec![], vec![])
     }
 
+    #[must_use] 
     pub const fn cospan(&self) -> &Cospan<Lambda> {
         &self.cospan
     }
 
+    #[must_use] 
     pub const fn left_names(&self) -> &Vec<LeftPortName> {
         &self.left_names
     }
 
+    #[must_use] 
     pub const fn right_names(&self) -> &Vec<RightPortName> {
         &self.right_names
     }
 
     /// Identity cospan with port names derived from `prenames` via `prename_to_name`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `types.len() != prenames.len()`.
     pub fn identity<T, F>(types: &[Lambda], prenames: &[T], prename_to_name: F) -> Self
     where
         F: Fn(T) -> (LeftPortName, RightPortName),
@@ -128,6 +141,10 @@ where
     ///
     /// When `types_as_on_domain` is true, `types` and `prenames` order follows the domain side;
     /// the codomain side is reordered by the permutation (and vice versa for false).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `types.len() != prenames.len()`.
     #[allow(clippy::needless_pass_by_value)]
     pub fn from_permutation_extra_data<T, F>(
         p: Permutation,
@@ -186,7 +203,11 @@ where
         self.add_boundary_node(Right(new_arrow), new_name)
     }
 
-    /// Add a named boundary node to new or existing middle vertex. Panics if name already exists.
+    /// Add a named boundary node to new or existing middle vertex.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new name already exists on the relevant boundary side.
     pub fn add_boundary_node(
         &mut self,
         new_arrow: MiddleIndexOrLambda<Lambda>,
@@ -397,7 +418,10 @@ where
     }
 
     /// Rename a single port from `old_name` to `new_name`. Warns if old name not found.
-    /// Panics if `new_name` already exists on the same side.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `new_name` already exists on the boundary.
     pub fn change_boundary_node_name(
         &mut self,
         name_pair: Either<(LeftPortName, LeftPortName), (RightPortName, RightPortName)>,
@@ -451,6 +475,10 @@ where
     ///
     /// `lambda_decorator` provides `(node_weight, edge_weight)` from labels.
     /// `port_decorator` further modifies boundary node weights using their port names.
+    ///
+    /// # Panics
+    ///
+    /// Panics if internal graph node indices are invalid (should not occur with well-formed cospans).
     #[allow(clippy::type_complexity)]
     pub fn to_graph<T, U, F, G>(
         &self,

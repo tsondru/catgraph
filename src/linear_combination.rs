@@ -30,7 +30,7 @@ use {
     },
 };
 
-/// Threshold for parallelizing LinearCombination multiplication.
+/// Threshold for parallelizing `LinearCombination` multiplication.
 /// Below this, sequential iteration is faster due to rayon overhead.
 const PARALLEL_MUL_THRESHOLD: usize = 32;
 
@@ -305,6 +305,11 @@ impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
     /// Each basis element is mapped through `injection` and its coefficient
     /// is preserved. Panics if the function is not actually injective (i.e. two
     /// distinct basis elements map to the same target).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `injection` is not actually injective — i.e. maps distinct basis elements
+    /// to the same target.
     pub fn inj_linearly_extend<Target2: Eq + Hash, F>(
         &self,
         injection: F,

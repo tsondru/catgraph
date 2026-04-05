@@ -75,6 +75,7 @@ where
     }
 
     /// Construct a cospan from explicit leg maps and middle set, computing identity flags.
+    #[must_use] 
     pub fn new(left: Vec<MiddleIndex>, right: Vec<MiddleIndex>, middle: Vec<Lambda>) -> Self {
         // Identity requires the leg to be a bijection onto the full middle set:
         // values must be [0, 1, ..., n-1] AND length must equal middle.len()
@@ -92,31 +93,38 @@ where
     }
 
     /// The cospan with empty domain, codomain, and middle set.
+    #[must_use] 
     pub fn empty() -> Self {
         Self::new(vec![], vec![], vec![])
     }
 
     /// True when all three sets (left, right, middle) are empty.
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.left.is_empty() && self.right.is_empty() && self.middle.is_empty()
     }
 
+    #[must_use] 
     pub fn left_to_middle(&self) -> &[MiddleIndex] {
         &self.left
     }
 
+    #[must_use] 
     pub fn right_to_middle(&self) -> &[MiddleIndex] {
         &self.right
     }
 
+    #[must_use] 
     pub fn middle(&self) -> &[Lambda] {
         &self.middle
     }
 
+    #[must_use] 
     pub fn is_left_identity(&self) -> bool {
         self.is_left_id
     }
 
+    #[must_use] 
     pub fn is_right_identity(&self) -> bool {
         self.is_right_id
     }
@@ -193,6 +201,7 @@ where
     }
 
     /// True if both boundary nodes map to the same middle vertex.
+    #[must_use] 
     pub fn map_to_same(
         &self,
         node_1: Either<LeftIndex, RightIndex>,

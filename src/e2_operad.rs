@@ -66,6 +66,11 @@ where
     /// Create an n-ary E2 configuration from named disks inside the unit disk.
     ///
     /// When `overlap_check` is true, validates pairwise disjointness. Names must be unique.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError::Operadic`] if any sub-circle extends outside the unit disk,
+    /// names are not unique, or circles overlap when `overlap_check` is true.
     pub fn new(sub_circles: Vec<(Name, PointCenter, Radius)>, overlap_check: bool) -> Result<Self, CatgraphError> {
         for (_a, b, c) in &sub_circles {
             if !disk_contains((0.0, 0.0), 1.0, *b, Some(*c)) {
@@ -97,6 +102,10 @@ where
     }
 
     /// Merge all subdisks contained within the given disk into a single named disk.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CoalesceError` if the circle doesn't contain all sub-circles.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_circle: (Name, PointCenter, Radius),
@@ -111,6 +120,10 @@ where
     }
 
     /// Check whether coalescence is valid: each subdisk must be fully contained or disjoint.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CoalesceError` if coalescence is invalid.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_disk: (PointCenter, Radius),
@@ -132,6 +145,7 @@ where
     }
 
     /// Minimum gap between any pair of subdisks. Returns `None` for arity < 2.
+    #[must_use] 
     pub fn min_closeness(&self) -> Option<Radius> {
         if self.arity < 2 {
             return None;
@@ -182,11 +196,16 @@ where
     }
 
     /// Consume self and return the named subdisks.
+    #[must_use] 
     pub fn extract_sub_circles(self) -> Vec<(Name, PointCenter, Radius)> {
         self.sub_circles
     }
 
     /// Rename a single disk. No-op if the old name is not found. Panics if the new name collides.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new name already exists among sub-circles.
     pub fn change_name(&mut self, name_change: (Name, Name)) {
         let idx_change = self.sub_circles.iter().position(|p| p.0 == name_change.0);
         if let Some(real_idx_change) = idx_change {

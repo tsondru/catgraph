@@ -1,10 +1,10 @@
 # catgraph
 
-Category-theoretic graph structures in Rust: cospans, spans, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
+Category-theoretic graph structures in Rust: cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete curvature, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, lattice gauge theory, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-640 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+850 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -148,6 +148,52 @@ let reachable = net.reachable(&m0, 10);  // BFS over marking graph
 
 Supports parallel composition (disjoint union), sequential composition (merge boundary places by Lambda match), and bidirectional cospan bridge (`from_cospan`, `transition_as_cospan`).
 
+### Hypergraph Rewriting
+
+[Double-Pushout (DPO)](https://en.wikipedia.org/wiki/Graph_rewriting#Double-pushout_approach) rewriting on hypergraphs with evolution tracking, causal invariance analysis, and lattice gauge theory.
+
+```rust
+use catgraph::hypergraph::{Hypergraph, Hyperedge, RewriteRule, HypergraphEvolution};
+
+// Wolfram-style A -> BB rewriting
+let rule = RewriteRule::wolfram_a_to_bb();
+let mut graph = Hypergraph::from_edges(vec![Hyperedge::new(vec![0, 1])]);
+let matches = rule.find_matches(&graph);
+let new_graph = rule.apply(&graph, &matches[0])?;
+
+// Evolution tracking with causal invariance
+let mut evo = HypergraphEvolution::new(graph.clone());
+evo.step_deterministic(&rule)?;
+let chain = evo.to_cospan_chain();  // bridge to catgraph Cospan<u32>
+```
+
+**Gauge theory**: `GaugeGroup` trait, `HypergraphRewriteGroup` for rewrite-based gauge groups, `HypergraphLattice` for lattice gauge configurations with `plaquette_action` and `total_action`.
+
+### Multiway Evolution
+
+Generic multiway (non-deterministic) computation infrastructure for branching systems where multiple execution paths exist simultaneously.
+
+```rust
+use catgraph::multiway::{
+    MultiwayEvolutionGraph, run_multiway_bfs,
+    extract_branchial_foliation, OllivierRicciCurvature,
+};
+
+// Build multiway graph via BFS exploration
+let graph = run_multiway_bfs(initial_state, |s| successor_fn(s), max_steps);
+
+// Extract branchial (time-slice) foliation
+let foliation = extract_branchial_foliation(&graph);
+
+// Compute Ollivier-Ricci curvature on branchial slices
+let curvature = OllivierRicciCurvature::compute_foliation(&foliation);
+```
+
+- **`MultiwayEvolutionGraph<S,T>`**: Tracks branching state evolution with branch IDs, merge detection, and cycle finding
+- **`BranchialGraph`**: Time-slice foliation extracting the tensor product structure at each step
+- **`OllivierRicciCurvature`**: Edge, vertex, and scalar curvature via Wasserstein-1 optimal transport
+- **`wasserstein_1`**: Transportation simplex W₁ solver for discrete probability distributions
+
 ### Finite Sets
 
 `finset.rs` provides morphisms between finite sets:
@@ -165,12 +211,13 @@ The `catgraph-surreal` workspace member provides typed persistence for catgraph 
 
 **V1 (embedded arrays)** — O(1) reconstruction via `CospanStore`, `NamedCospanStore`, `SpanStore`. Each n-ary hyperedge is a single record with embedded arrays encoding the structural maps.
 
-**V2 (RELATE-based graph)** — Graph-native persistence with `NodeStore`, `EdgeStore`, `HyperedgeStore`, `PetriNetStore`, `WiringDiagramStore`, `FingerprintEngine`, and `QueryHelper`. Supports:
+**V2 (RELATE-based graph)** — Graph-native persistence with `NodeStore`, `EdgeStore`, `HyperedgeStore`, `PetriNetStore`, `WiringDiagramStore`, `HypergraphEvolutionStore`, `FingerprintEngine`, and `QueryHelper`. Supports:
 - Hub-node reification for n-ary hyperedges with decimal participation weights
 - Full-text search on node names (BM25 with edgengram analyzer)
 - HNSW vector similarity search on structural fingerprints (configurable dimension)
 - Graph traversal: BFS reachable, shortest path, collect all reachable
 - Native Petri net persistence with marking snapshots
+- Hypergraph evolution persistence (cospan chains + rewrite rule spans)
 - Record references with `ON DELETE UNSET` and computed provenance fields
 
 ```rust
@@ -201,7 +248,7 @@ let fp = engine.index_node(&node_id).await?;
 let similar = engine.search_similar(&fp, 10, 50).await?;
 ```
 
-148 integration tests cover V1 roundtrips, V2 CRUD/traversal, provenance, Petri net persistence, wiring diagrams, graph recursion, fingerprint search, FTS, and domain-specific use cases.
+179 tests cover V1 roundtrips, V2 CRUD/traversal, provenance, Petri net persistence, wiring diagrams, hypergraph evolution, graph recursion, fingerprint search, FTS, and domain-specific use cases.
 
 ## Examples
 
@@ -232,9 +279,9 @@ cargo run --example stokes              # TemporalComplex + ConservationResult
 ## Testing
 
 ```bash
-cargo test --workspace        # 640 tests (492 catgraph + 148 bridge), 1 ignored
-cargo test                    # catgraph-only (492: 290 unit + 202 integration)
-cargo test -p catgraph-surreal # bridge crate (148: 19 unit + 129 integration)
+cargo test --workspace        # 850 tests (671 catgraph + 179 bridge), 1 ignored
+cargo test                    # catgraph-only (671: 392 unit + 268 integration + 11 doc)
+cargo test -p catgraph-surreal # bridge crate (179: 25 unit + 154 integration)
 cargo clippy                  # zero warnings
 ```
 
@@ -242,19 +289,25 @@ Integration test suites:
 
 | File | Tests | What it covers |
 |------|-------|---------------|
+| `catgraph_bridge` | 9 | Hypergraph span/cospan bridge roundtrips |
 | `composition_laws` | 17 | Associativity, identity, empty/large boundaries |
+| `cross_type_interactions` | 6 | NamedCospan ports, to_graph, ring axioms |
+| `finset_coverage` | 20 | FinSet morphisms, decomposition, edge cases |
+| `frobenius_laws` | 8 | Braiding, spider fusion, unit/counit, monoidal |
+| `hypergraph_rewriting` | 20 | DPO rewriting, match finding, rule application |
+| `interval_laws` | 8 | Interval composition, containment, algebra laws |
+| `linear_combination_coverage` | 11 | Ring axioms, scalar mul, parallel mul |
+| `monoidal_structure` | 6 | Tensor associativity/unit, braiding, permute_side |
+| `morphism_system` | 8 | DAG resolution, cycle detection, multi-level fill |
+| `multiway_evolution` | 17 | MultiwayEvolutionGraph, branchial, curvature, pipeline |
+| `mutation_workflows` | 20 | Cospan/Span add/delete/connect/map then compose, identity flags |
+| `operad_boundary` | 28 | E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness |
+| `petri_net` | 8 | Chemical reactions, reachability, composition, cospan roundtrip |
+| `property_laws` | 8 | Proptest: identity, associativity, dagger involution, monoidal |
 | `pushout_correctness` | 9 | Union-find pushout, wire merging, determinism |
 | `relation_algebra` | 21 | Rel API, equivalence relations, partial orders, set operations |
-| `frobenius_laws` | 8 | Braiding, spider fusion, unit/counit, monoidal |
-| `monoidal_structure` | 6 | Tensor associativity/unit, braiding, permute_side |
-| `cross_type_interactions` | 6 | NamedCospan ports, to_graph, ring axioms |
-| `morphism_system` | 8 | DAG resolution, cycle detection, multi-level fill |
-| `operad_boundary` | 17 | E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness |
 | `temperley_lieb` | 10 | TL/symmetric generators, braid relation, monoidal |
-| `property_laws` | 8 | Proptest: identity, associativity, dagger involution, monoidal |
 | `wiring_diagram` | 14 | Operadic substitution, boundary mutations, map, sequential composition |
-| `mutation_workflows` | 20 | Cospan/Span add/delete/connect/map then compose, identity flags |
-| `petri_net` | 8 | Chemical reactions, reachability, composition, cospan roundtrip |
 
 ## Parallelization
 
@@ -299,9 +352,10 @@ cargo flamegraph --bench pushout -- --bench "pushout_compose/1024"
 - `union-find` — QuickUnionUf for pushout composition
 - `rayon` — data parallelism with adaptive thresholds
 - `log` — warning messages
+- `rand` — random number generation (multiway exploration)
 - `rust_decimal` — exact decimal arithmetic for Petri net weights
 - `thiserror` — structured error types
-- Dev: `env_logger`, `proptest`, `rand`, `criterion`
+- Dev: `env_logger`, `proptest`, `criterion`
 
 ### catgraph-surreal (bridge)
 - `surrealdb` 3.0.5 (kv-mem) — embedded SurrealDB
@@ -329,6 +383,8 @@ use catgraph::temperley_lieb::BrauerMorphism;
 use catgraph::e1_operad::E1;
 use catgraph::e2_operad::E2;
 use catgraph::petri_net::{PetriNet, Transition, Marking};
+use catgraph::hypergraph::{Hypergraph, Hyperedge, RewriteRule, HypergraphEvolution};
+use catgraph::multiway::{MultiwayEvolutionGraph, run_multiway_bfs, OllivierRicciCurvature};
 use catgraph::errors::CatgraphError;
 use catgraph::category::{Composable, HasIdentity};
 use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
@@ -347,6 +403,8 @@ This project originated as a fork of [Cobord/Hypergraph](https://github.com/Cobo
 
 - [Fong-Spivak: Hypergraph Categories](https://arxiv.org/pdf/1806.08304.pdf) — cospan semantics
 - [Span and Cospan (Wikipedia)](https://en.wikipedia.org/wiki/Span_(category_theory))
+- [Double-Pushout Graph Rewriting (Wikipedia)](https://en.wikipedia.org/wiki/Graph_rewriting#Double-pushout_approach) — DPO rewriting
+- [Ollivier-Ricci Curvature (Wikipedia)](https://en.wikipedia.org/wiki/Ollivier%E2%80%93Ricci_curvature) — discrete curvature via optimal transport
 - [E_n Operad (nLab)](https://ncatlab.org/nlab/show/little+cubes+operad)
 - [Brauer Algebra (Wikipedia)](https://en.wikipedia.org/wiki/Brauer_algebra)
 - [Wiring Diagrams (Spivak 2013)](https://arxiv.org/abs/1305.0297)

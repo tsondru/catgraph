@@ -45,6 +45,12 @@ pub fn remove_multiple<T>(me: &mut Vec<T>, mut to_remove: Vec<usize>) {
     }
 }
 
+/// Compute the permutation that reorders `side_1` to match `side_2`.
+///
+/// # Errors
+///
+/// Returns `Err` if the slices differ in length, contain mismatched elements,
+/// or have duplicates that prevent a unique permutation.
 pub fn necessary_permutation<T: Eq>(side_1: &[T], side_2: &[T]) -> Result<Permutation, String> {
     let n1 = side_1.len();
     let n2 = side_2.len();
@@ -115,11 +121,15 @@ pub fn rand_perm(n: usize, max_depth: usize, rng: &mut impl rand::Rng) -> Permut
 }
 
 pub trait ResultExt<T, E> {
+    /// Combine two `Result` values into a tuple, short-circuiting on the first `Err`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first `Err` encountered from either `self` or `other`.
     fn zip<U>(self, other: Result<U, E>) -> Result<(T, U), E>;
 }
 
 impl<T, E> ResultExt<T, E> for Result<T, E> {
-    // combines the values to tuple
     fn zip<U>(self, other: Result<U, E>) -> Result<(T, U), E> {
         match (self, other) {
             (Ok(a), Ok(b)) => Ok((a, b)),
@@ -128,6 +138,11 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
     }
 }
 
+/// Check that two label sequences match element-wise.
+///
+/// # Errors
+///
+/// Returns `Err` if the iterators differ in length or any pair of labels is unequal.
 pub fn same_labels_check<
     Lambda: Eq + Debug,
     L: ExactSizeIterator + Iterator<Item = Lambda>,

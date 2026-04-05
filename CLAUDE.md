@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**catgraph** implements category-theoretic graph structures in Rust, focusing on source/target (cospan) semantics for hypergraphs. This is distinct from path-based hypergraph semantics used by libraries like yamafaktory/hypergraph.
+**catgraph** implements category-theoretic graph structures in Rust, focusing on source/target (cospan) semantics for hypergraphs, DPO rewriting, multiway evolution with discrete curvature, and lattice gauge theory. This is distinct from path-based hypergraph semantics used by libraries like yamafaktory/hypergraph.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten.
 
@@ -38,6 +38,22 @@ catgraph/                           # Workspace root
 │   ├── temperley_lieb.rs           # Temperley-Lieb / Brauer algebra
 │   │
 │   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
+│   │
+│   ├── hypergraph/                 # Hypergraph rewriting (DPO), evolution, gauge theory
+│   │   ├── mod.rs                  # Re-exports: Hyperedge, Hypergraph, RewriteRule, Evolution, Gauge
+│   │   ├── hyperedge.rs            # Hyperedge: ordered vertex sequence generalizing edges
+│   │   ├── hypergraph.rs           # Hypergraph: vertex/hyperedge storage, pattern matching
+│   │   ├── rewrite_rule.rs         # RewriteRule, RewriteMatch, RewriteSpan (DPO rewriting)
+│   │   ├── evolution.rs            # HypergraphEvolution: deterministic + multiway rewrite tracking, Wilson loops, cospan chain bridge
+│   │   └── gauge.rs                # GaugeGroup, HypergraphRewriteGroup, HypergraphLattice, plaquette/total action
+│   │
+│   ├── multiway/                   # Generic multiway (non-deterministic) computation
+│   │   ├── mod.rs                  # Re-exports: MultiwayEvolutionGraph, BranchialGraph, curvature, wasserstein
+│   │   ├── wasserstein.rs          # Transportation simplex W₁ optimal transport solver
+│   │   ├── evolution_graph.rs      # MultiwayEvolutionGraph<S,T> with BFS explorer (run_multiway_bfs)
+│   │   ├── branchial.rs            # BranchialGraph: time-slice foliation, merge point detection
+│   │   ├── curvature.rs            # DiscreteCurvature trait, CurvatureFoliation
+│   │   └── ollivier_ricci.rs       # OllivierRicciCurvature: edge/vertex/scalar curvature via W1 transport
 │   │
 │   ├── petri_net.rs                # PetriNet, Transition (Decimal weights), Marking, firing, reachability, cospan bridge
 │   │
@@ -87,19 +103,25 @@ catgraph/                           # Workspace root
 │
 ├── tests/                          # Integration tests (public API only)
 │   ├── common/mod.rs               # Shared test helpers: cospan_eq, span_eq, assert_*_eq
+│   ├── catgraph_bridge.rs          # 9 tests: hypergraph span/cospan bridge roundtrips
 │   ├── composition_laws.rs         # 17 tests: associativity, identity, empty/large boundaries
+│   ├── cross_type_interactions.rs  # 6 tests: NamedCospan ports, to_graph, LinearCombination ring
+│   ├── finset_coverage.rs          # 20 tests: FinSet morphisms, decomposition, edge cases
+│   ├── frobenius_laws.rs           # 8 tests: braiding, spider fusion, unit/counit, monoidal
+│   ├── hypergraph_rewriting.rs     # 20 tests: DPO rewriting, match finding, rule application
+│   ├── interval_laws.rs            # 8 tests: interval composition, containment, algebra laws
+│   ├── linear_combination_coverage.rs # 11 tests: ring axioms, scalar mul, parallel mul
+│   ├── monoidal_structure.rs       # 6 tests: tensor associativity/unit, braiding, permute_side
+│   ├── morphism_system.rs          # 8 tests: DAG resolution, cycle detection, multi-level fill
+│   ├── multiway_evolution.rs       # 17 tests: MultiwayEvolutionGraph, branchial, curvature, pipeline
+│   ├── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
+│   ├── operad_boundary.rs          # 28 tests: E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness
+│   ├── petri_net.rs                # 8 tests: chemical reactions, reachability, composition, cospan roundtrip
+│   ├── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
 │   ├── pushout_correctness.rs      # 9 tests: union-find pushout, wire merging, determinism
 │   ├── relation_algebra.rs         # 21 tests: Rel API, dagger involution, span composition, equivalence/partial order
-│   ├── frobenius_laws.rs           # 8 tests: braiding, spider fusion, unit/counit, monoidal
-│   ├── monoidal_structure.rs       # 6 tests: tensor associativity/unit, braiding, permute_side
-│   ├── cross_type_interactions.rs  # 6 tests: NamedCospan ports, to_graph, LinearCombination ring
-│   ├── morphism_system.rs          # 8 tests: DAG resolution, cycle detection, multi-level fill
-│   ├── operad_boundary.rs          # 17 tests: E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness
 │   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
-│   ├── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
-│   ├── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
-│   ├── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
-│   └── petri_net.rs                # 8 tests: chemical reactions, reachability, composition, cospan roundtrip
+│   └── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
     ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
@@ -123,6 +145,7 @@ catgraph/                           # Workspace root
     │   │   └── provenance.rs       # composition provenance tracking
     │   ├── petri_net_store.rs       # V2 PetriNetStore: save/load/delete topology + markings
     │   ├── wiring_store.rs         # V2 WiringDiagramStore: decompose/reconstruct via hub-node
+    │   ├── hypergraph_evolution_store.rs  # V2 HypergraphEvolutionStore: cospan chains + rewrite spans
     │   ├── fingerprint.rs          # Structural fingerprint computation (petgraph) + HNSW search
     │   └── query.rs                # V2 QueryHelper: neighbors, reachable, shortest_path, collect
     └── tests/
@@ -257,6 +280,7 @@ Graph-native persistence with first-class nodes, pairwise edges, and hub-node re
 - **`HyperedgeStore`** — Decompose `Cospan`/`Span`/`NamedCospan` into hub-node reification pattern (`hyperedge_hub` + `source_of`/`target_of` edges). Reconstruct `Cospan<Lambda>` from hub.
 - **`PetriNetStore`** — Native Petri net persistence: save/load/delete topology + marking snapshots.
 - **`WiringDiagramStore`** — WiringDiagram V2 persistence via hub-node reification with port metadata.
+- **`HypergraphEvolutionStore`** — Persist cospan chains and rewrite rule spans from `HypergraphEvolution`.
 - **`FingerprintEngine`** — Structural fingerprint computation (petgraph) + HNSW similarity search.
 - **`QueryHelper`** — Graph traversal: `outbound_neighbors`, `inbound_neighbors`, `reachable` (BFS), `shortest_path`, `collect_reachable`.
 - Tables: `graph_node` (with FTS + HNSW indexes), `graph_edge`, `hyperedge_hub`, `source_of` (with decimal weight), `target_of` (with decimal weight), `petri_net`, `petri_place`, `petri_transition`, `pre_arc`, `post_arc`, `petri_marking`.
@@ -292,16 +316,16 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 
 ### catgraph core dependencies
 
-`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `thiserror`, `rust_decimal`. Dev-only: `env_logger`, `proptest`, `criterion`.
+`petgraph`, `union-find`, `permutations`, `itertools`, `rayon`, `num`, `either`, `log`, `rand`, `thiserror`, `rust_decimal`. Dev-only: `env_logger`, `proptest`, `criterion`.
 
 ## Testing
 
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 640 tests (492 catgraph + 148 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (492: 290 unit + 202 integration)
-cargo test -p catgraph-surreal # Run bridge crate tests (148: 19 unit + 129 integration)
+cargo test --workspace        # Run all 850 tests (671 catgraph + 179 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (671: 392 unit + 268 integration + 11 doc)
+cargo test -p catgraph-surreal # Run bridge crate tests (179: 25 unit + 154 integration)
 cargo test --examples         # Compile-check all 19 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
@@ -377,6 +401,8 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `bifunctor.rs` | `TensorProduct` trait, `IntervalTransform`, verify_associativity/unit_laws/symmetry |
 | `coherence.rs` | `CoherenceVerification`, `DifferentialCoherence`, verify_associator/unitor/braiding coherence |
 | `stokes.rs` | `TemporalComplex` (simplicial complex), `ConservationResult`, `StokesError` |
+| `hypergraph/` | `Hyperedge`, `Hypergraph` (pattern matching), `RewriteRule`/`RewriteSpan` (DPO rewriting), `HypergraphEvolution` (deterministic + multiway tracking, Wilson loops), `GaugeGroup`/`HypergraphRewriteGroup`/`HypergraphLattice` (lattice gauge theory), span/cospan bridge (`to_cospan_chain`, `to_span`) |
+| `multiway/` | `MultiwayEvolutionGraph<S,T>` (branching state tracking), `run_multiway_bfs` (generic BFS explorer), `BranchialGraph` (time-slice foliation), `DiscreteCurvature` trait, `OllivierRicciCurvature` (edge/vertex/scalar via W₁ transport), `wasserstein_1` (transportation simplex solver) |
 
 ## Parallelization
 
@@ -433,9 +459,9 @@ Rust 2024 edition. Common patterns:
 | CospanAlgebra trait (Fong-Spivak §2.1) | Lax monoidal functor from cospans to sets |
 | WeightedCospan | `weight: option<decimal>` on source_of/target_of already in schema |
 | Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
+| Multiway persistence | `HypergraphEvolutionStore` persists cospan chains + rewrite spans; multiway graph persistence (depends on `MultiwayEvolutionGraph` serialization) not yet implemented |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds not yet validated with data |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
-| Pedantic clippy cleanup | ~300 warnings at `clippy::pedantic`: 89 `must_use`, 87 doc backticks, 78 `# Errors`, 15 `# Panics`, ~31 code fixes. Run `cargo clippy --fix` for mechanical ones first, then address doc lints vs crate-level `#[allow]`. |
 
 ## API Scope
 

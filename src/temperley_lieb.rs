@@ -45,7 +45,7 @@ use {
     },
 };
 
-/// Threshold for parallelizing combinations checks in non_crossing.
+/// Threshold for parallelizing combinations checks in `non_crossing`.
 /// Combinations grow as n*(n-1)/2, so 8 elements = 28 combinations.
 const PARALLEL_COMBINATIONS_THRESHOLD: usize = 8;
 
@@ -64,6 +64,7 @@ impl Pair {
     }
 
     /// Apply `f` to both point indices, returning a new pair.
+    #[must_use]
     pub fn map(&self, f: impl Fn(usize) -> usize) -> Self {
         Self(f(self.0), f(self.1))
     }
@@ -83,11 +84,13 @@ impl Pair {
     }
 
     /// Return this pair with elements in ascending order.
+    #[must_use] 
     pub const fn sort(&self) -> Self {
         Self::sorted(self.0, self.1)
     }
 
     /// Construct a pair with the smaller element first.
+    #[must_use] 
     pub const fn sorted(x: usize, y: usize) -> Self {
         if x < y {
             Self(x, y)
@@ -97,6 +100,7 @@ impl Pair {
     }
 
     /// True if `x` lies strictly between the two point indices (used for crossing detection).
+    #[must_use] 
     pub const fn contains(&self, x: usize) -> bool {
         (x < self.0 && x > self.1) || (x < self.1 && x > self.0)
     }
@@ -500,6 +504,7 @@ where
     ///
     /// Generator `e_i` pairs domain point `i` with `i+1` (cup) and codomain
     /// point `i` with `i+1` (cap), with all other points connected straight across.
+    #[must_use] 
     pub fn temperley_lieb_gens(n: usize) -> Vec<Self> {
         (0..n - 1)
             .map(|i| {
@@ -530,6 +535,7 @@ where
     /// Generator `s_i` crosses positions `i` and `i+1` (a transposition),
     /// matching the rest straight across. These generate the full Brauer algebra
     /// together with the Temperley-Lieb generators.
+    #[must_use] 
     pub fn symmetric_alg_gens(n: usize) -> Vec<Self> {
         (0..(n - 1))
             .map(|i| {
@@ -582,6 +588,7 @@ where
     /// sides) and apply `num_dagger` to every coefficient.
     ///
     /// For the standard involution, pass `|x| x` (or conjugation for complex coefficients).
+    #[must_use]
     pub fn dagger<F>(&self, num_dagger: F) -> Self
     where
         F: Fn(T) -> T,

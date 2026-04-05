@@ -34,6 +34,10 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
     fn interpret_comultiplication(z: Lambda) -> Self;
 
     /// Interpret a single `FrobeniusOperation` as `Self`, delegating black boxes to the closure.
+    ///
+    /// # Errors
+    ///
+    /// - Black box interpretation fails or operation is invalid.
     fn basic_interpret<F>(
         single_step: &FrobeniusOperation<Lambda, BlackBoxLabel>,
         black_box_interpreter: &F,
@@ -61,6 +65,10 @@ pub trait Frobenius<Lambda: Eq + Copy + Debug + Send + Sync, BlackBoxLabel: Eq +
 
     /// Interpret a full `FrobeniusMorphism` by composing layer-by-layer, each layer built
     /// from monoidal products of `basic_interpret` calls.
+    ///
+    /// # Errors
+    ///
+    /// - Any layer's interpretation fails.
     fn interpret_frob<F>(
         morphism: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
         black_box_interpreter: &F,

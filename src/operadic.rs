@@ -9,6 +9,10 @@ pub trait Operadic<InputLabel> {
     ///
     /// Fails if `which_input` does not match any input of `self`, or if the
     /// output type of `other_obj` is incompatible with the designated slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError`] if `which_input` is not found or the boundary is incompatible.
     fn operadic_substitution(
         &mut self,
         which_input: InputLabel,

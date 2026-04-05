@@ -839,6 +839,10 @@ impl HypergraphEvolution {
     /// Builds a cospan from a parent-child node pair.
     ///
     /// The apex is the union of both vertex sets, with labels as vertex IDs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `parent_id` or `child_id` does not correspond to a valid node in the evolution.
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     #[must_use]
     pub fn build_cospan_for_pair(&self, parent_id: usize, child_id: usize) -> Cospan<u32> {

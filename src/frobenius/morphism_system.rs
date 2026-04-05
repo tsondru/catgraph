@@ -13,6 +13,10 @@ pub trait Contains<BlackBoxLabel> {
 /// Trait for morphisms that can be constructed by interpreting a general (possibly black-boxed) description.
 pub trait InterpretableMorphism<GeneralVersion, Lambda, BlackBoxLabel>: Sized {
     /// Interpret a general morphism description, resolving black boxes via the provided closure.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CatgraphError` if black box interpretation fails.
     fn interpret<F>(r#gen: &GeneralVersion, black_box_interpreter: F) -> Result<Self, CatgraphError>
     where
         F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>;
@@ -67,6 +71,10 @@ where
     /// Adds `new_name` to the DAG with edges to each label returned by
     /// `new_def.contained_labels()`, then verifies acyclicity. Returns
     /// `CatgraphError::Interpret` if the addition would create a cycle.
+    ///
+    /// # Errors
+    ///
+    /// - Name already exists or would create a cycle in the dependency DAG.
     pub fn add_definition_composite(
         &mut self,
         new_name: BlackBoxLabel,
@@ -106,6 +114,10 @@ where
     ///
     /// Adds `new_name` as a leaf node in the DAG and stores the definition
     /// in `simple_pieces`.
+    ///
+    /// # Errors
+    ///
+    /// - Name already exists in the system.
     #[allow(clippy::unnecessary_wraps)] // consistent API with add_definition_composite
     pub fn add_definition_simple(
         &mut self,
@@ -156,6 +168,11 @@ where
 
     /// Resolve all definitions in topological order, returning the concrete morphism for
     /// `interpret_target` (or `main` if `None`). Resolved composites are cached as simple pieces.
+    ///
+    /// # Errors
+    ///
+    /// - Topological resolution fails (cyclic dependencies).
+    /// - Black box interpretation fails for any definition.
     pub fn fill_black_boxes(
         &mut self,
         interpret_target: Option<BlackBoxLabel>,

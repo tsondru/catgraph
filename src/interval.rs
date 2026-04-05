@@ -45,6 +45,10 @@ impl DiscreteInterval {
     }
 
     /// Create a new discrete interval [start, end], returning an error if start > end.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError`] if `start > end`.
     pub fn try_new(start: usize, end: usize) -> Result<Self, CatgraphError> {
         if start > end {
             return Err(CatgraphError::Composition {

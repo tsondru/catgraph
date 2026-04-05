@@ -1,6 +1,6 @@
 //! Finite set morphisms with epi-mono factorization.
 //!
-//! Models morphisms in the category **FinSet** (finite sets and functions). Every
+//! Models morphisms in the category **`FinSet`** (finite sets and functions). Every
 //! finite set morphism factors uniquely as a permutation followed by an
 //! order-preserving surjection followed by an order-preserving injection. This
 //! module provides:
@@ -99,7 +99,7 @@ impl Composable<usize> for FinSetMorphism {
 
 impl MonoidalMorphism<usize> for FinSetMorphism {}
 
-/// Order-preserving surjection in **FinSet**.
+/// Order-preserving surjection in **`FinSet`**.
 ///
 /// Stored as a vector of preimage cardinalities minus one: if `preimage_card_minus_1[i] = k`,
 /// then codomain element `i` has exactly `k+1` preimages. This compact encoding
@@ -191,12 +191,13 @@ impl OrderPresSurj {
     }
 
     /// Returns the preimage cardinality for each codomain element.
+    #[must_use] 
     pub fn preimage_cardinalities(&self) -> Vec<usize> {
         self.preimage_card_minus_1.iter().map(|z| z + 1).collect()
     }
 }
 
-/// Order-preserving injection in **FinSet**.
+/// Order-preserving injection in **`FinSet`**.
 ///
 /// Stored as an alternating run-length encoding: `[id_run, gap, id_run, gap, …]`
 /// where each `id_run` is the number of consecutive domain elements mapped to
@@ -296,6 +297,7 @@ impl OrderPresInj {
     }
 
     /// Returns the alternating identity/gap run-length encoding.
+    #[must_use] 
     pub fn iden_unit_counts(&self) -> Vec<usize> {
         self.counts_iden_unit_alternating.clone()
     }
@@ -439,6 +441,7 @@ fn permutation_sort<T: Ord>(x: &mut [T]) -> Permutation {
 ///
 /// A cycle `[a, b, c]` sends a→b, b→c, c→a and fixes all other elements.
 /// Cycles of length 0 or 1 return the identity permutation.
+#[must_use] 
 pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
     if cycle.len() < 2 {
         return Permutation::identity(n);
@@ -449,7 +452,7 @@ pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
 
 /// Epi-mono factorization of a finite set morphism: `f = ι ∘ π ∘ σ`.
 ///
-/// Every morphism in **FinSet** factors uniquely as:
+/// Every morphism in **`FinSet`** factors uniquely as:
 /// 1. A permutation σ (reorder the domain)
 /// 2. An order-preserving surjection π (collapse fibers)
 /// 3. An order-preserving injection ι (embed into codomain)
@@ -569,6 +572,7 @@ impl Decomposition {
     }
 
     /// Returns references to the `(σ, π, ι)` components of the factorization.
+    #[must_use] 
     pub const fn get_parts(&self) -> (&Permutation, &OrderPresSurj, &OrderPresInj) {
         (
             &self.permutation_part,

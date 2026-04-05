@@ -42,6 +42,7 @@ pub enum Dir {
 
 impl Dir {
     /// Reverse the direction (`In` <-> `Out`); `Undirected` is unchanged.
+    #[must_use] 
     pub fn flipped(self) -> Self {
         match self {
             Self::In => Self::Out,
@@ -78,6 +79,7 @@ where
     IntraCircle: Eq + Clone,
 {
     /// Wrap a [`NamedCospan`] as a wiring diagram (zero-cost newtype construction).
+    #[must_use] 
     pub fn new(
         inside: NamedCospan<Lambda, (Dir, InterCircle, IntraCircle), (Dir, IntraCircle)>,
     ) -> Self {
@@ -85,6 +87,7 @@ where
     }
 
     /// Access the underlying [`NamedCospan`].
+    #[must_use] 
     pub fn inner(&self) -> &NamedCospan<Lambda, (Dir, InterCircle, IntraCircle), (Dir, IntraCircle)> {
         &self.0
     }
