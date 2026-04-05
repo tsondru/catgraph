@@ -1,12 +1,25 @@
+//! Error types for catgraph operations.
+//!
+//! [`CatgraphError`] is the unified error enum returned by fallible operations
+//! across all modules. Variants are grouped by the subsystem that produces them:
+//! composition (cospans, spans, morphisms), interpretation (Frobenius DAGs),
+//! operadic substitution, relation algebra, Petri nets, and finite set morphisms.
+
 use thiserror::Error;
 
 use crate::finset::{TryFromFinSetError, TryFromInjError, TryFromSurjError};
 
+/// Unified error type for catgraph operations.
+///
+/// Each variant captures enough context (sizes, indices, labels) for the caller
+/// to diagnose the failure without re-inspecting the operands.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CatgraphError {
+    /// Domain/codomain sizes do not match at the composition interface.
     #[error("composition error: interface size mismatch (expected {expected}, got {actual})")]
     CompositionSizeMismatch { expected: usize, actual: usize },
 
+    /// Lambda types disagree at a specific boundary index during composition.
     #[error("composition error: label mismatch at index {index} (expected {expected:?}, got {actual:?})")]
     CompositionLabelMismatch {
         index: usize,
@@ -14,21 +27,28 @@ pub enum CatgraphError {
         actual: String,
     },
 
+    /// General composition failure (e.g. non-composable morphisms).
     #[error("composition error: {message}")]
     Composition { message: String },
 
+    /// [`MorphismSystem::fill_black_boxes`](crate::frobenius::MorphismSystem::fill_black_boxes)
+    /// could not resolve a named morphism (cycle, missing definition, etc.).
     #[error("interpret error: {context}")]
     Interpret { context: String },
 
+    /// Operadic substitution failed (boundary mismatch, missing inner circle, etc.).
     #[error("operadic error: {message}")]
     Operadic { message: String },
 
+    /// Relation algebra operation failed (incompatible domains, invalid construction, etc.).
     #[error("relation error: {message}")]
     Relation { message: String },
 
+    /// Petri net operation failed (out-of-bounds transition, not enabled, etc.).
     #[error("petri net error: {message}")]
     PetriNet { message: String },
 
+    /// Finite set morphism construction or conversion failed.
     #[error("finite set error: {message}")]
     FinSet { message: String },
 }

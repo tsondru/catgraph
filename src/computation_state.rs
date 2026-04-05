@@ -1,7 +1,11 @@
-//! Computation state representation for category 𝒯.
+//! Computation state representation for the category 𝒯.
 //!
-//! A computation state is an object in the computation category,
-//! representing a snapshot at a particular step with associated complexity.
+//! Objects in 𝒯 are computation states — snapshots of a computational process
+//! (Turing machine configuration, cellular automaton generation, etc.) at a
+//! particular step with associated complexity. The functor `Z': 𝒯 → ℬ` maps
+//! states to time steps and transitions to [`DiscreteInterval`]s.
+//!
+//! See also `examples/computation_state.rs`.
 
 use crate::interval::DiscreteInterval;
 
@@ -27,7 +31,7 @@ pub struct ComputationState {
 }
 
 impl ComputationState {
-    /// Create a new computation state.
+    /// Create a new computation state at the given step with the given complexity.
     #[must_use]
     pub fn new(step: usize, complexity: usize) -> Self {
         Self {
@@ -47,13 +51,15 @@ impl ComputationState {
         }
     }
 
-    /// Create the initial computation state.
+    /// The initial computation state: step 0, zero complexity, no fingerprint.
     #[must_use]
     pub fn initial() -> Self {
         Self::new(0, 0)
     }
 
-    /// Advance to the next state with one step of complexity.
+    /// Advance to the next state: increments both step and complexity by one.
+    ///
+    /// The fingerprint is not carried forward (must be recomputed if needed).
     #[must_use]
     pub fn next(&self) -> Self {
         Self::new(self.step + 1, self.complexity + 1)

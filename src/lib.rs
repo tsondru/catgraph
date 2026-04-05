@@ -1,3 +1,44 @@
+//! Category-theoretic graph structures with source/target (cospan) semantics.
+//!
+//! **catgraph** implements applied category theory for compositional systems,
+//! focusing on Fong-Spivak-style string diagrams and cospans. Hyperedges connect
+//! *source sets* to *target sets* (cospan semantics), as opposed to path-based
+//! semantics where vertices are chained sequentially.
+//!
+//! ## Core abstractions
+//!
+//! - [`category`] — composition traits: [`HasIdentity`](category::HasIdentity),
+//!   [`Composable`](category::Composable), [`ComposableMutating`](category::ComposableMutating)
+//! - [`cospan`] — pushout composition over union-find (nearly linear time)
+//! - [`span`] — pullback composition (dual of cospan) and [`Rel`](span::Rel) relation algebra
+//! - [`named_cospan`] — port-labeled cospans for wiring-style composition
+//! - [`monoidal`] — tensor product, symmetric braiding, generic layered morphisms
+//!
+//! ## String diagrams and operads
+//!
+//! - [`frobenius`] — Frobenius algebra generators, layered morphisms, DAG-based interpretation
+//! - [`wiring_diagram`] — operadic substitution built on named cospans
+//! - [`temperley_lieb`] — Temperley-Lieb / Brauer algebra via perfect matchings
+//! - [`e1_operad`] / [`e2_operad`] — little intervals and little disks operads
+//! - [`operadic`] — the `Operadic` trait for substitution
+//!
+//! ## Finite sets and combinatorics
+//!
+//! - [`finset`] — finite set morphisms, epi-mono factorization, permutations
+//! - [`linear_combination`] — formal linear combinations over a coefficient ring
+//!
+//! ## Computational structures
+//!
+//! - [`interval`] / [`complexity`] / [`computation_state`] — discrete interval algebra
+//!   for cobordism categories and complexity measures
+//! - [`adjunction`] / [`bifunctor`] / [`coherence`] / [`stokes`] — functorial
+//!   irreducibility framework (adjunctions, tensor products, coherence verification)
+//!
+//! ## Petri nets
+//!
+//! - [`petri_net`] — place/transition nets with cospan bridge, firing, reachability,
+//!   parallel and sequential composition
+
 pub mod errors;
 pub mod utils;
 pub mod category;
