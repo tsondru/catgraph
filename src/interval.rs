@@ -1,19 +1,30 @@
-//! Discrete interval algebra for cobordism categories.
+//! Discrete interval algebra for the cobordism category ℬ.
 //!
-//! Objects in the cobordism category ℬ are natural numbers (time steps).
-//! Morphisms in ℬ are discrete intervals [n, m] ∩ ℕ representing
-//! computational time spans.
+//! In the functorial irreducibility framework, objects of ℬ are natural numbers
+//! (time steps) and morphisms are discrete intervals `[n, m] ∩ ℕ` representing
+//! computational time spans. Composition is contiguous interval union:
+//! `[a,b] ∘ [b,c] = [a,c]`.
 //!
-//! The composition of morphisms is interval union (when contiguous).
+//! [`DiscreteInterval`] supports both mathematical (right-to-left) composition
+//! via [`compose`](DiscreteInterval::compose) and the more intuitive left-to-right
+//! [`then`](DiscreteInterval::then). Cardinality `|[n,m]| = m − n + 1` gives the
+//! computational complexity of the interval.
+//!
+//! [`ParallelIntervals`] models the tensor product structure of multiway computation:
+//! multiple branches executing simultaneously, with total and max complexity measures.
+//!
+//! See also `examples/interval.rs`.
 
 use std::fmt;
 
 use crate::errors::CatgraphError;
 
-/// A discrete interval [start, end] ∩ ℕ.
+/// A discrete interval `[start, end] ∩ ℕ`, representing a morphism in the
+/// cobordism category ℬ.
 ///
-/// This represents a morphism in the cobordism category ℬ.
-/// The cardinality |\[n,m\] ∩ ℕ| = m - n + 1 gives the computational complexity.
+/// The interval's cardinality `|[n,m] ∩ ℕ| = m − n + 1` measures computational
+/// complexity (number of time steps spanned). Singleton intervals `[n, n]` are
+/// identity morphisms.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct DiscreteInterval {
     /// Start of the interval (inclusive)
@@ -49,9 +60,9 @@ impl DiscreteInterval {
         Self { start: n, end: n }
     }
 
-    /// Create an identity morphism at time step n.
+    /// The identity morphism at time step `n`: the singleton `[n, n]`.
     ///
-    /// The identity is represented as a singleton [n, n].
+    /// An identity interval has cardinality 1 and zero steps.
     #[must_use]
     pub fn identity(n: usize) -> Self {
         Self::singleton(n)
@@ -145,13 +156,20 @@ impl fmt::Display for DiscreteInterval {
     }
 }
 
-/// Parallel intervals for multiway systems.
+/// Parallel intervals for multiway computation systems.
 ///
-/// In multiway computation, multiple branches execute simultaneously.
-/// This structure captures the tensor product structure of parallel computation.
+/// In multiway computation, multiple branches execute simultaneously. This
+/// structure captures the tensor product (⊗) structure of parallel computation
+/// in the cobordism category ℬ. Each branch is an independent [`DiscreteInterval`].
+///
+/// - [`tensor`](Self::tensor) / [`direct_sum`](Self::direct_sum) — monoidal product
+/// - [`total_complexity`](Self::total_complexity) — sum of all branch cardinalities
+/// - [`max_complexity`](Self::max_complexity) — wall-clock time (max branch cardinality)
+/// - [`structurally_equivalent`](Self::structurally_equivalent) — multiset equality
+///   of cardinalities (for functor verification)
 #[derive(Clone, Debug, Default)]
 pub struct ParallelIntervals {
-    /// The collection of branch intervals
+    /// The collection of branch intervals.
     pub branches: Vec<DiscreteInterval>,
 }
 

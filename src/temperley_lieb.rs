@@ -1,8 +1,26 @@
 //! Temperley-Lieb and Brauer algebra morphisms via perfect matchings.
 //!
-//! A `BrauerMorphism<T>` is a linear combination of Brauer diagrams (perfect matchings on
-//! domain + codomain points) with coefficients in `T`. Non-crossing diagrams form the
-//! Temperley-Lieb subalgebra.
+//! A [`BrauerMorphism<T>`] is a formal linear combination of Brauer diagrams —
+//! perfect matchings on `source + target` points — with coefficients in a ring `T`.
+//! Composition multiplies diagrams by stacking them vertically and connecting
+//! matched points through a `petgraph` connectivity check, accumulating powers
+//! of the loop parameter δ for each closed loop.
+//!
+//! The non-crossing subset forms the **Temperley-Lieb subalgebra**: diagrams where
+//! no arcs cross on either the source or target side, and through-lines are
+//! monotonically increasing. The `is_def_tl` flag tracks this property.
+//!
+//! ## Generators
+//!
+//! - [`BrauerMorphism::temperley_lieb_gens`] — the TL generators `e_1, …, e_{n-1}`
+//!   (cup-cap pairs in Hom(n, n))
+//! - [`BrauerMorphism::symmetric_alg_gens`] — the symmetric group generators
+//!   `s_1, …, s_{n-1}` (transpositions in Hom(n, n))
+//!
+//! Implements [`Composable`], [`Monoidal`], [`HasIdentity`], and
+//! [`MonoidalMorphism`](crate::monoidal::MonoidalMorphism).
+//!
+//! See also `examples/temperley_lieb.rs` for the braid relation and generator usage.
 
 use crate::errors::CatgraphError;
 
@@ -31,17 +49,21 @@ use {
 /// Combinations grow as n*(n-1)/2, so 8 elements = 28 combinations.
 const PARALLEL_COMBINATIONS_THRESHOLD: usize = 8;
 
-/// An ordered pair of point indices used in perfect matchings.
+/// An ordered pair of point indices, representing a matched arc in a Brauer diagram.
+///
+/// Points `0..source` lie on the domain (top) side and `source..source+target` on
+/// the codomain (bottom) side. A pair connecting two domain points is a "cup",
+/// two codomain points a "cap", and one from each side a "through-line".
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Pair(pub usize, pub usize);
 
 impl Pair {
-    /// Iterate over both elements of the pair.
+    /// Iterate over both point indices of the pair.
     pub fn iter(&self) -> impl Iterator<Item = usize> {
         [self.0, self.1].into_iter()
     }
 
-    /// Apply `f` to both elements, returning a new pair.
+    /// Apply `f` to both point indices, returning a new pair.
     pub fn map(&self, f: impl Fn(usize) -> usize) -> Self {
         Self(f(self.0), f(self.1))
     }
@@ -74,7 +96,7 @@ impl Pair {
         }
     }
 
-    /// True if `x` lies strictly between the two elements.
+    /// True if `x` lies strictly between the two point indices (used for crossing detection).
     pub const fn contains(&self, x: usize) -> bool {
         (x < self.0 && x > self.1) || (x < self.1 && x > self.0)
     }
@@ -320,16 +342,27 @@ impl Mul for ExtendedPerfectMatching {
     }
 }
 
-/// A morphism in the Brauer algebra: a linear combination of Brauer diagrams
-/// (perfect matchings) weighted by delta powers, with shared domain/codomain size.
+/// A morphism in the Brauer algebra: Hom(source, target).
+///
+/// Internally a [`LinearCombination`] over `(delta_power, PerfectMatching)` pairs.
+/// Each term represents a Brauer diagram scaled by `δ^k` where `k` tracks closed
+/// loops accumulated during composition. The coefficient ring `T` must support
+/// addition, multiplication, and the constants 0 and 1.
+///
+/// Use [`temperley_lieb_gens`](Self::temperley_lieb_gens) and
+/// [`symmetric_alg_gens`](Self::symmetric_alg_gens) to obtain standard generators,
+/// then compose/tensor them to build morphisms.
 pub struct BrauerMorphism<T>
 where
     T: Add<Output = T> + Zero + One + Copy,
 {
+    /// The formal sum of `(delta_power, diagram)` terms with coefficients in `T`.
     diagram: LinearCombination<T, (usize, PerfectMatching)>,
+    /// Number of domain (top) points.
     source: usize,
+    /// Number of codomain (bottom) points.
     target: usize,
-    /// True if all terms are known to be non-crossing (Temperley-Lieb).
+    /// True if all terms are known to be non-crossing (Temperley-Lieb subalgebra).
     is_def_tl: bool,
 }
 
@@ -463,7 +496,10 @@ impl<T> BrauerMorphism<T>
 where
     T: Add<Output = T> + Zero + One + Copy + AddAssign + Mul<Output = T> + MulAssign,
 {
-    /// Return the Temperley-Lieb generators e\_1, ..., e\_{n-1} in Hom(n, n).
+    /// The Temperley-Lieb generators e\_1, …, e\_{n-1} in Hom(n, n).
+    ///
+    /// Generator `e_i` pairs domain point `i` with `i+1` (cup) and codomain
+    /// point `i` with `i+1` (cap), with all other points connected straight across.
     pub fn temperley_lieb_gens(n: usize) -> Vec<Self> {
         (0..n - 1)
             .map(|i| {
@@ -489,9 +525,11 @@ where
             .collect()
     }
 
-    /// Return the symmetric group generators s\_1, ..., s\_{n-1} in Hom(n, n).
+    /// The symmetric group generators s\_1, …, s\_{n-1} in Hom(n, n).
     ///
-    /// Each s\_i swaps positions i and i+1, matching the rest straight across.
+    /// Generator `s_i` crosses positions `i` and `i+1` (a transposition),
+    /// matching the rest straight across. These generate the full Brauer algebra
+    /// together with the Temperley-Lieb generators.
     pub fn symmetric_alg_gens(n: usize) -> Vec<Self> {
         (0..(n - 1))
             .map(|i| {
@@ -517,9 +555,10 @@ where
             .collect()
     }
 
-    /// Construct a polynomial in delta as a morphism in Hom(0, 0).
+    /// Construct a polynomial in δ as a scalar morphism in Hom(0, 0).
     ///
-    /// `coeffs\[i\]` is the coefficient of delta^i.
+    /// `coeffs[i]` is the coefficient of δ^i. This represents a closed
+    /// diagram (no external points) — the "ground ring" element.
     pub fn delta_polynomial(coeffs: &[T]) -> Self {
         let zeroth_coeff = *coeffs.first().unwrap_or(&T::zero());
         let empty_matching = PerfectMatching { pairs: vec![] };
@@ -539,7 +578,10 @@ where
         }
     }
 
-    /// Dagger (adjoint): flip each diagram upside down and apply `num_dagger` to coefficients.
+    /// Dagger (adjoint): reflect each diagram vertically (swap source ↔ target
+    /// sides) and apply `num_dagger` to every coefficient.
+    ///
+    /// For the standard involution, pass `|x| x` (or conjugation for complex coefficients).
     pub fn dagger<F>(&self, num_dagger: F) -> Self
     where
         F: Fn(T) -> T,
@@ -556,7 +598,11 @@ where
         }
     }
 
-    /// Check and cache whether all terms are non-crossing (Temperley-Lieb). No-op if already known.
+    /// Check and cache whether all terms are non-crossing (Temperley-Lieb).
+    ///
+    /// Iterates over every diagram term and verifies the non-crossing property.
+    /// No-op if the flag is already set. Call this after constructing a morphism
+    /// from raw diagrams if you need the TL guarantee for downstream optimizations.
     pub fn set_is_tl(&mut self) {
         if self.is_def_tl {
             return;

@@ -1,7 +1,24 @@
 //! Finite set morphisms with epi-mono factorization.
 //!
-//! Provides `FinSetMorphism` (general maps), `OrderPresSurj` (order-preserving surjections),
-//! `OrderPresInj` (order-preserving injections), and `Decomposition` (permutation + epi + mono).
+//! Models morphisms in the category **FinSet** (finite sets and functions). Every
+//! finite set morphism factors uniquely as a permutation followed by an
+//! order-preserving surjection followed by an order-preserving injection. This
+//! module provides:
+//!
+//! - [`FinSetMorphism`] — a general map `{0,…,n-1} → {0,…,m-1}` stored as
+//!   `(Vec<usize>, extra_codomain)` where `codomain = max(map)+1 + extra`
+//! - [`OrderPresSurj`] — order-preserving surjection, stored as preimage
+//!   cardinalities minus one (compact run-length encoding)
+//! - [`OrderPresInj`] — order-preserving injection, stored as alternating
+//!   identity/gap run lengths
+//! - [`Decomposition`] — the epi-mono factorization `σ ∘ π ∘ ι` (permutation,
+//!   then surjection, then injection)
+//!
+//! All types implement [`Composable`], [`Monoidal`], and [`HasIdentity`]. The
+//! [`Decomposition`] additionally implements [`SymmetricMonoidalDiscreteMorphism`](crate::monoidal::SymmetricMonoidalDiscreteMorphism)
+//! for permutation-based braiding.
+//!
+//! See also `examples/finset.rs` for permutations and epi-mono factorization.
 
 use crate::errors::CatgraphError;
 
@@ -15,9 +32,15 @@ use {
     std::{collections::HashSet, error, fmt},
 };
 
-/// A finite set map represented as a vector of target indices.
+/// A finite set map: `map[i]` is the image of element `i`.
 pub type FinSetMap = Vec<usize>;
-/// A finite set morphism: `(map, extra_codomain)` where codomain = max(map)+1 + extra.
+
+/// A finite set morphism with explicit codomain tracking.
+///
+/// Represented as `(map, extra_codomain)` where `codomain = max(map)+1 + extra`.
+/// The `extra_codomain` field captures codomain elements not hit by the map
+/// (i.e. the non-surjective part). An empty map with `extra = k` represents
+/// the unique morphism from the empty set to `{0,…,k-1}`.
 pub type FinSetMorphism = (Vec<usize>, usize);
 
 impl HasIdentity<usize> for FinSetMorphism {
@@ -76,9 +99,16 @@ impl Composable<usize> for FinSetMorphism {
 
 impl MonoidalMorphism<usize> for FinSetMorphism {}
 
-/// Order-preserving surjection, stored as preimage cardinalities minus one.
+/// Order-preserving surjection in **FinSet**.
+///
+/// Stored as a vector of preimage cardinalities minus one: if `preimage_card_minus_1[i] = k`,
+/// then codomain element `i` has exactly `k+1` preimages. This compact encoding
+/// avoids storing the full map while supporting O(n) composition.
+///
+/// Domain size = sum of all cardinalities, codomain size = vector length.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OrderPresSurj {
+    /// `preimage_card_minus_1[i]` = (number of domain elements mapping to `i`) − 1.
     preimage_card_minus_1: Vec<usize>,
 }
 
@@ -166,9 +196,17 @@ impl OrderPresSurj {
     }
 }
 
-/// Order-preserving injection, stored as alternating identity/gap run lengths.
+/// Order-preserving injection in **FinSet**.
+///
+/// Stored as an alternating run-length encoding: `[id_run, gap, id_run, gap, …]`
+/// where each `id_run` is the number of consecutive domain elements mapped to
+/// consecutive codomain elements, and each `gap` is the number of skipped
+/// codomain elements. This compact encoding supports O(n) composition.
+///
+/// Domain size = sum of identity runs, codomain size = sum of all runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrderPresInj {
+    /// Alternating `[identity_count, gap_count, identity_count, …]` run lengths.
     counts_iden_unit_alternating: Vec<usize>,
 }
 
@@ -287,7 +325,8 @@ fn is_injective(v: &[usize]) -> bool {
     crate::utils::is_unique(v)
 }
 
-/// Error converting a `FinSetMorphism` to an `OrderPresSurj`.
+/// Error converting a [`FinSetMorphism`] to an [`OrderPresSurj`]:
+/// the map is not order-preserving or not surjective.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromSurjError;
 impl fmt::Display for TryFromSurjError {
@@ -334,7 +373,8 @@ impl TryFrom<FinSetMorphism> for OrderPresSurj {
 }
 impl error::Error for TryFromSurjError {}
 
-/// Error converting a `FinSetMorphism` to an `OrderPresInj`.
+/// Error converting a [`FinSetMorphism`] to an [`OrderPresInj`]:
+/// the map is not order-preserving or not injective.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromInjError;
 impl fmt::Display for TryFromInjError {
@@ -395,7 +435,10 @@ fn permutation_sort<T: Ord>(x: &mut [T]) -> Permutation {
     Permutation::try_from(answer).unwrap()
 }
 
-/// Constructs a permutation on `n` elements from a cycle notation.
+/// Constructs a permutation on `n` elements from a single cycle in cycle notation.
+///
+/// A cycle `[a, b, c]` sends a→b, b→c, c→a and fixes all other elements.
+/// Cycles of length 0 or 1 return the identity permutation.
 pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
     if cycle.len() < 2 {
         return Permutation::identity(n);
@@ -404,10 +447,21 @@ pub fn from_cycle(n: usize, cycle: &[usize]) -> Permutation {
     from_cycle(n, &cycle[1..]) * part1
 }
 
-/// Epi-mono factorization of a finite set map: permutation, then surjection, then injection.
+/// Epi-mono factorization of a finite set morphism: `f = ι ∘ π ∘ σ`.
+///
+/// Every morphism in **FinSet** factors uniquely as:
+/// 1. A permutation σ (reorder the domain)
+/// 2. An order-preserving surjection π (collapse fibers)
+/// 3. An order-preserving injection ι (embed into codomain)
+///
+/// This decomposition supports efficient composition, monoidal product,
+/// and symmetric braiding via permutation manipulation.
 pub struct Decomposition {
+    /// The permutation component σ.
     permutation_part: Permutation,
+    /// The order-preserving surjection component π.
     order_preserving_surjection: OrderPresSurj,
+    /// The order-preserving injection component ι.
     order_preserving_injection: OrderPresInj,
 }
 
@@ -514,7 +568,7 @@ impl Decomposition {
         }
     }
 
-    /// Returns references to the (permutation, surjection, injection) components.
+    /// Returns references to the `(σ, π, ι)` components of the factorization.
     pub const fn get_parts(&self) -> (&Permutation, &OrderPresSurj, &OrderPresInj) {
         (
             &self.permutation_part,
@@ -524,7 +578,8 @@ impl Decomposition {
     }
 }
 
-/// Error converting a `FinSetMorphism` to a `Decomposition`.
+/// Error converting a [`FinSetMorphism`] to a [`Decomposition`]:
+/// the epi-mono factorization could not be computed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TryFromFinSetError;
 impl fmt::Display for TryFromFinSetError {

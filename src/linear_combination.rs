@@ -1,7 +1,23 @@
 //! Formal linear combinations over a coefficient ring.
 //!
-//! `LinearCombination<Coeffs, Target>` represents an element of the free module R\[T\],
-//! supporting addition, scalar multiplication, and convolution (when `Target` has `Mul`).
+//! [`LinearCombination<Coeffs, Target>`] represents an element of the free module R\[T\]:
+//! a sparse map from basis elements `T` to coefficients in a ring `R`. Supports:
+//!
+//! - **Additive structure**: `Add`, `Sub`, `Neg` (pointwise on coefficients)
+//! - **Scalar multiplication**: `Mul<Coeffs>`, `MulAssign<Coeffs>`
+//! - **Convolution**: `Mul<Self>` when `Target: Mul<Output = Target>` — the product
+//!   of two formal sums, distributing over basis multiplication (parallelized
+//!   via rayon above [`PARALLEL_MUL_THRESHOLD`] terms)
+//! - **Generalized convolution**: [`linear_combine`](LinearCombination::linear_combine)
+//!   over heterogeneous basis types
+//! - **Functorial maps**: [`inj_linearly_extend`](LinearCombination::inj_linearly_extend)
+//!   and [`linearly_extend`](LinearCombination::linearly_extend) for basis change
+//!
+//! Used internally by [`BrauerMorphism`](crate::temperley_lieb::BrauerMorphism) for
+//! Brauer algebra arithmetic and available as a standalone module for any algebraic
+//! computation over formal sums.
+//!
+//! See also `examples/linear_combination.rs`.
 
 use {
     num::{One, Zero},
@@ -18,7 +34,10 @@ use {
 /// Below this, sequential iteration is faster due to rayon overhead.
 const PARALLEL_MUL_THRESHOLD: usize = 32;
 
-/// A formal linear combination: a map from basis elements to coefficients.
+/// A formal linear combination: a sparse map from basis elements to coefficients.
+///
+/// Represents `Σ c_i · t_i` where `c_i: Coeffs` and `t_i: Target`. Zero-coefficient
+/// terms may be present until [`simplify`](Self::simplify) is called.
 #[repr(transparent)]
 #[derive(PartialEq, Eq, Debug, Default, Clone)]
 pub struct LinearCombination<Coeffs, Target: Eq + Hash>(HashMap<Target, Coeffs>);
@@ -195,8 +214,11 @@ where
 
 #[allow(clippy::needless_pass_by_value)]
 impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
-    /// Generalized convolution: combine two linear combinations over different
-    /// basis types using the given combiner function as the "multiplication".
+    /// Generalized convolution over heterogeneous basis types.
+    ///
+    /// Combines `self ∈ R[T]` with `rhs ∈ R[U]` to produce an element of `R[V]`,
+    /// using `combiner: T × U → V` as the "multiplication" on basis elements.
+    /// Parallelized via rayon when both operands exceed [`PARALLEL_MUL_THRESHOLD`].
     pub fn linear_combine<U, V, F>(
         &self,
         rhs: LinearCombination<Coeffs, U>,
@@ -240,7 +262,7 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
         }
     }
 
-    /// Apply a ring endomorphism to every coefficient.
+    /// Apply a ring endomorphism to every coefficient (e.g. conjugation, negation).
     pub fn change_coeffs<F>(&mut self, coeff_changer: F)
     where
         Coeffs: Copy,
@@ -264,7 +286,7 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target>
 where
     Coeffs: One,
 {
-    /// A single basis element with coefficient one.
+    /// A single basis element with coefficient one: the Dirac delta `1 · t`.
     pub fn singleton(t: Target) -> Self {
         Self([(t, <_>::one())].into())
     }
@@ -278,9 +300,11 @@ impl<Coeffs: Zero, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
 }
 
 impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
-    /// Extend an injective map T1 -> T2 to a linear map R\[T1\] -> R\[T2\].
+    /// Extend an injective map `T1 → T2` to a linear map `R[T1] → R[T2]`.
     ///
-    /// Panics if the function is not actually injective.
+    /// Each basis element is mapped through `injection` and its coefficient
+    /// is preserved. Panics if the function is not actually injective (i.e. two
+    /// distinct basis elements map to the same target).
     pub fn inj_linearly_extend<Target2: Eq + Hash, F>(
         &self,
         injection: F,
@@ -302,8 +326,10 @@ impl<Coeffs, Target: Clone + Eq + Hash> LinearCombination<Coeffs, Target> {
         LinearCombination(new_map)
     }
 
-    /// Extend a (possibly non-injective) map T1 -> T2 to a linear map R\[T1\] -> R\[T2\],
-    /// summing coefficients when distinct keys collide.
+    /// Extend a (possibly non-injective) map `T1 → T2` to a linear map `R[T1] → R[T2]`.
+    ///
+    /// When distinct basis elements collide under `f`, their coefficients are summed.
+    /// This is the free module functorial action for arbitrary set maps.
     pub fn linearly_extend<Target2: Eq + Hash, F>(&self, f: F) -> LinearCombination<Coeffs, Target2>
     where
         F: Fn(Target) -> Target2,

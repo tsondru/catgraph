@@ -1,8 +1,14 @@
 //! Complexity algebra for computational processes.
 //!
 //! A complexity measure captures the "cost" of computation in terms of steps,
-//! resources, or other metrics. This module provides traits and implementations
-//! for measuring and combining complexities.
+//! resources, or other metrics. The [`Complexity`] trait abstracts over different
+//! cost models (time, space, energy) by requiring sequential composition (g∘f)
+//! and parallel composition (f⊗g) operations.
+//!
+//! [`StepCount`] is the canonical implementation: sequential composition adds
+//! steps, parallel composition takes the maximum (wall-clock time model).
+//!
+//! See also `examples/complexity.rs`.
 
 use std::fmt;
 use std::ops::{Add, AddAssign};
@@ -36,10 +42,12 @@ pub trait Complexity: Clone + Default + fmt::Debug {
     }
 }
 
-/// Simple step-counting complexity measure.
+/// Simple step-counting complexity measure (wall-clock time model).
 ///
-/// This represents the number of elementary computational steps.
-/// Sequential composition adds steps, parallel composition takes the maximum.
+/// Represents the number of elementary computational steps. Sequential
+/// composition adds steps (`C(g∘f) = C(f) + C(g)`), parallel composition
+/// takes the maximum (`C(f⊗g) = max(C(f), C(g))`). Implements `Add` and
+/// `AddAssign` for convenient arithmetic.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StepCount(pub usize);
 
