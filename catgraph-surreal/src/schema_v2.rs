@@ -11,6 +11,7 @@ DEFINE FIELD IF NOT EXISTS kind ON graph_node TYPE string;
 DEFINE FIELD IF NOT EXISTS labels ON graph_node TYPE array<string> DEFAULT [];
 DEFINE FIELD IF NOT EXISTS properties ON graph_node TYPE object FLEXIBLE DEFAULT {};
 DEFINE FIELD IF NOT EXISTS created_at ON graph_node TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS embedding ON graph_node TYPE option<array<float>> DEFAULT NONE;
 
 DEFINE INDEX IF NOT EXISTS idx_node_kind ON graph_node FIELDS kind;
 DEFINE INDEX IF NOT EXISTS idx_node_name ON graph_node FIELDS name;
@@ -111,3 +112,14 @@ DEFINE FIELD IF NOT EXISTS step ON petri_marking TYPE option<int> DEFAULT NONE;
 DEFINE FIELD IF NOT EXISTS created_at ON petri_marking TYPE datetime DEFAULT time::now();
 DEFINE INDEX IF NOT EXISTS idx_marking_net ON petri_marking FIELDS net;
 "#;
+
+/// Generate DDL for an HNSW index on graph_node.embedding with configurable dimension.
+///
+/// The dimension must match the embedding vectors stored on graph_node records.
+/// Call this once after `init_schema_v2`, typically via `FingerprintEngine::init_index`.
+pub fn hnsw_index_ddl(dimension: u32) -> String {
+    format!(
+        "DEFINE INDEX IF NOT EXISTS hnsw_fingerprint ON graph_node \
+         FIELDS embedding HNSW DIMENSION {dimension} DIST EUCLIDEAN EFC 150 M 16;"
+    )
+}
