@@ -52,9 +52,9 @@ DEFINE TABLE IF NOT EXISTS target_of SCHEMAFULL TYPE RELATION FROM hyperedge_hub
 DEFINE FIELD IF NOT EXISTS position ON target_of TYPE int;
 DEFINE FIELD IF NOT EXISTS weight ON target_of TYPE option<decimal> DEFAULT NONE;
 
--- Indexes for efficient participation counting via traversal
-DEFINE INDEX IF NOT EXISTS cnt_source_of_out ON source_of FIELDS out;
-DEFINE INDEX IF NOT EXISTS cnt_target_of_in ON target_of FIELDS in;
+-- COUNT indexes for efficient participation counting
+DEFINE INDEX IF NOT EXISTS cnt_source_of_out ON source_of COUNT;
+DEFINE INDEX IF NOT EXISTS cnt_target_of_in ON target_of COUNT;
 
 -- Record references for composition provenance
 DEFINE FIELD IF NOT EXISTS parent_hubs ON hyperedge_hub
