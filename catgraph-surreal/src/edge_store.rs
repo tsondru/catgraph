@@ -1,11 +1,10 @@
 use surrealdb::engine::local::Db;
 use surrealdb::types::RecordId;
 use surrealdb::Surreal;
-use surrealdb_types::SurrealValue;
-
 use crate::error::PersistError;
 use crate::node_store::NodeStore;
 use crate::types_v2::{GraphEdgeRecord, GraphNodeRecord};
+use crate::utils::{IdOnly, InRef, OutRef};
 
 /// Store for pairwise RELATE edges in the V2 schema.
 pub struct EdgeStore<'a> {
@@ -89,7 +88,7 @@ impl<'a> EdgeStore<'a> {
             .bind(("from", from.clone()))
             .bind(("kind", edge_kind.to_string()))
             .await?;
-        let edges: Vec<EdgeOutRef> = result.take(0)?;
+        let edges: Vec<OutRef> = result.take(0)?;
         let mut nodes = Vec::with_capacity(edges.len());
         for edge in &edges {
             nodes.push(self.node_store.get(&edge.out).await?);
@@ -111,7 +110,7 @@ impl<'a> EdgeStore<'a> {
             .bind(("to", to.clone()))
             .bind(("kind", edge_kind.to_string()))
             .await?;
-        let edges: Vec<EdgeInRef> = result.take(0)?;
+        let edges: Vec<InRef> = result.take(0)?;
         let mut nodes = Vec::with_capacity(edges.len());
         for edge in &edges {
             nodes.push(self.node_store.get(&edge.src).await?);
@@ -136,23 +135,3 @@ impl<'a> EdgeStore<'a> {
     }
 }
 
-/// Helper for extracting just the RecordId from RELATE RETURN id.
-#[derive(Debug, serde::Deserialize, SurrealValue)]
-struct IdOnly {
-    id: RecordId,
-}
-
-/// Helper struct for extracting `out` RecordId from edge query results.
-#[derive(Debug, serde::Deserialize, SurrealValue)]
-struct EdgeOutRef {
-    out: RecordId,
-}
-
-/// Helper struct for extracting source (`in`) RecordId from edge query results.
-///
-/// Uses `src` alias because `SurrealValue` derive does not support `#[serde(rename)]`.
-/// The query must use `SELECT `in` AS src FROM ...`.
-#[derive(Debug, serde::Deserialize, SurrealValue)]
-struct EdgeInRef {
-    src: RecordId,
-}

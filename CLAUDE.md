@@ -93,7 +93,10 @@ catgraph/                           # Workspace root
 │   ├── wiring_diagram.rs           # Wiring diagram operad
 │   ├── temperley_lieb.rs           # TL/Brauer generators, braid relation
 │   ├── linear_combination.rs       # Linear combinations over morphisms
-│   └── petri_net.rs                # Petri net firing, reachability, composition
+│   ├── petri_net.rs                # Petri net firing, reachability, composition
+│   ├── hypergraph.rs               # DPO rewriting, evolution, cospan bridge
+│   ├── multiway.rs                 # Multiway BFS, branchial foliation, curvature
+│   └── gauge.rs                    # Lattice gauge theory, Wilson loops
 │
 ├── benches/                        # Criterion benchmarks
 │   ├── pushout.rs                  # Cospan::compose at sizes 4–1024
@@ -121,7 +124,15 @@ catgraph/                           # Workspace root
 │   ├── pushout_correctness.rs      # 9 tests: union-find pushout, wire merging, determinism
 │   ├── relation_algebra.rs         # 21 tests: Rel API, dagger involution, span composition, equivalence/partial order
 │   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
-│   └── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
+│   ├── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
+│   ├── stokes_laws.rs              # 8 tests: conservation verification, cospan chain, exterior derivative
+│   ├── adjunction_laws.rs          # 5 tests: triangle identities, adjunction gap, irreducibility
+│   ├── bifunctor_laws.rs           # 6 tests: tensor associativity/unit/symmetry, bimap
+│   ├── coherence_laws.rs           # 7 tests: all 4 coherence axioms, DifferentialCoherence
+│   ├── complexity_laws.rs          # 6 tests: sequential/parallel composition, StepCount algebra
+│   ├── computation_state_laws.rs   # 7 tests: state lifecycle, interval mapping, fingerprints
+│   ├── gauge_theory.rs             # 19 tests: structure constants, Wilson loops, DPO lattice, plaquette action
+│   └── rayon_parallel.rs           # 4 tests: above-threshold correctness for rayon-enabled modules
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
     ├── Cargo.toml                  # Depends on catgraph + surrealdb 3.0.5 (kv-mem)
@@ -147,7 +158,9 @@ catgraph/                           # Workspace root
     │   ├── wiring_store.rs         # V2 WiringDiagramStore: decompose/reconstruct via hub-node
     │   ├── hypergraph_evolution_store.rs  # V2 HypergraphEvolutionStore: cospan chains + rewrite spans
     │   ├── fingerprint.rs          # Structural fingerprint computation (petgraph) + HNSW search
-    │   └── query.rs                # V2 QueryHelper: neighbors, reachable, shortest_path, collect
+    │   ├── query.rs                # V2 QueryHelper: neighbors, reachable, shortest_path, collect
+    │   ├── utils.rs                # Shared helpers: format_record_id, OutRef, InRef, InOutRef, IdOnly
+    │   └── multiway_store.rs       # V2 MultiwayEvolutionStore: stub (schema + types ready)
     └── tests/
         ├── v1_cospan_roundtrip.rs          # 9 tests: V1 char/unit roundtrip, identity, compose-persist
         ├── v1_named_cospan_roundtrip.rs    # 5 tests: V1 port name preservation, record references
@@ -166,7 +179,8 @@ catgraph/                           # Workspace root
         ├── domain_chemical_reactions.rs    # 5 tests: chemical reactions (Cospan hyperedges)
         ├── domain_circuit_design.rs        # 5 tests: cascaded logic gates, shared nodes
         ├── domain_code_analysis.rs         # 5 tests: code graph (pairwise, multi-hop)
-        └── domain_dataflow_pipeline.rs     # 4 tests: NamedCospan dataflow
+        ├── domain_dataflow_pipeline.rs     # 4 tests: NamedCospan dataflow
+        └── v2_hypergraph_evolution.rs     # 11 tests: evolution store roundtrip, metadata, isolation
 ```
 
 ## Key Types and Traits
@@ -323,9 +337,9 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 850 tests (671 catgraph + 179 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (671: 392 unit + 268 integration + 11 doc)
-cargo test -p catgraph-surreal # Run bridge crate tests (179: 25 unit + 154 integration)
+cargo test --workspace        # Run all 879 tests (714 catgraph + 165 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (714: 393 unit + 310 integration + 11 doc)
+cargo test -p catgraph-surreal # Run bridge crate tests (165: 25 unit + 140 integration)
 cargo test --examples         # Compile-check all 19 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
@@ -459,8 +473,8 @@ Rust 2024 edition. Common patterns:
 | CospanAlgebra trait (Fong-Spivak §2.1) | Lax monoidal functor from cospans to sets |
 | WeightedCospan | `weight: option<decimal>` on source_of/target_of already in schema |
 | Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
-| Multiway persistence | `HypergraphEvolutionStore` persists cospan chains + rewrite spans; multiway graph persistence (depends on `MultiwayEvolutionGraph` serialization) not yet implemented |
-| Benchmark tuning | Criterion benchmarks exist; rayon thresholds not yet validated with data |
+| Multiway persistence | `MultiwayEvolutionStore` stub ready (schema DDL + types in schema_v2.rs/types_v2.rs); full save/load deferred until `MultiwayEvolutionGraph` serialization |
+| Benchmark tuning | Criterion benchmarks exist; rayon thresholds validated with correctness tests in `tests/rayon_parallel.rs` |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope

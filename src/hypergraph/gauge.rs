@@ -247,6 +247,7 @@ pub fn total_action(holonomies: &[f64]) -> f64 {
 use std::collections::HashMap;
 
 use super::hypergraph::Hypergraph;
+use super::rewrite_rule::RewriteRule;
 
 /// A D-dimensional lattice for hypergraph rewriting.
 ///
@@ -269,12 +270,14 @@ use super::hypergraph::Hypergraph;
 ///
 /// ```rust
 /// use catgraph::hypergraph::{
-///     HypergraphLattice, HypergraphRewriteGroup, Hypergraph,
+///     HypergraphLattice, HypergraphRewriteGroup, Hypergraph, RewriteRule,
 /// };
 ///
+/// let rule = RewriteRule::wolfram_a_to_bb();
 /// let mut lattice: HypergraphLattice<1> = HypergraphLattice::new(
 ///     [5],
 ///     HypergraphRewriteGroup::new(3),
+///     vec![rule],
 /// );
 ///
 /// let initial = Hypergraph::from_edges(vec![vec![0, 1, 2]]);
@@ -288,6 +291,12 @@ pub struct HypergraphLattice<const D: usize> {
 
     /// Gauge group (defines number of rules).
     group: HypergraphRewriteGroup,
+
+    /// Rewrite rules (gauge generators). Index corresponds to `rule_index` in `apply_rewrite`.
+    rules: Vec<RewriteRule>,
+
+    /// Next available vertex ID for rewrite operations.
+    next_vertex_id: usize,
 
     /// States at each lattice site.
     states: HashMap<Vec<usize>, Hypergraph>,
@@ -311,6 +320,7 @@ impl<const D: usize> HypergraphLattice<D> {
     ///
     /// * `dimensions` - Array of dimension sizes (e.g., [5, 5] for 5x5)
     /// * `group` - Gauge group (defines number of rewrite rules)
+    /// * `rules` - Rewrite rules (gauge generators)
     ///
     /// # Example
     ///
@@ -320,13 +330,16 @@ impl<const D: usize> HypergraphLattice<D> {
     /// let lattice: HypergraphLattice<2> = HypergraphLattice::new(
     ///     [10, 10],
     ///     HypergraphRewriteGroup::new(4),
+    ///     vec![],
     /// );
     /// ```
     #[must_use]
-    pub fn new(dimensions: [usize; D], group: HypergraphRewriteGroup) -> Self {
+    pub fn new(dimensions: [usize; D], group: HypergraphRewriteGroup, rules: Vec<RewriteRule>) -> Self {
         Self {
             dimensions,
             group,
+            rules,
+            next_vertex_id: 0,
             states: HashMap::new(),
             transitions: HashMap::new(),
             step_count: 0,
@@ -365,38 +378,54 @@ impl<const D: usize> HypergraphLattice<D> {
         self.states.get_mut(site.as_slice())
     }
 
+    /// Returns the rewrite rules.
+    #[must_use]
+    pub fn rules(&self) -> &[RewriteRule] {
+        &self.rules
+    }
+
     /// Applies a rewrite rule at a specific lattice site.
     ///
-    /// **Scaffold placeholder** -- does NOT perform actual hypergraph rewriting.
+    /// Finds the first match of the rule in the hypergraph at the given site
+    /// and applies it via DPO rewriting. Records the transition with holonomy
+    /// (edge count ratio before/after rewrite).
     ///
-    /// Current behaviour: validates that `site` is within bounds and
-    /// `rule_index` is less than the group's rule count, creates an empty
-    /// hypergraph state at the site if one does not already exist, and
-    /// increments the internal step counter.
-    ///
-    /// # TODO
-    ///
-    /// Implement actual rule application with holonomy tracking.
-    ///
-    /// # Arguments
-    ///
-    /// * `site` - D-dimensional lattice coordinate
-    /// * `rule_index` - Index of the rewrite rule to apply
-    ///
-    /// # Returns
-    ///
-    /// `true` if the rule was applied successfully
+    /// Returns `false` if the site is invalid, the rule index is out of range,
+    /// or no match is found at the site.
+    #[allow(clippy::cast_precision_loss, clippy::missing_panics_doc)]
     pub fn apply_rewrite(&mut self, site: &[usize; D], rule_index: usize) -> bool {
         if !Self::is_valid_site(site, &self.dimensions) {
             return false;
         }
 
-        if rule_index >= self.group.num_rules() {
+        if rule_index >= self.rules.len() {
             return false;
         }
 
-        // If no state exists at the site, create an empty hypergraph
+        // Ensure a hypergraph exists at the site
         self.states.entry(site.to_vec()).or_default();
+
+        let state = self.states.get_mut(site.as_slice()).unwrap();
+
+        let edges_before = state.edge_count();
+
+        let matches = self.rules[rule_index].find_matches(state);
+        if matches.is_empty() {
+            return false;
+        }
+
+        self.rules[rule_index].apply(state, &matches[0], &mut self.next_vertex_id);
+
+        let edges_after = state.edge_count();
+
+        let holonomy = if edges_before == 0 {
+            1.0
+        } else {
+            edges_after as f64 / edges_before as f64
+        };
+
+        self.transitions
+            .insert((site.to_vec(), site.to_vec()), (rule_index, holonomy));
 
         self.step_count += 1;
         true
@@ -592,7 +621,7 @@ impl<const D: usize> HypergraphLattice<D> {
 impl<const D: usize> Default for HypergraphLattice<D> {
     fn default() -> Self {
         let dims = [1; D];
-        Self::new(dims, HypergraphRewriteGroup::new(3))
+        Self::new(dims, HypergraphRewriteGroup::new(3), vec![])
     }
 }
 
@@ -665,7 +694,7 @@ mod tests {
     #[test]
     fn test_lattice_1d_creation() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         assert_eq!(lattice.dimensions(), &[5]);
         assert_eq!(lattice.step_count(), 0);
@@ -675,7 +704,7 @@ mod tests {
     #[test]
     fn test_lattice_2d_creation() {
         let lattice: HypergraphLattice<2> =
-            HypergraphLattice::new([10, 10], HypergraphRewriteGroup::new(4));
+            HypergraphLattice::new([10, 10], HypergraphRewriteGroup::new(4), vec![]);
 
         assert_eq!(lattice.dimensions(), &[10, 10]);
         assert_eq!(lattice.group().num_rules(), 4);
@@ -684,7 +713,7 @@ mod tests {
     #[test]
     fn test_lattice_set_get_state() {
         let mut lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let state = Hypergraph::from_edges(vec![vec![0, 1, 2]]);
         let site = [2];
@@ -698,23 +727,54 @@ mod tests {
 
     #[test]
     fn test_lattice_apply_rewrite() {
-        let mut lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+        use super::super::rewrite_rule::RewriteRule;
 
+        let rule = RewriteRule::wolfram_a_to_bb();
+        let mut lattice: HypergraphLattice<1> =
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![rule]);
+
+        // Set an initial state with a ternary edge that matches A→BB
+        let initial = Hypergraph::from_edges(vec![vec![0, 1, 2]]);
         let site = [1];
+        lattice.set_state(&site, initial);
+
         let success = lattice.apply_rewrite(&site, 0);
 
         assert!(success);
         assert_eq!(lattice.step_count(), 1);
+
+        // The ternary edge should have been replaced by two binary edges
+        let state = lattice.get_state(&site).unwrap();
+        assert_eq!(state.edge_count(), 2);
+    }
+
+    #[test]
+    fn test_lattice_apply_rewrite_no_match() {
+        use super::super::rewrite_rule::RewriteRule;
+
+        // Rule expects a ternary edge, but we'll have a binary edge
+        let rule = RewriteRule::wolfram_a_to_bb();
+        let mut lattice: HypergraphLattice<1> =
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![rule]);
+
+        let initial = Hypergraph::from_edges(vec![vec![0, 1]]);
+        let site = [1];
+        lattice.set_state(&site, initial);
+
+        let success = lattice.apply_rewrite(&site, 0);
+
+        // No match found, should return false and not increment step_count
+        assert!(!success);
+        assert_eq!(lattice.step_count(), 0);
     }
 
     #[test]
     fn test_lattice_apply_rewrite_invalid_rule() {
         let mut lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(2));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(2), vec![]);
 
         let site = [1];
-        let success = lattice.apply_rewrite(&site, 5); // Rule index out of range
+        let success = lattice.apply_rewrite(&site, 0); // No rules at all
 
         assert!(!success);
         assert_eq!(lattice.step_count(), 0);
@@ -723,7 +783,7 @@ mod tests {
     #[test]
     fn test_lattice_wilson_loop_empty() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let path: Vec<&[usize; 1]> = vec![];
         let h = lattice.wilson_loop(&path);
@@ -734,7 +794,7 @@ mod tests {
     #[test]
     fn test_lattice_causal_invariance() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let sites = vec![&[0usize] as &[usize; 1], &[1usize] as &[usize; 1], &[0usize]];
         let invariant = lattice.is_causally_invariant(&sites);
@@ -746,7 +806,7 @@ mod tests {
     #[test]
     fn test_lattice_plaquette_action() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let sites = vec![&[0usize] as &[usize; 1], &[1usize]];
         let action = lattice.plaquette_action(&sites);
@@ -759,7 +819,7 @@ mod tests {
     #[test]
     fn test_lattice_2d_valid_site() {
         let lattice: HypergraphLattice<2> =
-            HypergraphLattice::new([5, 5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5, 5], HypergraphRewriteGroup::new(3), vec![]);
 
         assert!(HypergraphLattice::<2>::is_valid_site(
             &[2, 3],
@@ -783,7 +843,7 @@ mod tests {
     #[test]
     fn test_lattice_average_holonomy() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let avg = lattice.average_holonomy();
         assert_eq!(avg, 1.0); // No loops recorded yet
@@ -792,7 +852,7 @@ mod tests {
     #[test]
     fn test_lattice_global_causal_invariance() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         // No loops = trivially globally invariant
         assert!(lattice.is_globally_causally_invariant());
@@ -801,9 +861,20 @@ mod tests {
     #[test]
     fn test_lattice_total_plaquette_action() {
         let lattice: HypergraphLattice<1> =
-            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3));
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![]);
 
         let action = lattice.total_plaquette_action();
         assert_eq!(action, 0.0); // No loops = zero action
+    }
+
+    #[test]
+    fn test_lattice_rules_accessor() {
+        use super::super::rewrite_rule::RewriteRule;
+
+        let rules = vec![RewriteRule::wolfram_a_to_bb(), RewriteRule::edge_split()];
+        let lattice: HypergraphLattice<1> =
+            HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), rules);
+
+        assert_eq!(lattice.rules().len(), 2);
     }
 }

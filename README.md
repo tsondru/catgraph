@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, hypergraph rewritin
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-850 tests (including 8 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+879 tests (including 16 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -274,14 +274,17 @@ cargo run --example adjunction          # ZPrimeOps + AdjunctionVerification
 cargo run --example bifunctor           # TensorProduct + IntervalTransform
 cargo run --example coherence           # CoherenceVerification + DifferentialCoherence
 cargo run --example stokes              # TemporalComplex + ConservationResult
+cargo run --example hypergraph          # DPO rewriting, evolution, cospan bridge
+cargo run --example multiway            # Multiway BFS, branchial foliation, curvature
+cargo run --example gauge               # Lattice gauge theory, Wilson loops
 ```
 
 ## Testing
 
 ```bash
-cargo test --workspace        # 850 tests (671 catgraph + 179 bridge), 1 ignored
-cargo test                    # catgraph-only (671: 392 unit + 268 integration + 11 doc)
-cargo test -p catgraph-surreal # bridge crate (179: 25 unit + 154 integration)
+cargo test --workspace        # 879 tests (714 catgraph + 165 bridge), 1 ignored
+cargo test                    # catgraph-only (714: 393 unit + 310 integration + 11 doc)
+cargo test -p catgraph-surreal # bridge crate (165: 25 unit + 140 integration)
 cargo clippy                  # zero warnings
 ```
 
@@ -308,6 +311,14 @@ Integration test suites:
 | `relation_algebra` | 21 | Rel API, equivalence relations, partial orders, set operations |
 | `temperley_lieb` | 10 | TL/symmetric generators, braid relation, monoidal |
 | `wiring_diagram` | 14 | Operadic substitution, boundary mutations, map, sequential composition |
+| `stokes_laws` | 8 | Conservation verification, cospan chain, exterior derivative |
+| `adjunction_laws` | 5 | Triangle identities, adjunction gap, irreducibility |
+| `bifunctor_laws` | 6 | Tensor associativity/unit/symmetry, bimap |
+| `coherence_laws` | 7 | All 4 coherence axioms, DifferentialCoherence |
+| `complexity_laws` | 6 | Sequential/parallel composition, StepCount algebra |
+| `computation_state_laws` | 7 | State lifecycle, interval mapping, fingerprints |
+| `gauge_theory` | 19 | Structure constants, Wilson loops, DPO on lattice, plaquette action |
+| `rayon_parallel` | 4 | Above-threshold correctness for 4 rayon-enabled modules |
 
 ## Parallelization
 

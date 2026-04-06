@@ -20,6 +20,7 @@ use surrealdb_types::SurrealValue;
 use crate::error::PersistError;
 use crate::persist::Persistable;
 use crate::types_v2::{MarkingRecord, PetriNetRecord, PetriPlaceRecord, PetriTransitionRecord};
+use crate::utils::format_record_id;
 
 /// Async CRUD store for [`PetriNet<Lambda>`] persistence in SurrealDB.
 ///
@@ -421,21 +422,6 @@ impl<'a> PetriNetStore<'a> {
     pub async fn list(&self) -> Result<Vec<PetriNetRecord>, PersistError> {
         let records: Vec<PetriNetRecord> = self.db.select("petri_net").await?;
         Ok(records)
-    }
-}
-
-/// Format a [`RecordId`] as a `"table:key"` string for use as a [`HashMap`] key.
-///
-/// Handles the four `RecordIdKey` variants (`String`, `Number`, `Uuid`, and
-/// fallback `Debug`) to produce a stable, equality-safe map key.
-fn format_record_id(id: &RecordId) -> String {
-    use surrealdb::types::RecordIdKey;
-    let table = id.table.as_str();
-    match &id.key {
-        RecordIdKey::String(s) => format!("{table}:{s}"),
-        RecordIdKey::Number(n) => format!("{table}:{n}"),
-        RecordIdKey::Uuid(u) => format!("{table}:{u}"),
-        other => format!("{table}:{other:?}"),
     }
 }
 

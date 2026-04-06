@@ -9,6 +9,7 @@ pub mod span_store;
 // V2 RELATE-based persistence layer
 pub mod schema_v2;
 pub mod types_v2;
+pub(crate) mod utils;
 pub mod node_store;
 pub mod edge_store;
 pub mod hyperedge;
@@ -17,6 +18,7 @@ pub mod query;
 pub mod petri_net_store;
 pub mod wiring_store;
 pub mod hypergraph_evolution_store;
+pub mod multiway_store;
 pub mod fingerprint;
 
 use surrealdb::engine::local::Db;

@@ -5,7 +5,9 @@ use crate::error::PersistError;
 use crate::persist::Persistable;
 use crate::types_v2::{ComposedFromRecord, HyperedgeHubRecord};
 
-use super::{format_record_id, HyperedgeStore};
+use crate::utils::format_record_id;
+
+use super::HyperedgeStore;
 
 impl<'a> HyperedgeStore<'a> {
     /// Decompose a cospan with composition provenance tracking.

@@ -111,6 +111,23 @@ DEFINE FIELD IF NOT EXISTS tokens ON petri_marking TYPE object FLEXIBLE DEFAULT 
 DEFINE FIELD IF NOT EXISTS step ON petri_marking TYPE option<int> DEFAULT NONE;
 DEFINE FIELD IF NOT EXISTS created_at ON petri_marking TYPE datetime DEFAULT time::now();
 DEFINE INDEX IF NOT EXISTS idx_marking_net ON petri_marking FIELDS net;
+
+-- Multiway evolution graph: nodes represent states at (branch, step)
+DEFINE TABLE IF NOT EXISTS multiway_node SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS branch_id ON multiway_node TYPE int;
+DEFINE FIELD IF NOT EXISTS step ON multiway_node TYPE int;
+DEFINE FIELD IF NOT EXISTS state_label ON multiway_node TYPE string;
+DEFINE FIELD IF NOT EXISTS properties ON multiway_node TYPE object FLEXIBLE DEFAULT {};
+
+DEFINE INDEX IF NOT EXISTS idx_multiway_branch ON multiway_node FIELDS branch_id;
+DEFINE INDEX IF NOT EXISTS idx_multiway_step ON multiway_node FIELDS step;
+
+-- Multiway evolution graph: edges between multiway_node records
+DEFINE TABLE IF NOT EXISTS multiway_edge SCHEMAFULL TYPE RELATION FROM multiway_node TO multiway_node;
+DEFINE FIELD IF NOT EXISTS edge_type ON multiway_edge TYPE string;
+DEFINE FIELD IF NOT EXISTS properties ON multiway_edge TYPE object FLEXIBLE DEFAULT {};
+
+DEFINE INDEX IF NOT EXISTS idx_multiway_edge_type ON multiway_edge FIELDS edge_type;
 "#;
 
 /// Generate DDL for an HNSW index on graph_node.embedding with configurable dimension.

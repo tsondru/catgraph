@@ -136,3 +136,35 @@ pub struct MarkingRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step: Option<i64>,
 }
+
+/// A node in a multiway evolution graph, representing a state at a given branch and step.
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct MultiwayNodeRecord {
+    /// Record ID assigned by the database.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    /// Branch identifier (maps to `BranchId` in catgraph core).
+    pub branch_id: i64,
+    /// Step/depth in the evolution.
+    pub step: i64,
+    /// Human-readable state label.
+    pub state_label: String,
+    /// Optional properties bag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub properties: Option<serde_json::Value>,
+}
+
+/// An edge in a multiway evolution graph (evolution or branchial).
+///
+/// Omits `in`/`out` fields — see [`GraphEdgeRecord`] for rationale.
+#[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
+pub struct MultiwayEdgeRecord {
+    /// Record ID assigned by the database.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RecordId>,
+    /// Edge classification: `"evolution"` or `"branchial"`.
+    pub edge_type: String,
+    /// Optional properties bag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub properties: Option<serde_json::Value>,
+}

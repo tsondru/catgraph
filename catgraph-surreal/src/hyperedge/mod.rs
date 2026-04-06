@@ -174,22 +174,6 @@ pub(crate) struct ParticipationEntry {
     pub(crate) weight: Option<String>,
 }
 
-/// Format a `RecordId` as a `"table:key"` string.
-///
-/// `RecordId` does not implement `Display` or `ToString`, so we match
-/// on the key variant and produce a stable string that `RecordId::parse_simple`
-/// can round-trip.
-pub(crate) fn format_record_id(id: &RecordId) -> String {
-    use surrealdb::types::RecordIdKey;
-    let table = id.table.as_str();
-    match &id.key {
-        RecordIdKey::String(s) => format!("{table}:{s}"),
-        RecordIdKey::Number(n) => format!("{table}:{n}"),
-        RecordIdKey::Uuid(u) => format!("{table}:{u}"),
-        other => format!("{table}:{other:?}"),
-    }
-}
-
 /// Extract a Lambda label from a node's properties.
 pub(crate) fn extract_label<Lambda: Persistable>(
     node: &GraphNodeRecord,

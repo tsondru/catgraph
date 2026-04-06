@@ -3,7 +3,7 @@ members = [".", "catgraph-surreal"]
 
 [package]
 name = "catgraph"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 license = "MIT"
 description = "Category-theoretic graph structures: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, and morphisms in symmetric monoidal categories"
@@ -29,7 +29,7 @@ thiserror = "2"
 [dev-dependencies]
 env_logger = "^0.11.10"
 proptest = "1"
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 [[bench]]
 name = "pushout"

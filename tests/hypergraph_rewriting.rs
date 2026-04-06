@@ -220,7 +220,7 @@ fn total_action_computation() {
 #[test]
 fn lattice_construction_1d() {
     let group = HypergraphRewriteGroup::new(2);
-    let lattice: HypergraphLattice<1> = HypergraphLattice::new([5], group);
+    let lattice: HypergraphLattice<1> = HypergraphLattice::new([5], group, vec![]);
 
     // Lattice should be constructable
     let _ = lattice;
@@ -229,7 +229,7 @@ fn lattice_construction_1d() {
 #[test]
 fn lattice_construction_2d() {
     let group = HypergraphRewriteGroup::new(3);
-    let lattice: HypergraphLattice<2> = HypergraphLattice::new([4, 4], group);
+    let lattice: HypergraphLattice<2> = HypergraphLattice::new([4, 4], group, vec![]);
 
     let _ = lattice;
 }

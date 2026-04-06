@@ -4,11 +4,10 @@ use surrealdb::engine::local::Db;
 use surrealdb::IndexedResults;
 use surrealdb::types::RecordId;
 use surrealdb::Surreal;
-use surrealdb_types::SurrealValue;
-
 use crate::error::PersistError;
 use crate::node_store::NodeStore;
 use crate::types_v2::GraphNodeRecord;
+use crate::utils::{InOutRef, InRef, OutRef};
 
 /// Query helper for common SurrealQL graph traversal patterns.
 ///
@@ -277,27 +276,3 @@ impl<'a> QueryHelper<'a> {
     }
 }
 
-/// Helper struct for extracting `out` RecordId from edge query results.
-#[derive(Debug, serde::Deserialize, surrealdb_types::SurrealValue)]
-struct OutRef {
-    out: RecordId,
-}
-
-/// Helper struct for extracting source (`in`) RecordId from edge query results.
-///
-/// Uses `src` alias because `SurrealValue` derive does not support `#[serde(rename)]`.
-/// The query must use `SELECT `in` AS src FROM ...`.
-#[derive(Debug, serde::Deserialize, surrealdb_types::SurrealValue)]
-struct InRef {
-    src: RecordId,
-}
-
-/// Helper struct for extracting both `in` (as `src`) and `out` RecordId from edge
-/// query results. Used by `shortest_path` to track parent→child relationships.
-///
-/// The query must alias `in` as `src`: `SELECT `in` AS src, out FROM ...`.
-#[derive(Debug, serde::Deserialize, surrealdb_types::SurrealValue)]
-struct InOutRef {
-    src: RecordId,
-    out: RecordId,
-}

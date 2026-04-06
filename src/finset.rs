@@ -355,7 +355,7 @@ impl TryFrom<FinSetMorphism> for OrderPresSurj {
         }
         let mut cur_i = 0;
         let mut count_of_cur_i = 0;
-        let max = *v.last().unwrap();
+        let max = *v.last().expect("non-empty: surjectivity guarantees at least one element");
         let mut preimage_card_minus_1 = Vec::with_capacity(max);
         for cur_v in v {
             if cur_v > cur_i {
@@ -434,7 +434,7 @@ fn permutation_sort<T: Ord>(x: &mut [T]) -> Permutation {
     let mut answer: FinSetMap = (0..x.len()).collect();
     answer.sort_by(|a, b| x[*a].cmp(&x[*b]));
     x.sort();
-    Permutation::try_from(answer).unwrap()
+    Permutation::try_from(answer).expect("permutation_sort: sorted values form valid permutation")
 }
 
 /// Constructs a permutation on `n` elements from a single cycle in cycle notation.
@@ -487,7 +487,7 @@ impl Monoidal for Decomposition {
             .map(|idx| self.permutation_part.apply(idx))
             .collect::<Vec<usize>>();
         perm_underlying.extend(other_permutation_shifted);
-        self.permutation_part = Permutation::try_from(perm_underlying).unwrap();
+        self.permutation_part = Permutation::try_from(perm_underlying).expect("monoidal: concatenated permutations form valid permutation");
         self.order_preserving_surjection
             .monoidal(other.order_preserving_surjection);
         self.order_preserving_injection
@@ -538,7 +538,7 @@ impl SymmetricMonoidalDiscreteMorphism<usize> for Decomposition {
         } else {
             assert_eq!(p.len(), self.codomain());
             let p_decompose = Self::from_permutation(p.inv(), p.len(), true);
-            let new_self = self.compose(&p_decompose).unwrap();
+            let new_self = self.compose(&p_decompose).expect("permute_side: codomain match guarantees valid composition");
             *self = new_self;
         }
     }
@@ -627,7 +627,7 @@ fn monotone_epi_mono_fact(v: FinSetMap) -> (FinSetMap, FinSetMap) {
     let mut inj_part = Vec::with_capacity(v.len());
     let mut v_iter = v.iter();
     let mut cur_index = 0;
-    let first = v_iter.next().unwrap();
+    let first = v_iter.next().expect("non-empty: length guard guarantees iterator has elements");
     let mut current_image_number = 0;
     let mut current_image_number_in_tgt = first;
     surj_part[cur_index] = current_image_number;
