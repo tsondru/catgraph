@@ -7,17 +7,24 @@ use crate::error::PersistError;
 use crate::persist::Persistable;
 use crate::types::SpanRecord;
 
-/// Typed store for `Span<Lambda>` persistence in SurrealDB.
+/// Typed store for `Span<Lambda>` persistence in `SurrealDB`.
 pub struct SpanStore<'a> {
     db: &'a Surreal<Db>,
 }
 
 impl<'a> SpanStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self { db }
     }
 
-    /// Save a Span, returning the generated RecordId.
+    /// Save a Span, returning the generated `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if index conversion overflows or
+    /// the database fails to create the record.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn save<Lambda: Persistable + Copy>(
         &self,
         span: &Span<Lambda>,
@@ -65,7 +72,13 @@ impl<'a> SpanStore<'a> {
             .ok_or_else(|| PersistError::InvalidData("created record has no id".into()))
     }
 
-    /// Load a Span by RecordId.
+    /// Load a Span by `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no record exists for the given ID.
+    /// Returns [`PersistError::TypeMismatch`] if the stored label type does not
+    /// match `Lambda`. Returns [`PersistError::InvalidData`] on malformed data.
     pub async fn load<Lambda: Persistable + Copy>(
         &self,
         id: &RecordId,
@@ -121,13 +134,21 @@ impl<'a> SpanStore<'a> {
         Ok(Span::new(left, right, middle))
     }
 
-    /// Delete a Span by RecordId.
+    /// Delete a Span by `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn delete(&self, id: &RecordId) -> Result<(), PersistError> {
         let _: Option<SpanRecord> = self.db.delete(id).await?;
         Ok(())
     }
 
-    /// List all Span RecordIds.
+    /// List all Span `RecordIds`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn list(&self) -> Result<Vec<RecordId>, PersistError> {
         let records: Vec<SpanRecord> = self.db.select("span").await?;
         Ok(records.into_iter().filter_map(|r| r.id).collect())

@@ -23,6 +23,7 @@ pub enum PersistError {
 
 impl PersistError {
     /// Returns `true` if the error represents a retryable transaction conflict.
+    #[must_use] 
     pub fn is_transaction_conflict(&self) -> bool {
         match self {
             PersistError::TransactionConflict(_) => true,

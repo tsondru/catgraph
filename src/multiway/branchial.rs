@@ -40,6 +40,8 @@ impl BranchialGraph {
     /// Build a branchial graph from a `MultiwayEvolutionGraph` at a specific step.
     ///
     /// Two nodes at the same step are connected if they share a common ancestor.
+    /// Ancestor sets are pre-computed once per node (O(n)) rather than per pair
+    /// (O(n^2)), reducing overall complexity from O(n^3) to O(n^2).
     #[must_use]
     pub fn from_evolution_at_step<S: Clone + Hash, T: Clone>(
         graph: &MultiwayEvolutionGraph<S, T>,
@@ -47,29 +49,23 @@ impl BranchialGraph {
     ) -> Self {
         let nodes = graph.node_ids_at_step(step);
 
-        // For each pair of nodes, check if they share a common ancestor
-        let mut edges = Vec::new();
+        // Pre-compute ancestor sets once per node (not per pair)
+        let ancestor_sets: Vec<HashSet<MultiwayNodeId>> = nodes
+            .iter()
+            .map(|&node| Self::collect_ancestors(graph, node))
+            .collect();
 
+        // Check pairwise intersection using cached sets
+        let mut edges = Vec::new();
         for i in 0..nodes.len() {
             for j in (i + 1)..nodes.len() {
-                if Self::share_common_ancestor(graph, nodes[i], nodes[j]) {
+                if !ancestor_sets[i].is_disjoint(&ancestor_sets[j]) {
                     edges.push((nodes[i], nodes[j]));
                 }
             }
         }
 
         Self { step, nodes, edges }
-    }
-
-    /// Check if two nodes share a common ancestor.
-    fn share_common_ancestor<S: Clone + Hash, T: Clone>(
-        graph: &MultiwayEvolutionGraph<S, T>,
-        a: MultiwayNodeId,
-        b: MultiwayNodeId,
-    ) -> bool {
-        let ancestors_a = Self::collect_ancestors(graph, a);
-        let ancestors_b = Self::collect_ancestors(graph, b);
-        !ancestors_a.is_disjoint(&ancestors_b)
     }
 
     /// Collect all ancestors of a node (BFS backwards).

@@ -17,7 +17,7 @@ pub struct GraphNodeRecord {
     pub embedding: Option<Vec<f64>>,
 }
 
-/// A pairwise RELATE edge between two graph_node records.
+/// A pairwise RELATE edge between two `graph_node` records.
 ///
 /// Omits `in`/`out` fields because the `SurrealValue` derive does not support
 /// `#[serde(rename)]`, and these system-managed relation fields are not
@@ -47,7 +47,7 @@ pub struct HyperedgeHubRecord {
     /// Schema-level REFERENCE to parent hubs for composition provenance.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_hubs: Option<Vec<RecordId>>,
-    /// Computed field: true when parent_hubs is non-empty (v3.0.5 selective evaluation).
+    /// Computed field: true when `parent_hubs` is non-empty (v3.0.5 selective evaluation).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub has_provenance: Option<bool>,
 }
@@ -60,7 +60,7 @@ pub struct ComposedFromRecord {
     pub operation: String,
 }
 
-/// Source participation edge: graph_node -> hyperedge_hub.
+/// Source participation edge: `graph_node` -> `hyperedge_hub`.
 #[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
 pub struct SourceOfRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,7 +74,7 @@ pub struct SourceOfRecord {
     pub weight: Option<String>, // decimal stored as string for exact representation
 }
 
-/// Target participation edge: hyperedge_hub -> graph_node.
+/// Target participation edge: `hyperedge_hub` -> `graph_node`.
 #[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
 pub struct TargetOfRecord {
     #[serde(skip_serializing_if = "Option::is_none")]

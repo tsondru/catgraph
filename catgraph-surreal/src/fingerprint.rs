@@ -12,9 +12,53 @@
 use surrealdb::engine::local::Db;
 use surrealdb::types::RecordId;
 use surrealdb::Surreal;
+use surrealdb_types::SurrealValue;
 
 use crate::error::PersistError;
 use crate::types_v2::GraphNodeRecord;
+
+/// Private deserialization target for KNN query results.
+///
+/// Mirrors all [`GraphNodeRecord`] fields plus the computed `distance`
+/// alias returned by `vector::distance::knn() AS distance`.  Every field
+/// carries `#[serde(default)]` so that server-managed fields absent from a
+/// particular result row do not cause deserialization failures.
+///
+/// `SurrealValue` is derived so that `result.take::<Vec<SimilarNodeHit>>`
+/// works — this routes `RecordId` through the SDK's own deserialization path
+/// rather than through `serde_json::from_value`, which cannot round-trip
+/// `SurrealDB`'s internal `RecordId` JSON encoding.
+#[derive(Debug, serde::Deserialize, SurrealValue)]
+struct SimilarNodeHit {
+    #[serde(default)]
+    id: Option<RecordId>,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    labels: Vec<String>,
+    #[serde(default)]
+    properties: serde_json::Value,
+    #[serde(default)]
+    embedding: Option<Vec<f64>>,
+    #[serde(default)]
+    distance: f64,
+}
+
+impl From<SimilarNodeHit> for (GraphNodeRecord, f64) {
+    fn from(h: SimilarNodeHit) -> Self {
+        let node = GraphNodeRecord {
+            id: h.id,
+            name: h.name,
+            kind: h.kind,
+            labels: h.labels,
+            properties: h.properties,
+            embedding: h.embedding,
+        };
+        (node, h.distance)
+    }
+}
 
 /// Engine for computing structural fingerprints and running HNSW similarity
 /// searches over V2 graph nodes.
@@ -33,6 +77,7 @@ pub struct FingerprintEngine<'a> {
 }
 
 impl<'a> FingerprintEngine<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>, dimension: u32) -> Self {
         Self { db, dimension }
     }
@@ -41,7 +86,7 @@ impl<'a> FingerprintEngine<'a> {
     /// dimension.
     ///
     /// Must be called once after [`init_schema_v2`](crate::init_schema_v2).
-    /// Subsequent calls are idempotent (SurrealDB's `DEFINE INDEX ... IF NOT
+    /// Subsequent calls are idempotent (`SurrealDB`'s `DEFINE INDEX ... IF NOT
     /// EXISTS` semantics).
     ///
     /// # Errors
@@ -82,9 +127,12 @@ impl<'a> FingerprintEngine<'a> {
             .query("SELECT count() AS cnt FROM graph_edge WHERE `in` = $node GROUP ALL")
             .bind(("node", node_id.clone()))
             .await?;
+        // Degree counts from SurrealDB are small integers that fit in f64 without
+        // precision loss. The i64→f64 cast is safe for values below 2^53.
+        #[allow(clippy::cast_precision_loss)]
         let out_degree: f64 = result
             .take::<Option<serde_json::Value>>(0)?
-            .and_then(|v| v.get("cnt").and_then(|c| c.as_i64()))
+            .and_then(|v| v.get("cnt").and_then(serde_json::Value::as_i64))
             .unwrap_or(0) as f64;
 
         // In-degree: edges where this node is the target (`out` field)
@@ -93,9 +141,10 @@ impl<'a> FingerprintEngine<'a> {
             .query("SELECT count() AS cnt FROM graph_edge WHERE out = $node GROUP ALL")
             .bind(("node", node_id.clone()))
             .await?;
+        #[allow(clippy::cast_precision_loss)]
         let in_degree: f64 = result
             .take::<Option<serde_json::Value>>(0)?
-            .and_then(|v| v.get("cnt").and_then(|c| c.as_i64()))
+            .and_then(|v| v.get("cnt").and_then(serde_json::Value::as_i64))
             .unwrap_or(0) as f64;
 
         // Hyperedge source participations: source_of edges from this node
@@ -104,9 +153,10 @@ impl<'a> FingerprintEngine<'a> {
             .query("SELECT count() AS cnt FROM source_of WHERE `in` = $node GROUP ALL")
             .bind(("node", node_id.clone()))
             .await?;
+        #[allow(clippy::cast_precision_loss)]
         let source_parts: f64 = result
             .take::<Option<serde_json::Value>>(0)?
-            .and_then(|v| v.get("cnt").and_then(|c| c.as_i64()))
+            .and_then(|v| v.get("cnt").and_then(serde_json::Value::as_i64))
             .unwrap_or(0) as f64;
 
         // Hyperedge target participations: target_of edges pointing to this node
@@ -115,9 +165,10 @@ impl<'a> FingerprintEngine<'a> {
             .query("SELECT count() AS cnt FROM target_of WHERE out = $node GROUP ALL")
             .bind(("node", node_id.clone()))
             .await?;
+        #[allow(clippy::cast_precision_loss)]
         let target_parts: f64 = result
             .take::<Option<serde_json::Value>>(0)?
-            .and_then(|v| v.get("cnt").and_then(|c| c.as_i64()))
+            .and_then(|v| v.get("cnt").and_then(serde_json::Value::as_i64))
             .unwrap_or(0) as f64;
 
         let mut features = vec![
@@ -175,8 +226,8 @@ impl<'a> FingerprintEngine<'a> {
     /// beam width -- higher values improve recall at the cost of latency.
     ///
     /// **Implementation note**: The query vector is inlined as a literal in
-    /// the SurrealQL string rather than passed as a bind parameter, because
-    /// SurrealDB's KNN operator `<|k,ef|>` silently falls back to a full
+    /// the `SurrealQL` string rather than passed as a bind parameter, because
+    /// `SurrealDB`'s KNN operator `<|k,ef|>` silently falls back to a full
     /// table scan when the vector is a bind variable.
     ///
     /// # Errors
@@ -192,7 +243,7 @@ impl<'a> FingerprintEngine<'a> {
             "[{}]",
             query_vector
                 .iter()
-                .map(|x| x.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(",")
         );
@@ -203,38 +254,66 @@ impl<'a> FingerprintEngine<'a> {
              ORDER BY distance ASC"
         );
         let mut result = self.db.query(&query).await?;
-        let hits: Vec<serde_json::Value> = result.take(0)?;
 
-        let mut results = Vec::with_capacity(hits.len());
-        for hit in &hits {
-            // Extract fields manually: full deserialization would require
-            // `vector::distance::knn()` to be a stable serde field name,
-            // and `distance` may be NONE for nodes without an embedding.
-            let name = hit
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let kind = hit
-                .get("kind")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let distance = hit
-                .get("distance")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(f64::INFINITY);
-
-            let node = GraphNodeRecord {
-                id: None,
-                name,
-                kind,
-                labels: vec![],
-                properties: serde_json::json!({}),
-                embedding: None,
+        // Use `result.take::<Vec<SimilarNodeHit>>` so that `RecordId` is
+        // decoded by the SDK's own deserialization path (via `SurrealValue`).
+        // Going through `serde_json::Value` as an intermediate breaks `RecordId`
+        // because SurrealDB's internal JSON encoding for record IDs is not a
+        // plain JSON value that serde_json can round-trip.
+        //
+        // `SimilarNodeHit` derives `SurrealValue` and carries `#[serde(default)]`
+        // on every field, so the extra `distance` alias and any other
+        // server-managed fields are handled gracefully.  If the typed take
+        // fails (e.g. a future schema incompatibility), we re-run the query
+        // and fall back to manual JSON extraction for all fields.
+        let results: Vec<(GraphNodeRecord, f64)> =
+            if let Ok(hits) = result.take::<Vec<SimilarNodeHit>>(0) {
+                hits.into_iter().map(Into::into).collect()
+            } else {
+                // Fallback: re-run and extract all fields from raw JSON.
+                // `id` cannot be recovered via serde_json (RecordId encoding is
+                // SDK-internal), so it remains None in this path.
+                let mut r2 = self.db.query(&query).await?;
+                let raw: Vec<serde_json::Value> = r2.take(0)?;
+                raw.into_iter()
+                    .map(|hit| {
+                        let name = hit
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let kind = hit
+                            .get("kind")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let labels: Vec<String> = hit
+                            .get("labels")
+                            .and_then(|v| serde_json::from_value(v.clone()).ok())
+                            .unwrap_or_default();
+                        let properties = hit
+                            .get("properties")
+                            .cloned()
+                            .unwrap_or(serde_json::json!({}));
+                        let embedding: Option<Vec<f64>> = hit
+                            .get("embedding")
+                            .and_then(|v| serde_json::from_value(v.clone()).ok());
+                        let distance = hit
+                            .get("distance")
+                            .and_then(serde_json::Value::as_f64)
+                            .unwrap_or(f64::INFINITY);
+                        let node = GraphNodeRecord {
+                            id: None,
+                            name,
+                            kind,
+                            labels,
+                            properties,
+                            embedding,
+                        };
+                        (node, distance)
+                    })
+                    .collect()
             };
-            results.push((node, distance));
-        }
         Ok(results)
     }
 }

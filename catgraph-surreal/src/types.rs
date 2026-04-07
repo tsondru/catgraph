@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::types::RecordId;
 use surrealdb_types::SurrealValue;
 
-/// SurrealDB record type for a persisted Cospan.
+/// `SurrealDB` record type for a persisted Cospan.
 #[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
 pub struct CospanRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,7 +15,7 @@ pub struct CospanRecord {
     pub is_right_id: bool,
 }
 
-/// SurrealDB record type for a persisted NamedCospan.
+/// `SurrealDB` record type for a persisted `NamedCospan`.
 #[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
 pub struct NamedCospanRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,7 +25,7 @@ pub struct NamedCospanRecord {
     pub right_names: Vec<String>,
 }
 
-/// SurrealDB record type for a persisted Span.
+/// `SurrealDB` record type for a persisted Span.
 #[derive(Debug, Serialize, Deserialize, Clone, SurrealValue)]
 pub struct SpanRecord {
     #[serde(skip_serializing_if = "Option::is_none")]

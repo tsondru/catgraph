@@ -25,6 +25,7 @@ pub struct HyperedgeStore<'a> {
 }
 
 impl<'a> HyperedgeStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self {
             db,
@@ -33,12 +34,21 @@ impl<'a> HyperedgeStore<'a> {
     }
 
     /// Get the hub record itself.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no hub exists for the given ID.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn get_hub(&self, hub_id: &RecordId) -> Result<HyperedgeHubRecord, PersistError> {
         let record: Option<HyperedgeHubRecord> = self.db.select(hub_id).await?;
         record.ok_or_else(|| PersistError::NotFound(format!("{hub_id:?}")))
     }
 
-    /// Delete a hub and all its source_of/target_of/composed_from edges.
+    /// Delete a hub and all its `source_of/target_of/composed_from` edges.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn delete_hub(&self, hub_id: &RecordId) -> Result<(), PersistError> {
         // Delete participation edges first
         self.db
@@ -132,7 +142,7 @@ impl<'a> HyperedgeStore<'a> {
         Ok(())
     }
 
-    /// Raw source entries with node_id and position, ordered by position.
+    /// Raw source entries with `node_id` and position, ordered by position.
     pub(crate) async fn source_entries(
         &self,
         hub_id: &RecordId,
@@ -146,7 +156,7 @@ impl<'a> HyperedgeStore<'a> {
         Ok(entries)
     }
 
-    /// Raw target entries with node_id and position, ordered by position.
+    /// Raw target entries with `node_id` and position, ordered by position.
     pub(crate) async fn target_entries(
         &self,
         hub_id: &RecordId,
@@ -161,7 +171,7 @@ impl<'a> HyperedgeStore<'a> {
     }
 }
 
-/// Internal: a participation edge entry (node RecordId + position + optional weight).
+/// Internal: a participation edge entry (node `RecordId` + position + optional weight).
 ///
 /// Uses typed `SurrealValue` deserialization to correctly handle `RecordId`
 /// (which cannot round-trip through `serde_json::Value`).

@@ -9,7 +9,7 @@ use crate::utils::format_record_id;
 
 use super::HyperedgeStore;
 
-impl<'a> HyperedgeStore<'a> {
+impl HyperedgeStore<'_> {
     /// Decompose a cospan with composition provenance tracking.
     ///
     /// Wraps [`decompose_cospan`](Self::decompose_cospan) but injects `parent_hubs`
@@ -19,6 +19,11 @@ impl<'a> HyperedgeStore<'a> {
     /// `parent_hub_ids` records which existing hubs were composed to produce this
     /// cospan. They are stored as `"table:key"` strings because `RecordId` cannot
     /// round-trip through `serde_json::Value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the underlying cospan
+    /// decomposition fails. Returns [`PersistError::Surreal`] on database errors.
     pub async fn decompose_cospan_with_provenance<Lambda, F>(
         &self,
         cospan: &Cospan<Lambda>,
@@ -58,6 +63,11 @@ impl<'a> HyperedgeStore<'a> {
     ///
     /// Returns an empty `Vec` if no provenance was recorded (i.e. the hub was
     /// created via plain [`decompose_cospan`](Self::decompose_cospan)).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the hub does not exist.
+    /// Returns [`PersistError::Json`] if parent ID deserialization fails.
     pub async fn composition_parents(
         &self,
         hub_id: &RecordId,
@@ -76,6 +86,10 @@ impl<'a> HyperedgeStore<'a> {
     ///
     /// Searches `properties.parent_hubs` arrays across all `hyperedge_hub` records
     /// for the string representation of `hub_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn composition_children(
         &self,
         hub_id: &RecordId,
@@ -95,6 +109,11 @@ impl<'a> HyperedgeStore<'a> {
     }
 
     /// Create a `composed_from` RELATE edge between parent and child hubs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the RELATE statement fails.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn relate_composition(
         &self,
         parent_hub_id: &RecordId,
@@ -119,6 +138,10 @@ impl<'a> HyperedgeStore<'a> {
     /// Find child hubs via the schema-level `parent_hubs` REFERENCE field.
     ///
     /// Returns all hubs whose `parent_hubs` array contains the given hub ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn composed_children_via_ref(
         &self,
         hub_id: &RecordId,

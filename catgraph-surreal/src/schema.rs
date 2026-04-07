@@ -1,6 +1,6 @@
-/// SurrealQL DDL for the catgraph persistence schema.
+/// `SurrealQL` DDL for the catgraph persistence schema.
 /// Uses SCHEMAFULL tables with embedded arrays for O(1) reconstruction.
-pub const SCHEMA_DDL: &str = r#"
+pub const SCHEMA_DDL: &str = r"
 DEFINE TABLE IF NOT EXISTS vertex SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS label ON vertex TYPE string;
 DEFINE FIELD IF NOT EXISTS label_type ON vertex TYPE string;
@@ -28,4 +28,4 @@ DEFINE FIELD IF NOT EXISTS label_type ON span TYPE string;
 DEFINE FIELD IF NOT EXISTS is_left_id ON span TYPE bool;
 DEFINE FIELD IF NOT EXISTS is_right_id ON span TYPE bool;
 DEFINE FIELD IF NOT EXISTS created_at ON span TYPE datetime DEFAULT time::now();
-"#;
+";

@@ -1,4 +1,5 @@
 use catgraph::cospan::Cospan;
+use catgraph::named_cospan::NamedCospan;
 use catgraph::span::Span;
 use surrealdb::types::RecordId;
 
@@ -8,8 +9,13 @@ use crate::types_v2::GraphNodeRecord;
 
 use super::{extract_label, HyperedgeStore};
 
-impl<'a> HyperedgeStore<'a> {
+impl HyperedgeStore<'_> {
     /// Get all source nodes for a hub, ordered by position.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a source node cannot be fetched.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn sources(&self, hub_id: &RecordId) -> Result<Vec<GraphNodeRecord>, PersistError> {
         let entries = self.source_entries(hub_id).await?;
         let mut nodes = Vec::with_capacity(entries.len());
@@ -20,6 +26,11 @@ impl<'a> HyperedgeStore<'a> {
     }
 
     /// Get all target nodes for a hub, ordered by position.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a target node cannot be fetched.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn targets(&self, hub_id: &RecordId) -> Result<Vec<GraphNodeRecord>, PersistError> {
         let entries = self.target_entries(hub_id).await?;
         let mut nodes = Vec::with_capacity(entries.len());
@@ -31,8 +42,14 @@ impl<'a> HyperedgeStore<'a> {
 
     /// Reconstruct a `Cospan<Lambda>` from a hub record and its source/target edges.
     ///
-    /// Rebuilds the left_map and right_map by reading source_of/target_of positions,
+    /// Rebuilds the `left_map` and `right_map` by reading `source_of/target_of` positions,
     /// mapping them back to middle node indices.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if a source or target node is
+    /// not found in the middle set. Returns [`PersistError::NotFound`] if a
+    /// node cannot be fetched. Returns [`PersistError::Surreal`] on database errors.
     pub async fn reconstruct_cospan<Lambda: Persistable + Copy>(
         &self,
         hub_id: &RecordId,
@@ -83,6 +100,13 @@ impl<'a> HyperedgeStore<'a> {
     ///
     /// Reads left labels from source entries, right labels from target entries,
     /// and `middle_pairs` from the hub's properties (persisted by `decompose_span`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the hub is missing
+    /// `middle_pairs` or contains malformed data.
+    /// Returns [`PersistError::NotFound`] if a node cannot be fetched.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn reconstruct_span<Lambda: Persistable + Copy>(
         &self,
         hub_id: &RecordId,
@@ -128,5 +152,60 @@ impl<'a> HyperedgeStore<'a> {
             .collect::<Result<_, PersistError>>()?;
 
         Ok(Span::new(left, right, middle_pairs))
+    }
+
+    /// Reconstruct a `NamedCospan<Lambda, String, String>` from a hub record.
+    ///
+    /// Rebuilds the underlying cospan via [`reconstruct_cospan`](Self::reconstruct_cospan),
+    /// then extracts `left_port_names` and `right_port_names` from the hub's
+    /// `properties` JSON (persisted by [`decompose_named_cospan`](super::decompose)).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if port name arrays are missing
+    /// from the hub properties (e.g. the hub was created via `decompose_cospan`
+    /// rather than `decompose_named_cospan`).
+    pub async fn reconstruct_named_cospan<Lambda: Persistable + Copy>(
+        &self,
+        hub_id: &RecordId,
+    ) -> Result<NamedCospan<Lambda, String, String>, PersistError> {
+        let cospan: Cospan<Lambda> = self.reconstruct_cospan(hub_id).await?;
+        let hub = self.get_hub(hub_id).await?;
+
+        let left_port_names: Vec<String> = hub
+            .properties
+            .get("left_port_names")
+            .ok_or_else(|| {
+                PersistError::InvalidData(
+                    "hub missing 'left_port_names' in properties (not a named cospan hub?)".into(),
+                )
+            })
+            .and_then(|v| {
+                serde_json::from_value(v.clone()).map_err(|e| {
+                    PersistError::InvalidData(format!("deserialize left_port_names: {e}"))
+                })
+            })?;
+
+        let right_port_names: Vec<String> = hub
+            .properties
+            .get("right_port_names")
+            .ok_or_else(|| {
+                PersistError::InvalidData(
+                    "hub missing 'right_port_names' in properties (not a named cospan hub?)".into(),
+                )
+            })
+            .and_then(|v| {
+                serde_json::from_value(v.clone()).map_err(|e| {
+                    PersistError::InvalidData(format!("deserialize right_port_names: {e}"))
+                })
+            })?;
+
+        Ok(NamedCospan::new(
+            cospan.left_to_middle().to_vec(),
+            cospan.right_to_middle().to_vec(),
+            cospan.middle().to_vec(),
+            left_port_names,
+            right_port_names,
+        ))
     }
 }

@@ -157,6 +157,9 @@ pub struct MultiwayEvolutionGraph<S, T> {
 
     /// All leaf nodes (nodes with no outgoing edges).
     leaves: Vec<MultiwayNodeId>,
+
+    /// Nodes indexed by their time step for O(1) lookup.
+    step_nodes: HashMap<usize, Vec<MultiwayNodeId>>,
 }
 
 impl<S, T> Default for MultiwayEvolutionGraph<S, T> {
@@ -178,6 +181,7 @@ impl<S, T> MultiwayEvolutionGraph<S, T> {
             max_step: 0,
             active_states: HashMap::new(),
             leaves: Vec::new(),
+            step_nodes: HashMap::new(),
         }
     }
 
@@ -277,6 +281,7 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
 
         let node = MultiwayNode::new(id, state, fingerprint);
         self.nodes.insert(id, node);
+        self.step_nodes.entry(0).or_default().push(id);
         self.roots.push(id);
         self.leaves.push(id);
         self.active_states.insert(fingerprint, id);
@@ -301,6 +306,7 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
         // Create node
         let node = MultiwayNode::new(id, state, fingerprint);
         self.nodes.insert(id, node);
+        self.step_nodes.entry(new_step).or_default().push(id);
 
         // Create edge
         let edge = MultiwayEdge {
@@ -361,6 +367,7 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
             // Create node
             let node = MultiwayNode::new(id, state, fingerprint);
             self.nodes.insert(id, node);
+            self.step_nodes.entry(new_step).or_default().push(id);
 
             // Create edge
             let edge = MultiwayEdge {
@@ -410,22 +417,22 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
     }
 
     /// Get all nodes at a specific time step (branchlike hypersurface `Σ_t`).
+    ///
+    /// Uses the pre-built step index for O(1) lookup instead of scanning all nodes.
     #[must_use]
     pub fn nodes_at_step(&self, step: usize) -> Vec<&MultiwayNode<S>> {
-        self.nodes
-            .values()
-            .filter(|node| node.id.step == step)
-            .collect()
+        self.step_nodes
+            .get(&step)
+            .map(|ids| ids.iter().filter_map(|id| self.nodes.get(id)).collect())
+            .unwrap_or_default()
     }
 
     /// Get all node IDs at a specific step.
+    ///
+    /// Uses the pre-built step index for O(1) lookup instead of scanning all nodes.
     #[must_use]
     pub fn node_ids_at_step(&self, step: usize) -> Vec<MultiwayNodeId> {
-        self.nodes
-            .keys()
-            .filter(|id| id.step == step)
-            .copied()
-            .collect()
+        self.step_nodes.get(&step).cloned().unwrap_or_default()
     }
 
     /// Find all fork points in the graph.

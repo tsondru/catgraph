@@ -8,16 +8,17 @@ use crate::error::PersistError;
 use crate::persist::Persistable;
 use crate::types::NamedCospanRecord;
 
-/// Typed store for `NamedCospan<Lambda, L, R>` persistence in SurrealDB.
+/// Typed store for `NamedCospan<Lambda, L, R>` persistence in `SurrealDB`.
 ///
 /// Named cospans are stored as a reference to the underlying cospan record
-/// plus the port name arrays. The cospan is saved/loaded via CospanStore.
+/// plus the port name arrays. The cospan is saved/loaded via `CospanStore`.
 pub struct NamedCospanStore<'a> {
     db: &'a Surreal<Db>,
     cospan_store: CospanStore<'a>,
 }
 
 impl<'a> NamedCospanStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self {
             db,
@@ -25,8 +26,14 @@ impl<'a> NamedCospanStore<'a> {
         }
     }
 
-    /// Save a NamedCospan, persisting both the underlying cospan and the name arrays.
-    /// Returns the named_cospan RecordId.
+    /// Save a `NamedCospan`, persisting both the underlying cospan and the name arrays.
+    /// Returns the `named_cospan` `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the underlying cospan or name
+    /// record cannot be created.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn save<Lambda>(
         &self,
         nc: &NamedCospan<Lambda, String, String>,
@@ -53,7 +60,13 @@ impl<'a> NamedCospanStore<'a> {
             .ok_or_else(|| PersistError::InvalidData("created record has no id".into()))
     }
 
-    /// Load a NamedCospan by its RecordId.
+    /// Load a `NamedCospan` by its `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the record does not exist.
+    /// Returns [`PersistError::TypeMismatch`] if `Lambda` does not match the
+    /// stored label type. Returns [`PersistError::Surreal`] on database errors.
     pub async fn load<Lambda>(
         &self,
         id: &RecordId,
@@ -79,7 +92,11 @@ impl<'a> NamedCospanStore<'a> {
         ))
     }
 
-    /// Delete a NamedCospan and its underlying cospan atomically.
+    /// Delete a `NamedCospan` and its underlying cospan atomically.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn delete(&self, id: &RecordId) -> Result<(), PersistError> {
         let record: Option<NamedCospanRecord> = self.db.select(id).await?;
         if let Some(record) = record {
@@ -92,7 +109,11 @@ impl<'a> NamedCospanStore<'a> {
         Ok(())
     }
 
-    /// List all NamedCospan RecordIds.
+    /// List all `NamedCospan` `RecordIds`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn list(&self) -> Result<Vec<RecordId>, PersistError> {
         let records: Vec<NamedCospanRecord> = self.db.select("named_cospan").await?;
         Ok(records.into_iter().filter_map(|r| r.id).collect())

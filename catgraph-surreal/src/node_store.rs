@@ -11,11 +11,17 @@ pub struct NodeStore<'a> {
 }
 
 impl<'a> NodeStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self { db }
     }
 
-    /// Create a new graph node, returning its RecordId.
+    /// Create a new graph node, returning its `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the database fails to create
+    /// the record. Returns [`PersistError::Surreal`] on database errors.
     pub async fn create(
         &self,
         name: &str,
@@ -40,7 +46,12 @@ impl<'a> NodeStore<'a> {
             .ok_or_else(|| PersistError::InvalidData("created node has no id".into()))
     }
 
-    /// Get a graph node by RecordId.
+    /// Get a graph node by `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no node exists for the given ID.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn get(&self, id: &RecordId) -> Result<GraphNodeRecord, PersistError> {
         let record: Option<GraphNodeRecord> = self.db.select(id).await?;
         record.ok_or_else(|| PersistError::NotFound(format!("{id:?}")))
@@ -50,6 +61,11 @@ impl<'a> NodeStore<'a> {
     ///
     /// Uses `.merge()` rather than `.content()` so that server-managed fields
     /// like `created_at` are preserved.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no node exists for the given ID.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn update(
         &self,
         id: &RecordId,
@@ -68,13 +84,21 @@ impl<'a> NodeStore<'a> {
         updated.ok_or_else(|| PersistError::NotFound(format!("{id:?}")))
     }
 
-    /// Delete a graph node by RecordId.
+    /// Delete a graph node by `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn delete(&self, id: &RecordId) -> Result<(), PersistError> {
         let _: Option<GraphNodeRecord> = self.db.delete(id).await?;
         Ok(())
     }
 
     /// Find all graph nodes matching a given kind.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn find_by_kind(&self, kind: &str) -> Result<Vec<GraphNodeRecord>, PersistError> {
         let mut result = self
             .db
@@ -86,6 +110,10 @@ impl<'a> NodeStore<'a> {
     }
 
     /// Find all graph nodes matching a given name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn find_by_name(&self, name: &str) -> Result<Vec<GraphNodeRecord>, PersistError> {
         let mut result = self
             .db
@@ -96,7 +124,11 @@ impl<'a> NodeStore<'a> {
         Ok(records)
     }
 
-    /// List all graph node RecordIds.
+    /// List all graph node `RecordIds`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn list(&self) -> Result<Vec<RecordId>, PersistError> {
         let records: Vec<GraphNodeRecord> = self.db.select("graph_node").await?;
         Ok(records.into_iter().filter_map(|r| r.id).collect())

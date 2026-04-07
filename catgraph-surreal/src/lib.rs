@@ -26,6 +26,10 @@ use surrealdb::Surreal;
 use error::PersistError;
 
 /// Initialize the V1 catgraph persistence schema (embedded arrays).
+///
+/// # Errors
+///
+/// Returns [`PersistError::Surreal`] if the DDL execution fails.
 pub async fn init_schema(db: &Surreal<Db>) -> Result<(), PersistError> {
     db.query(schema::SCHEMA_DDL).await?;
     Ok(())
@@ -34,6 +38,10 @@ pub async fn init_schema(db: &Surreal<Db>) -> Result<(), PersistError> {
 /// Initialize the V2 RELATE-based graph persistence schema.
 ///
 /// Can be called alongside `init_schema()` — V1 and V2 use different table names.
+///
+/// # Errors
+///
+/// Returns [`PersistError::Surreal`] if the DDL execution fails.
 pub async fn init_schema_v2(db: &Surreal<Db>) -> Result<(), PersistError> {
     db.query(schema_v2::SCHEMA_V2_DDL).await?;
     Ok(())

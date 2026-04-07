@@ -28,7 +28,7 @@ use crate::hyperedge::HyperedgeStore;
 use crate::persist::Persistable;
 use crate::types_v2::HyperedgeHubRecord;
 
-/// Async CRUD store for [`WiringDiagram`] persistence in SurrealDB.
+/// Async CRUD store for [`WiringDiagram`] persistence in `SurrealDB`.
 ///
 /// Delegates cospan decomposition/reconstruction to [`HyperedgeStore`] and
 /// layers port name serialization on top. All diagrams are stored as
@@ -42,6 +42,7 @@ pub struct WiringDiagramStore<'a> {
 }
 
 impl<'a> WiringDiagramStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self {
             hyperedge_store: HyperedgeStore::new(db),
@@ -186,7 +187,7 @@ impl<'a> WiringDiagramStore<'a> {
 // ---------------------------------------------------------------------------
 
 /// Convert a [`Dir`] variant to its string representation for JSON storage.
-fn dir_to_str(d: &Dir) -> &'static str {
+fn dir_to_str(d: Dir) -> &'static str {
     match d {
         Dir::In => "In",
         Dir::Out => "Out",
@@ -223,7 +224,7 @@ where
         .iter()
         .map(|(d, inter, intra)| {
             Ok(serde_json::json!({
-                "dir": dir_to_str(d),
+                "dir": dir_to_str(*d),
                 "inter": serde_json::to_value(inter)
                     .map_err(|e| PersistError::InvalidData(format!("serialize inter: {e}")))?,
                 "intra": serde_json::to_value(intra)
@@ -245,7 +246,7 @@ where
         .iter()
         .map(|(d, intra)| {
             Ok(serde_json::json!({
-                "dir": dir_to_str(d),
+                "dir": dir_to_str(*d),
                 "intra": serde_json::to_value(intra)
                     .map_err(|e| PersistError::InvalidData(format!("serialize intra: {e}")))?,
             }))
@@ -330,7 +331,7 @@ mod tests {
     #[test]
     fn dir_roundtrip() {
         for d in [Dir::In, Dir::Out, Dir::Undirected] {
-            let s = dir_to_str(&d);
+            let s = dir_to_str(d);
             assert_eq!(dir_from_str(s).unwrap(), d);
         }
     }

@@ -1,4 +1,4 @@
-//! Persistence layer for [`PetriNet<Lambda>`] in SurrealDB.
+//! Persistence layer for [`PetriNet<Lambda>`] in `SurrealDB`.
 //!
 //! Decomposes a Petri net into first-class records: `petri_net` (the net itself),
 //! `petri_place` (typed places), `petri_transition` (transitions), plus `pre_arc`
@@ -6,7 +6,7 @@
 //! Markings are stored as separate `petri_marking` snapshots with token counts
 //! serialized as `{"place_index": "decimal_value"}` JSON objects.
 //!
-//! Arc weights use SurrealDB's `decimal` type to preserve exact [`Decimal`] values.
+//! Arc weights use `SurrealDB`'s `decimal` type to preserve exact [`Decimal`] values.
 
 use std::collections::HashMap;
 
@@ -22,7 +22,7 @@ use crate::persist::Persistable;
 use crate::types_v2::{MarkingRecord, PetriNetRecord, PetriPlaceRecord, PetriTransitionRecord};
 use crate::utils::format_record_id;
 
-/// Async CRUD store for [`PetriNet<Lambda>`] persistence in SurrealDB.
+/// Async CRUD store for [`PetriNet<Lambda>`] persistence in `SurrealDB`.
 ///
 /// Each Petri net is decomposed into a `petri_net` header record, one
 /// `petri_place` record per place (ordered by position), one
@@ -32,7 +32,7 @@ use crate::utils::format_record_id;
 /// back to their parent net via a `net` foreign key.
 ///
 /// Reconstruction (`load`) re-sorts arcs by place index to guarantee
-/// deterministic ordering regardless of SurrealDB query return order.
+/// deterministic ordering regardless of `SurrealDB` query return order.
 pub struct PetriNetStore<'a> {
     /// Borrowed database connection used for all queries.
     db: &'a Surreal<Db>,
@@ -40,11 +40,11 @@ pub struct PetriNetStore<'a> {
 
 /// Deserialization helper for pre-arc query results.
 ///
-/// SurrealDB's `in` is a reserved keyword, so the query aliases it as `src`.
+/// `SurrealDB`'s `in` is a reserved keyword, so the query aliases it as `src`.
 /// The `SurrealValue` derive does not support `#[serde(rename)]`, hence the
 /// alias must match the struct field name exactly.
 ///
-/// Weight is cast to string in the query (`<string>weight`) because SurrealDB's
+/// Weight is cast to string in the query (`<string>weight`) because `SurrealDB`'s
 /// `decimal` type deserializes as a number rather than a string, which would
 /// lose precision for [`Decimal`] parsing.
 #[derive(Debug, serde::Deserialize, SurrealValue)]
@@ -68,16 +68,17 @@ struct PostArcEntry {
 }
 
 impl<'a> PetriNetStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self { db }
     }
 
-    /// Save a [`PetriNet<Lambda>`] to SurrealDB, returning the net's [`RecordId`].
+    /// Save a [`PetriNet<Lambda>`] to `SurrealDB`, returning the net's [`RecordId`].
     ///
     /// Creates records in dependency order: the net header, then places
     /// (preserving index order via a `position` field), then transitions
     /// with their pre-arc and post-arc RELATE edges. Arc weights are stored
-    /// as SurrealDB `decimal` values for exact representation.
+    /// as `SurrealDB` `decimal` values for exact representation.
     ///
     /// # Errors
     ///
@@ -180,7 +181,7 @@ impl<'a> PetriNetStore<'a> {
         Ok(net_id)
     }
 
-    /// Load a [`PetriNet<Lambda>`] from SurrealDB by its net [`RecordId`].
+    /// Load a [`PetriNet<Lambda>`] from `SurrealDB` by its net [`RecordId`].
     ///
     /// Fetches the net header, verifies the stored `label_type` matches
     /// `Lambda::type_name()`, then reconstructs places (ordered by position),

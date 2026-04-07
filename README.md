@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, hypergraph rewritin
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-879 tests (including 16 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+899 tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -248,7 +248,7 @@ let fp = engine.index_node(&node_id).await?;
 let similar = engine.search_similar(&fp, 10, 50).await?;
 ```
 
-179 tests cover V1 roundtrips, V2 CRUD/traversal, provenance, Petri net persistence, wiring diagrams, hypergraph evolution, graph recursion, fingerprint search, FTS, and domain-specific use cases.
+175 tests cover V1 roundtrips, V2 CRUD/traversal, provenance, Petri net persistence, wiring diagrams, hypergraph evolution, graph recursion, fingerprint search, FTS, named cospan port name roundtrip, and domain-specific use cases.
 
 ## Examples
 
@@ -282,9 +282,9 @@ cargo run --example gauge               # Lattice gauge theory, Wilson loops
 ## Testing
 
 ```bash
-cargo test --workspace        # 879 tests (714 catgraph + 165 bridge), 1 ignored
-cargo test                    # catgraph-only (714: 393 unit + 310 integration + 11 doc)
-cargo test -p catgraph-surreal # bridge crate (165: 25 unit + 140 integration)
+cargo test --workspace        # 899 tests (724 catgraph + 175 bridge), 1 ignored
+cargo test                    # catgraph-only (724: 396 unit + 317 integration + 11 doc)
+cargo test -p catgraph-surreal # bridge crate (175: 25 unit + 150 integration)
 cargo clippy                  # zero warnings
 ```
 

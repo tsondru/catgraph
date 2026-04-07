@@ -9,7 +9,7 @@ use crate::node_store::NodeStore;
 use crate::types_v2::GraphNodeRecord;
 use crate::utils::{InOutRef, InRef, OutRef};
 
-/// Query helper for common SurrealQL graph traversal patterns.
+/// Query helper for common `SurrealQL` graph traversal patterns.
 ///
 /// Wraps a borrowed database connection and a [`NodeStore`] to provide
 /// BFS-based traversal methods (outbound/inbound neighbors, reachability,
@@ -24,6 +24,7 @@ pub struct QueryHelper<'a> {
 }
 
 impl<'a> QueryHelper<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self {
             db,
@@ -93,9 +94,9 @@ impl<'a> QueryHelper<'a> {
     /// Implements BFS traversal up to `depth` hops by querying the edge table
     /// iteratively. Each depth level issues a single batched query for all
     /// frontier nodes using `WHERE `in` IN $nodes`, giving O(depth) queries
-    /// instead of O(frontier_size * depth).
+    /// instead of `O(frontier_size` * depth).
     ///
-    /// SurrealDB's native recursion syntax (`record.{N}->edge->table`)
+    /// `SurrealDB`'s native recursion syntax (`record.{N}->edge->table`)
     /// requires a literal record ID expression, not a bind parameter, and does not
     /// support edge-property filtering -- so we do iterative expansion here.
     ///
@@ -253,11 +254,11 @@ impl<'a> QueryHelper<'a> {
         self.reachable(node, edge_kind, max_depth).await
     }
 
-    /// Execute a raw SurrealQL query with named bind parameters.
+    /// Execute a raw `SurrealQL` query with named bind parameters.
     ///
     /// Escape hatch for queries not covered by the typed traversal methods.
     /// Bind parameters are applied in order; keys must match `$name`
-    /// placeholders in the SurrealQL string.
+    /// placeholders in the `SurrealQL` string.
     ///
     /// # Errors
     ///

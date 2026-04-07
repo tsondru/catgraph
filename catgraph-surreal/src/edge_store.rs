@@ -2,28 +2,30 @@ use surrealdb::engine::local::Db;
 use surrealdb::types::RecordId;
 use surrealdb::Surreal;
 use crate::error::PersistError;
-use crate::node_store::NodeStore;
+use crate::query::QueryHelper;
 use crate::types_v2::{GraphEdgeRecord, GraphNodeRecord};
-use crate::utils::{IdOnly, InRef, OutRef};
+use crate::utils::IdOnly;
 
 /// Store for pairwise RELATE edges in the V2 schema.
 pub struct EdgeStore<'a> {
     db: &'a Surreal<Db>,
-    node_store: NodeStore<'a>,
 }
 
 impl<'a> EdgeStore<'a> {
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
-        Self {
-            db,
-            node_store: NodeStore::new(db),
-        }
+        Self { db }
     }
 
-    /// Create a RELATE edge between two graph_node records.
+    /// Create a RELATE edge between two `graph_node` records.
     ///
     /// Uses raw `.query("RELATE ...")` — the SDK's `.insert().relation()` serializes
-    /// RecordId incorrectly via `serde_json::json!`.
+    /// `RecordId` incorrectly via `serde_json::json!`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the RELATE statement fails to
+    /// return a record. Returns [`PersistError::Surreal`] on database errors.
     pub async fn relate(
         &self,
         from: &RecordId,
@@ -49,11 +51,16 @@ impl<'a> EdgeStore<'a> {
         Ok(created.id)
     }
 
-    /// Get an edge by RecordId.
+    /// Get an edge by `RecordId`.
     ///
     /// Uses an explicit field list instead of `db.select()` to avoid
     /// deserializing the system-managed `in`/`out` relation fields which
     /// the `SurrealValue` derive cannot handle with `#[serde(rename)]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if no edge exists for the given ID.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn get(&self, id: &RecordId) -> Result<GraphEdgeRecord, PersistError> {
         let mut result = self
             .db
@@ -64,7 +71,11 @@ impl<'a> EdgeStore<'a> {
         record.ok_or_else(|| PersistError::NotFound(format!("{id:?}")))
     }
 
-    /// Delete an edge by RecordId.
+    /// Delete an edge by `RecordId`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn delete(&self, id: &RecordId) -> Result<(), PersistError> {
         self.db
             .query("DELETE $edge_id")
@@ -75,50 +86,41 @@ impl<'a> EdgeStore<'a> {
 
     /// Traverse outbound edges of a given kind from a node, returning connected nodes.
     ///
-    /// Queries the `graph_edge` table directly (avoiding `serde_json::Value` intermediary
-    /// which cannot deserialize `RecordId`), then fetches each target node by id.
+    /// Delegates to [`QueryHelper::outbound_neighbors`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a referenced target node no
+    /// longer exists. Returns [`PersistError::Surreal`] on database errors.
     pub async fn traverse_outbound(
         &self,
         from: &RecordId,
         edge_kind: &str,
     ) -> Result<Vec<GraphNodeRecord>, PersistError> {
-        let mut result = self
-            .db
-            .query("SELECT out FROM graph_edge WHERE in = $from AND kind = $kind")
-            .bind(("from", from.clone()))
-            .bind(("kind", edge_kind.to_string()))
-            .await?;
-        let edges: Vec<OutRef> = result.take(0)?;
-        let mut nodes = Vec::with_capacity(edges.len());
-        for edge in &edges {
-            nodes.push(self.node_store.get(&edge.out).await?);
-        }
-        Ok(nodes)
+        QueryHelper::new(self.db).outbound_neighbors(from, edge_kind).await
     }
 
     /// Traverse inbound edges of a given kind to a node, returning source nodes.
     ///
-    /// Queries the `graph_edge` table directly, then fetches each source node by id.
+    /// Delegates to [`QueryHelper::inbound_neighbors`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if a referenced source node no
+    /// longer exists. Returns [`PersistError::Surreal`] on database errors.
     pub async fn traverse_inbound(
         &self,
         to: &RecordId,
         edge_kind: &str,
     ) -> Result<Vec<GraphNodeRecord>, PersistError> {
-        let mut result = self
-            .db
-            .query("SELECT `in` AS src FROM graph_edge WHERE out = $to AND kind = $kind")
-            .bind(("to", to.clone()))
-            .bind(("kind", edge_kind.to_string()))
-            .await?;
-        let edges: Vec<InRef> = result.take(0)?;
-        let mut nodes = Vec::with_capacity(edges.len());
-        for edge in &edges {
-            nodes.push(self.node_store.get(&edge.src).await?);
-        }
-        Ok(nodes)
+        QueryHelper::new(self.db).inbound_neighbors(to, edge_kind).await
     }
 
     /// Find all edges between two specific nodes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::Surreal`] if the database operation fails.
     pub async fn edges_between(
         &self,
         from: &RecordId,

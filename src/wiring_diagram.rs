@@ -206,6 +206,38 @@ where
     }
 }
 
+impl<Lambda, InterCircle, IntraCircle> Composable<Vec<Lambda>>
+    for WiringDiagram<Lambda, InterCircle, IntraCircle>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+    InterCircle: Eq + Clone,
+    IntraCircle: Eq + Clone,
+{
+    fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
+        Ok(Self(self.0.compose(&other.0)?))
+    }
+
+    fn domain(&self) -> Vec<Lambda> {
+        self.0.domain()
+    }
+
+    fn codomain(&self) -> Vec<Lambda> {
+        self.0.codomain()
+    }
+}
+
+impl<Lambda, InterCircle, IntraCircle> Monoidal
+    for WiringDiagram<Lambda, InterCircle, IntraCircle>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+    InterCircle: Eq + Clone,
+    IntraCircle: Eq + Clone,
+{
+    fn monoidal(&mut self, other: Self) {
+        self.0.monoidal(other.0);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use rand::rngs::StdRng;
@@ -848,5 +880,110 @@ mod test {
         wd.toggle_orientation(false);
         // Double toggle should restore original orientations
         assert_eq!(*wd.0.right_names(), names_before);
+    }
+
+    // ── Composable + Monoidal trait tests ──
+
+    /// Build two WDs with matching codomain→domain types and compose them.
+    /// The first has inner→outer going through 2 middle nodes (true, false).
+    /// The second has inner→outer going through 2 middle nodes (true, false).
+    #[test]
+    fn compose_two_compatible_wiring_diagrams() {
+        use super::{Dir, WiringDiagram};
+        use crate::category::Composable;
+        use crate::named_cospan::NamedCospan;
+
+        // WD1: domain [true, false], codomain [true, false]
+        // Left ports on circle 0, right ports unadorned.
+        let wd1: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0, 1],           // left → middle
+            vec![0, 1],           // right → middle
+            vec![true, false],    // middle types
+            vec![(Dir::In, 0, 10), (Dir::Out, 0, 11)],
+            vec![(Dir::Out, 0), (Dir::In, 1)],
+        ));
+
+        // WD2: domain [true, false], codomain [true]
+        // Both domain ports map to a single middle node of type true.
+        let wd2: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0, 1],
+            vec![0],
+            vec![true, false],
+            vec![(Dir::In, 1, 20), (Dir::Out, 1, 21)],
+            vec![(Dir::Out, 0)],
+        ));
+
+        assert_eq!(wd1.codomain(), vec![true, false]);
+        assert_eq!(wd2.domain(), vec![true, false]);
+
+        let composed = wd1.compose(&wd2);
+        assert!(composed.is_ok(), "compose of type-compatible WDs must succeed");
+        let composed = composed.unwrap();
+        // Composed domain comes from wd1's left side, codomain from wd2's right side.
+        assert_eq!(composed.domain(), vec![true, false]);
+        assert_eq!(composed.codomain(), vec![true]);
+    }
+
+    /// Composing two WDs whose codomain/domain types mismatch yields an error.
+    #[test]
+    fn compose_type_mismatch_fails() {
+        use super::{Dir, WiringDiagram};
+        use crate::category::Composable;
+        use crate::named_cospan::NamedCospan;
+
+        // WD1 codomain: [true, false]
+        let wd1: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0],
+            vec![0, 1],
+            vec![true, false],
+            vec![(Dir::In, 0, 10)],
+            vec![(Dir::Out, 0), (Dir::In, 1)],
+        ));
+
+        // WD2 domain: [false, false] — does not match WD1 codomain
+        let wd2: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0, 0],
+            vec![0],
+            vec![false],
+            vec![(Dir::In, 1, 20), (Dir::Out, 1, 21)],
+            vec![(Dir::Out, 0)],
+        ));
+
+        let result = wd1.compose(&wd2);
+        assert!(result.is_err(), "compose with mismatched types must fail");
+    }
+
+    /// Tensor product of two WDs concatenates domain and codomain.
+    #[test]
+    fn monoidal_product_of_wiring_diagrams() {
+        use super::{Dir, WiringDiagram};
+        use crate::category::Composable;
+        use crate::monoidal::Monoidal;
+        use crate::named_cospan::NamedCospan;
+
+        // WD_A: domain [true], codomain [true]
+        let wd_a: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0],
+            vec![0],
+            vec![true],
+            vec![(Dir::In, 0, 10)],
+            vec![(Dir::Out, 0)],
+        ));
+
+        // WD_B: domain [false], codomain [false]
+        let wd_b: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
+            vec![0],
+            vec![0],
+            vec![false],
+            vec![(Dir::In, 1, 20)],
+            vec![(Dir::Out, 1)],
+        ));
+
+        let mut combined = wd_a;
+        combined.monoidal(wd_b);
+
+        // Tensor product concatenates domains and codomains.
+        assert_eq!(combined.domain(), vec![true, false]);
+        assert_eq!(combined.codomain(), vec![true, false]);
     }
 }

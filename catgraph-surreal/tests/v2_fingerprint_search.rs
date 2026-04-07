@@ -117,9 +117,58 @@ async fn hnsw_search_finds_similar() {
         .unwrap();
     assert!(!results.is_empty());
     // First result should be exact_match (distance 0 or near-zero)
-    assert_eq!(results[0].0.name, "exact_match");
+    let first_node = &results[0].0;
+    assert_eq!(first_node.name, "exact_match");
+    // id and embedding must be populated (not silently dropped)
+    assert!(first_node.id.is_some(), "id should be populated from KNN result");
+    assert!(
+        first_node.embedding.is_some(),
+        "embedding should be populated from KNN result"
+    );
     // Second should be close_match
     assert_eq!(results[1].0.name, "close_match");
+}
+
+#[tokio::test]
+async fn hnsw_search_preserves_labels_and_properties() {
+    let db = setup().await;
+    let ns = NodeStore::new(&db);
+    let fe = FingerprintEngine::new(&db, 4);
+    fe.init_index().await.unwrap();
+
+    let node_id = ns
+        .create(
+            "infra_node",
+            "server",
+            vec!["production".to_string(), "us-east".to_string()],
+            serde_json::json!({"team": "infra", "tier": 1}),
+        )
+        .await
+        .unwrap();
+
+    let fp = vec![3.0, 1.0, 4.0, 1.0];
+    fe.store_fingerprint(&node_id, &fp).await.unwrap();
+
+    let results = fe.search_similar(&fp, 1, 50).await.unwrap();
+    assert!(!results.is_empty(), "search should return at least one result");
+
+    let (node, _distance) = &results[0];
+    assert_eq!(node.name, "infra_node");
+    assert_eq!(
+        node.labels,
+        vec!["production".to_string(), "us-east".to_string()],
+        "labels must be preserved through KNN deserialization"
+    );
+    assert_eq!(
+        node.properties.get("team").and_then(|v| v.as_str()),
+        Some("infra"),
+        "properties.team must be preserved"
+    );
+    assert_eq!(
+        node.properties.get("tier").and_then(|v| v.as_i64()),
+        Some(1),
+        "properties.tier must be preserved"
+    );
 }
 
 #[tokio::test]

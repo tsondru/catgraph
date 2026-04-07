@@ -1,14 +1,23 @@
 use crate::error::PersistError;
 use std::fmt::Debug;
 
-/// Trait for types that can be serialized to/from JSON for SurrealDB storage.
+/// Trait for types that can be serialized to/from JSON for `SurrealDB` storage.
 ///
 /// catgraph's Lambda type parameter doesn't require serde traits, so this trait
 /// bridges the gap by providing JSON serialization for the subset of types
 /// actually used as labels.
 pub trait Persistable: Sized + Eq + Clone + Debug {
     fn to_json_value(&self) -> serde_json::Value;
+
+    /// Deserialize from a JSON value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::TypeMismatch`] if the JSON value does not match
+    /// the expected type, or [`PersistError::InvalidData`] if the value is
+    /// structurally invalid for this type.
     fn from_json_value(v: &serde_json::Value) -> Result<Self, PersistError>;
+
     fn type_name() -> &'static str;
 }
 

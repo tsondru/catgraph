@@ -1,7 +1,7 @@
 //! Property-based tests for algebraic laws using proptest.
 //!
-//! Verifies identity, associativity, dagger involution, and monoidal interchange
-//! laws hold for randomly generated cospans and spans.
+//! Verifies identity, associativity, dagger involution, monoidal interchange,
+//! and relation algebra laws hold for randomly generated cospans, spans, and relations.
 
 mod common;
 use common::*;
@@ -10,9 +10,10 @@ use catgraph::{
     category::{Composable, HasIdentity},
     cospan::Cospan,
     monoidal::Monoidal,
-    span::Span,
+    span::{Rel, Span},
 };
 use proptest::prelude::*;
+use std::collections::HashSet;
 
 // ---------------------------------------------------------------------------
 // Debug wrapper for Span (Span doesn't derive Debug)
@@ -377,5 +378,172 @@ proptest! {
         let mut result = Cospan::<char>::empty();
         result.monoidal(f.clone());
         prop_assert!(cospan_eq(&f, &result), "empty tensor f should equal f");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Debug wrapper for Rel (Rel doesn't derive Debug)
+// ---------------------------------------------------------------------------
+
+/// Wrapper that gives `Rel<char>` a `Debug` impl for proptest shrinking output.
+///
+/// Manual `Clone` because `Rel<char>` doesn't derive `Clone` — we reconstruct
+/// from the underlying span's public accessors.
+struct DebugRel(Rel<char>);
+
+impl Clone for DebugRel {
+    fn clone(&self) -> Self {
+        let s = self.0.as_span();
+        let span = Span::new(
+            s.left().to_vec(),
+            s.right().to_vec(),
+            s.middle_pairs().to_vec(),
+        );
+        Self(Rel::new_unchecked(span))
+    }
+}
+
+impl std::fmt::Debug for DebugRel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self.0.as_span();
+        f.debug_struct("Rel")
+            .field("left", &s.left())
+            .field("right", &s.right())
+            .field("middle_pairs", &s.middle_pairs())
+            .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Rel strategy
+// ---------------------------------------------------------------------------
+
+/// Generate a homogeneous `Rel<char>` on a small type set (1–4 elements).
+///
+/// All boundary nodes share a single label so every index pair is type-compatible.
+/// Pairs are drawn from the full Cartesian product via a boolean mask, guaranteeing
+/// joint injectivity (no duplicates), so `new_unchecked` is safe.
+fn arb_homogeneous_rel() -> impl Strategy<Value = DebugRel> {
+    (1_usize..=4,)
+        .prop_flat_map(|(size,)| {
+            let n_possible = size * size;
+            // Boolean mask: one bit per potential (i, j) pair
+            let mask = prop::collection::vec(prop::bool::ANY, n_possible);
+            (Just(size), mask)
+        })
+        .prop_map(|(size, mask)| {
+            // Uniform label: every node is 'a', so all (i, j) pairs are type-compatible.
+            let types: Vec<char> = vec!['a'; size];
+            let pairs: Vec<(usize, usize)> = (0..size)
+                .flat_map(|i| (0..size).map(move |j| (i, j)))
+                .zip(mask.iter())
+                .filter(|&(_, keep)| *keep)
+                .map(|(pair, _)| pair)
+                .collect();
+            let span = Span::new(types.clone(), types, pairs);
+            DebugRel(Rel::new_unchecked(span))
+        })
+}
+
+/// Generate three homogeneous `Rel<char>` instances on the *same* type set.
+///
+/// Picks one shared size, then generates three independent boolean masks.
+fn arb_three_homogeneous_rels() -> impl Strategy<Value = (DebugRel, DebugRel, DebugRel)> {
+    (1_usize..=4,)
+        .prop_flat_map(|(size,)| {
+            let n_possible = size * size;
+            let mask = || prop::collection::vec(prop::bool::ANY, n_possible);
+            (Just(size), mask(), mask(), mask())
+        })
+        .prop_map(|(size, m1, m2, m3)| {
+            let build = |mask: &[bool]| {
+                let types: Vec<char> = vec!['a'; size];
+                let pairs: Vec<(usize, usize)> = (0..size)
+                    .flat_map(|i| (0..size).map(move |j| (i, j)))
+                    .zip(mask.iter())
+                    .filter(|&(_, keep)| *keep)
+                    .map(|(pair, _)| pair)
+                    .collect();
+                DebugRel(Rel::new_unchecked(Span::new(types.clone(), types, pairs)))
+            };
+            (build(&m1), build(&m2), build(&m3))
+        })
+}
+
+/// Extract middle pairs of a `Rel` as a `HashSet` for order-independent comparison.
+fn rel_pair_set(r: &Rel<char>) -> HashSet<(usize, usize)> {
+    r.as_span().middle_pairs().iter().copied().collect()
+}
+
+// ---------------------------------------------------------------------------
+// Relation algebra property tests
+// ---------------------------------------------------------------------------
+
+proptest! {
+    /// Union is commutative: R ∪ S == S ∪ R.
+    #[test]
+    fn rel_union_commutative(dr in arb_homogeneous_rel(), ds in arb_homogeneous_rel()) {
+        let r = &dr.0;
+        let s = &ds.0;
+        prop_assume!(r.domain() == s.domain());
+
+        let rs = r.union(s).expect("R ∪ S");
+        let sr = s.union(r).expect("S ∪ R");
+        prop_assert_eq!(
+            rel_pair_set(&rs),
+            rel_pair_set(&sr),
+            "union should be commutative"
+        );
+    }
+
+    /// Complement is an involution: complement(complement(R)) == R.
+    #[test]
+    fn rel_complement_involution(dr in arb_homogeneous_rel()) {
+        let r = &dr.0;
+        let comp = r.complement().expect("complement(R)");
+        let double = comp.complement().expect("complement(complement(R))");
+        prop_assert_eq!(
+            rel_pair_set(r),
+            rel_pair_set(&double),
+            "complement should be an involution"
+        );
+    }
+
+    /// Intersection distributes over union: R ∩ (S ∪ T) == (R ∩ S) ∪ (R ∩ T).
+    ///
+    /// Uses a shared-size strategy to avoid excessive `prop_assume!` rejects when
+    /// three independently generated relations rarely match in dimension.
+    #[test]
+    fn rel_intersection_distributes_over_union(
+        (dr, ds, dt) in arb_three_homogeneous_rels(),
+    ) {
+        let r = &dr.0;
+        let s = &ds.0;
+        let t = &dt.0;
+
+        let s_union_t = s.union(t).expect("S ∪ T");
+        let lhs = r.intersection(&s_union_t).expect("R ∩ (S ∪ T)");
+
+        let r_inter_s = r.intersection(s).expect("R ∩ S");
+        let r_inter_t = r.intersection(t).expect("R ∩ T");
+        let rhs = r_inter_s.union(&r_inter_t).expect("(R ∩ S) ∪ (R ∩ T)");
+
+        prop_assert_eq!(
+            rel_pair_set(&lhs),
+            rel_pair_set(&rhs),
+            "intersection should distribute over union"
+        );
+    }
+
+    /// Equivalence relation iff reflexive, symmetric, and transitive.
+    #[test]
+    fn rel_equivalence_iff_rst(dr in arb_homogeneous_rel()) {
+        let r = &dr.0;
+        let is_equiv = r.is_equivalence_rel();
+        let is_rst = r.is_reflexive() && r.is_symmetric() && r.is_transitive();
+        prop_assert_eq!(
+            is_equiv, is_rst,
+            "is_equivalence_rel should equal is_reflexive && is_symmetric && is_transitive"
+        );
     }
 }

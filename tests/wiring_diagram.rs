@@ -12,6 +12,8 @@ mod common;
 
 use catgraph::{
     assert_err, assert_ok,
+    category::Composable,
+    monoidal::Monoidal,
     named_cospan::NamedCospan,
     operadic::Operadic,
     wiring_diagram::{Dir, WiringDiagram},
@@ -384,4 +386,115 @@ fn delete_inner_port_breaks_substitution() {
     let inner = leaf_diagram();
     let result = outer.operadic_substitution(0, inner);
     assert_err!(result);
+}
+
+// ===========================================================================
+// 15. Sequential composition via Composable trait
+// ===========================================================================
+
+/// Build two leaf WDs whose codomain/domain types match and compose them.
+#[test]
+fn sequential_compose_basic() {
+    // WD_A: no inner circles, domain = [], codomain = [(), ()]
+    let wd_a: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(NamedCospan::new(
+        vec![],
+        vec![0, 1],
+        vec![(), ()],
+        vec![],
+        vec![(Dir::Out, 10), (Dir::In, 11)],
+    ));
+
+    // WD_B: domain = [(), ()], codomain = [()]
+    let wd_b: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(NamedCospan::new(
+        vec![0, 0],
+        vec![0],
+        vec![()],
+        vec![(Dir::In, 1, 10), (Dir::Out, 1, 11)],
+        vec![(Dir::Out, 50)],
+    ));
+
+    assert_eq!(wd_a.codomain(), vec![(), ()]);
+    assert_eq!(wd_b.domain(), vec![(), ()]);
+
+    let composed = wd_a.compose(&wd_b);
+    assert!(composed.is_ok(), "compose of compatible WDs must succeed");
+    let composed = composed.unwrap();
+    assert_eq!(composed.domain(), Vec::<()>::new());
+    assert_eq!(composed.codomain(), vec![()]);
+}
+
+// ===========================================================================
+// 16. Identity composition is neutral
+// ===========================================================================
+
+/// Composing with an identity named cospan preserves domain and codomain.
+#[test]
+fn compose_identity_is_neutral() {
+    let wd: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(NamedCospan::new(
+        vec![0],
+        vec![0, 1],
+        vec![(), ()],
+        vec![(Dir::In, 0, 10)],
+        vec![(Dir::Out, 20), (Dir::In, 21)],
+    ));
+
+    // Build an identity WD whose domain/codomain = wd.codomain() = [(), ()].
+    // Port names must differ from wd's right names (names are independent).
+    let id_wd: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(
+        NamedCospan::identity(
+            &[(), ()],
+            &[(Dir::Out, 20), (Dir::In, 21)],
+            |n| (
+                (n.0, 99 as CircleName, n.1),
+                n,
+            ),
+        ),
+    );
+
+    assert_eq!(id_wd.domain(), vec![(), ()]);
+    assert_eq!(id_wd.codomain(), vec![(), ()]);
+
+    let result = wd.compose(&id_wd);
+    assert!(result.is_ok(), "compose with identity must succeed");
+    let composed = result.unwrap();
+    // Domain comes from wd, codomain comes from id_wd (which equals wd's codomain).
+    assert_eq!(composed.domain(), wd.domain());
+    assert_eq!(composed.codomain(), wd.codomain());
+}
+
+// ===========================================================================
+// 17. Monoidal tensor of two diagrams
+// ===========================================================================
+
+/// Parallel composition concatenates domain and codomain type lists.
+#[test]
+fn monoidal_tensor_of_two_diagrams() {
+    let wd_a: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(NamedCospan::new(
+        vec![0],
+        vec![0],
+        vec![()],
+        vec![(Dir::In, 0, 10)],
+        vec![(Dir::Out, 50)],
+    ));
+
+    let wd_b: WiringDiagram<(), CircleName, WireName> = WiringDiagram::new(NamedCospan::new(
+        vec![0, 1],
+        vec![0],
+        vec![(), ()],
+        vec![(Dir::In, 1, 20), (Dir::Out, 1, 21)],
+        vec![(Dir::In, 51)],
+    ));
+
+    let dom_a = wd_a.domain();
+    let dom_b = wd_b.domain();
+    let cod_a = wd_a.codomain();
+    let cod_b = wd_b.codomain();
+
+    let mut combined = wd_a;
+    combined.monoidal(wd_b);
+
+    let expected_domain: Vec<()> = dom_a.into_iter().chain(dom_b).collect();
+    let expected_codomain: Vec<()> = cod_a.into_iter().chain(cod_b).collect();
+    assert_eq!(combined.domain(), expected_domain);
+    assert_eq!(combined.codomain(), expected_codomain);
 }

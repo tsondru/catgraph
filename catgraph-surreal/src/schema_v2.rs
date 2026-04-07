@@ -1,9 +1,9 @@
-/// SurrealQL DDL for the V2 RELATE-based graph persistence schema.
+/// `SurrealQL` DDL for the V2 RELATE-based graph persistence schema.
 ///
-/// V2 uses first-class graph_node records connected by RELATE edges,
+/// V2 uses first-class `graph_node` records connected by RELATE edges,
 /// plus hub-node reification for n-ary hyperedges (cospans/spans).
 /// Coexists with V1 embedded-array tables (different table names).
-pub const SCHEMA_V2_DDL: &str = r#"
+pub const SCHEMA_V2_DDL: &str = r"
 -- First-class graph vertices
 DEFINE TABLE IF NOT EXISTS graph_node SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS name ON graph_node TYPE string;
@@ -128,12 +128,13 @@ DEFINE FIELD IF NOT EXISTS edge_type ON multiway_edge TYPE string;
 DEFINE FIELD IF NOT EXISTS properties ON multiway_edge TYPE object FLEXIBLE DEFAULT {};
 
 DEFINE INDEX IF NOT EXISTS idx_multiway_edge_type ON multiway_edge FIELDS edge_type;
-"#;
+";
 
-/// Generate DDL for an HNSW index on graph_node.embedding with configurable dimension.
+/// Generate DDL for an HNSW index on `graph_node.embedding` with configurable dimension.
 ///
-/// The dimension must match the embedding vectors stored on graph_node records.
+/// The dimension must match the embedding vectors stored on `graph_node` records.
 /// Call this once after `init_schema_v2`, typically via `FingerprintEngine::init_index`.
+#[must_use] 
 pub fn hnsw_index_ddl(dimension: u32) -> String {
     format!(
         "DEFINE INDEX IF NOT EXISTS hnsw_fingerprint ON graph_node \

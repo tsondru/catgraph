@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use catgraph::cospan::Cospan;
 use catgraph::named_cospan::NamedCospan;
 use catgraph::span::Span;
@@ -9,16 +11,21 @@ use crate::types_v2::HyperedgeHubRecord;
 
 use super::HyperedgeStore;
 
-impl<'a> HyperedgeStore<'a> {
+impl HyperedgeStore<'_> {
     /// Decompose a `Cospan<Lambda>` into V2 graph records.
     ///
     /// The cospan `left --left_map--> middle <--right_map-- right` becomes:
     /// 1. One `graph_node` per middle element (labelled with Lambda value)
     /// 2. One `hyperedge_hub` record
-    /// 3. `source_of` edges: for each left index i, RELATE middle[left_map[i]] -> hub (position=i)
-    /// 4. `target_of` edges: for each right index j, RELATE hub -> middle[right_map[j]] (position=j)
+    /// 3. `source_of` edges: for each left index i, RELATE middle[`left_map`[i]] -> hub (position=i)
+    /// 4. `target_of` edges: for each right index j, RELATE hub -> middle[`right_map`[j]] (position=j)
     ///
     /// `node_namer` converts a Lambda label to a node name string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if count conversion overflows or
+    /// record creation fails. Returns [`PersistError::Surreal`] on database errors.
     pub async fn decompose_cospan<Lambda, F>(
         &self,
         cospan: &Cospan<Lambda>,
@@ -78,6 +85,11 @@ impl<'a> HyperedgeStore<'a> {
     /// 2. One `hyperedge_hub` record
     /// 3. `source_of` edges from left nodes to hub (by position)
     /// 4. `target_of` edges from hub to right nodes (by position)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if index conversion overflows or
+    /// record creation fails. Returns [`PersistError::Surreal`] on database errors.
     pub async fn decompose_span<Lambda, F>(
         &self,
         span: &Span<Lambda>,
@@ -157,7 +169,14 @@ impl<'a> HyperedgeStore<'a> {
 
     /// Decompose a `NamedCospan` into V2 graph records.
     ///
-    /// Like `decompose_cospan` but uses port names as node names.
+    /// Like `decompose_cospan` but additionally persists port names in the hub's
+    /// `properties` under `"left_port_names"` and `"right_port_names"` keys.
+    /// These are read back by [`reconstruct_named_cospan`](super::reconstruct).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if the underlying cospan
+    /// decomposition fails. Returns [`PersistError::Surreal`] on database errors.
     pub async fn decompose_named_cospan<Lambda>(
         &self,
         nc: &NamedCospan<Lambda, String, String>,
@@ -167,7 +186,18 @@ impl<'a> HyperedgeStore<'a> {
     where
         Lambda: Persistable + Copy,
     {
-        self.decompose_cospan(nc.cospan(), hub_kind, hub_properties, |l| {
+        let mut props = hub_properties;
+        if let Some(obj) = props.as_object_mut() {
+            obj.insert(
+                "left_port_names".into(),
+                serde_json::json!(nc.left_names()),
+            );
+            obj.insert(
+                "right_port_names".into(),
+                serde_json::json!(nc.right_names()),
+            );
+        }
+        self.decompose_cospan(nc.cospan(), hub_kind, props, |l| {
             l.to_json_value().to_string()
         })
         .await
@@ -177,12 +207,18 @@ impl<'a> HyperedgeStore<'a> {
     ///
     /// Unlike [`decompose_cospan`](Self::decompose_cospan) which issues separate CREATE/RELATE
     /// calls (any of which could fail leaving orphaned records), this method builds a single
-    /// multi-statement SurrealQL query wrapped in `BEGIN TRANSACTION ... COMMIT TRANSACTION`.
+    /// multi-statement `SurrealQL` query wrapped in `BEGIN TRANSACTION ... COMMIT TRANSACTION`.
     ///
     /// Within the transaction, `LET` variables capture each created record so that
     /// subsequent `RELATE` statements can reference them by variable name.
     ///
     /// On success, returns the `RecordId` of the created hub.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if count conversion overflows or
+    /// the transaction returns no hub record.
+    /// Returns [`PersistError::Surreal`] on database or transaction errors.
     pub async fn decompose_cospan_atomic<Lambda, F>(
         &self,
         cospan: &Cospan<Lambda>,
@@ -207,33 +243,37 @@ impl<'a> HyperedgeStore<'a> {
         let mut query = String::from("BEGIN TRANSACTION;\n");
 
         // 1. Create hub
-        query.push_str(&format!(
+        let _ = writeln!(
+            query,
             "LET $hub = CREATE ONLY hyperedge_hub CONTENT {{\
              kind: $hub_kind, properties: $hub_props, \
-             source_count: {src_count}, target_count: {tgt_count} }};\n"
-        ));
+             source_count: {src_count}, target_count: {tgt_count} }};"
+        );
 
         // 2. Create middle nodes (one per unique middle element)
         for i in 0..middle.len() {
-            query.push_str(&format!(
+            let _ = writeln!(
+                query,
                 "LET $node_{i} = CREATE ONLY graph_node CONTENT {{\
                  name: $name_{i}, kind: 'middle', labels: [], \
-                 properties: {{ label: $label_{i}, label_type: $ltype }} }};\n"
-            ));
+                 properties: {{ label: $label_{i}, label_type: $ltype }} }};"
+            );
         }
 
         // 3. RELATE source_of edges (node -> hub, with position)
         for (pos, &mid_idx) in left_map.iter().enumerate() {
-            query.push_str(&format!(
-                "RELATE $node_{mid_idx}->source_of->$hub SET position = {pos};\n"
-            ));
+            let _ = writeln!(
+                query,
+                "RELATE $node_{mid_idx}->source_of->$hub SET position = {pos};"
+            );
         }
 
         // 4. RELATE target_of edges (hub -> node, with position)
         for (pos, &mid_idx) in right_map.iter().enumerate() {
-            query.push_str(&format!(
-                "RELATE $hub->target_of->$node_{mid_idx} SET position = {pos};\n"
-            ));
+            let _ = writeln!(
+                query,
+                "RELATE $hub->target_of->$node_{mid_idx} SET position = {pos};"
+            );
         }
 
         // RETURN the hub record before COMMIT so we can extract it.
@@ -284,6 +324,11 @@ impl<'a> HyperedgeStore<'a> {
     ///
     /// Uses exponential backoff starting at 50ms, doubling each attempt.
     /// Useful when multiple concurrent writers may conflict on the same records.
+    ///
+    /// # Errors
+    ///
+    /// Returns the last [`PersistError`] if all retry attempts are exhausted.
+    /// Non-conflict errors are returned immediately without retrying.
     pub async fn decompose_cospan_with_retry<Lambda, F>(
         &self,
         cospan: &Cospan<Lambda>,

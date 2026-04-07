@@ -1,6 +1,6 @@
-//! SurrealDB persistence for hypergraph evolution traces via V2 hub-node reification.
+//! `SurrealDB` persistence for hypergraph evolution traces via V2 hub-node reification.
 //!
-//! Stores spans, cospans, and full evolution graphs in SurrealDB using
+//! Stores spans, cospans, and full evolution graphs in `SurrealDB` using
 //! [`HyperedgeStore`]'s hub-node decomposition.
 
 use catgraph::cospan::Cospan;
@@ -25,6 +25,7 @@ impl<'a> HypergraphEvolutionStore<'a> {
     /// Creates a new persistence handle.
     ///
     /// Requires V2 schema to be initialized (`catgraph_surreal::init_schema_v2`).
+    #[must_use] 
     pub fn new(db: &'a Surreal<Db>) -> Self {
         Self {
             store: HyperedgeStore::new(db),
@@ -35,6 +36,11 @@ impl<'a> HypergraphEvolutionStore<'a> {
     ///
     /// Each step cospan is stored as a V2 hub-node decomposition with
     /// properties: `chain_name`, `step`, `total_steps`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if cospan decomposition fails.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn persist_cospan_chain(
         &self,
         evolution: &HypergraphEvolution,
@@ -63,6 +69,11 @@ impl<'a> HypergraphEvolutionStore<'a> {
     }
 
     /// Persists a rewrite rule as a categorical span.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::InvalidData`] if span decomposition fails.
+    /// Returns [`PersistError::Surreal`] on database communication errors.
     pub async fn persist_span(
         &self,
         rule: &RewriteRule,
@@ -84,6 +95,12 @@ impl<'a> HypergraphEvolutionStore<'a> {
     }
 
     /// Reconstructs a cospan from a persisted hub record.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the hub does not exist.
+    /// Returns [`PersistError::InvalidData`] on malformed hub data.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn load_cospan(
         &self,
         hub_id: &RecordId,
@@ -92,6 +109,12 @@ impl<'a> HypergraphEvolutionStore<'a> {
     }
 
     /// Reconstructs a rewrite rule span from a persisted hub record.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PersistError::NotFound`] if the hub does not exist.
+    /// Returns [`PersistError::InvalidData`] on malformed hub data.
+    /// Returns [`PersistError::Surreal`] on database errors.
     pub async fn load_span(
         &self,
         hub_id: &RecordId,

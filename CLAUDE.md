@@ -120,18 +120,18 @@ catgraph/                           # Workspace root
 │   ├── mutation_workflows.rs       # 20 tests: Cospan/Span add/delete/connect/map then compose, identity flags
 │   ├── operad_boundary.rs          # 28 tests: E1/E2 epsilon boundaries, embedding, substitution, coalescence, min_closeness
 │   ├── petri_net.rs                # 8 tests: chemical reactions, reachability, composition, cospan roundtrip
-│   ├── property_laws.rs            # 8 tests: proptest algebraic laws (identity, associativity, dagger, monoidal)
+│   ├── property_laws.rs            # 12 tests: proptest algebraic laws (identity, associativity, dagger, monoidal, Rel algebra)
 │   ├── pushout_correctness.rs      # 9 tests: union-find pushout, wire merging, determinism
 │   ├── relation_algebra.rs         # 21 tests: Rel API, dagger involution, span composition, equivalence/partial order
 │   ├── temperley_lieb.rs           # 10 tests: TL/symmetric generators, braid relation, monoidal
-│   ├── wiring_diagram.rs           # 14 tests: operadic substitution, boundary mutations, map, sequential composition
+│   ├── wiring_diagram.rs           # 20 tests: operadic substitution, boundary mutations, map, sequential composition, Composable, Monoidal
 │   ├── stokes_laws.rs              # 8 tests: conservation verification, cospan chain, exterior derivative
 │   ├── adjunction_laws.rs          # 5 tests: triangle identities, adjunction gap, irreducibility
 │   ├── bifunctor_laws.rs           # 6 tests: tensor associativity/unit/symmetry, bimap
 │   ├── coherence_laws.rs           # 7 tests: all 4 coherence axioms, DifferentialCoherence
 │   ├── complexity_laws.rs          # 6 tests: sequential/parallel composition, StepCount algebra
 │   ├── computation_state_laws.rs   # 7 tests: state lifecycle, interval mapping, fingerprints
-│   ├── gauge_theory.rs             # 19 tests: structure constants, Wilson loops, DPO lattice, plaquette action
+│   ├── gauge_theory.rs             # 23 tests: structure constants, Wilson loops, DPO lattice, plaquette action, holonomy values
 │   └── rayon_parallel.rs           # 4 tests: above-threshold correctness for rayon-enabled modules
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
@@ -148,11 +148,11 @@ catgraph/                           # Workspace root
     │   ├── named_cospan_store.rs   # V1 NamedCospanStore (composes with CospanStore)
     │   ├── span_store.rs           # V1 SpanStore: save/load/delete/list
     │   ├── node_store.rs           # V2 NodeStore: CRUD for graph_node records
-    │   ├── edge_store.rs           # V2 EdgeStore: RELATE edges, traversal
+    │   ├── edge_store.rs           # V2 EdgeStore: RELATE edges, traversal (delegates to QueryHelper)
     │   ├── hyperedge/              # V2 HyperedgeStore (split from single 738-LOC file)
     │   │   ├── mod.rs              # HyperedgeStore struct, hub CRUD, private helpers
     │   │   ├── decompose.rs        # decompose_cospan/span/named_cospan, atomic, retry
-    │   │   ├── reconstruct.rs      # reconstruct_cospan/span, sources/targets
+    │   │   ├── reconstruct.rs      # reconstruct_cospan/span/named_cospan, sources/targets
     │   │   └── provenance.rs       # composition provenance tracking
     │   ├── petri_net_store.rs       # V2 PetriNetStore: save/load/delete topology + markings
     │   ├── wiring_store.rs         # V2 WiringDiagramStore: decompose/reconstruct via hub-node
@@ -174,12 +174,13 @@ catgraph/                           # Workspace root
         ├── v2_petri_net.rs                 # 6 tests: PetriNet store roundtrip, marking persistence
         ├── v2_wiring_diagram.rs            # 8 tests: WiringDiagram store roundtrip, port metadata
         ├── v2_graph_recursion.rs           # 10 tests: shortest_path, collect_reachable, depth limits
-        ├── v2_fingerprint_search.rs        # 5 tests: fingerprint compute/store, HNSW similarity
+        ├── v2_fingerprint_search.rs        # 7 tests: fingerprint compute/store, HNSW similarity, field roundtrip
         ├── v2_schema_modernization.rs      # 2 tests: FTS node name search
         ├── domain_chemical_reactions.rs    # 5 tests: chemical reactions (Cospan hyperedges)
         ├── domain_circuit_design.rs        # 5 tests: cascaded logic gates, shared nodes
         ├── domain_code_analysis.rs         # 5 tests: code graph (pairwise, multi-hop)
         ├── domain_dataflow_pipeline.rs     # 4 tests: NamedCospan dataflow
+        ├── v2_named_cospan_decompose.rs    # 5 tests: NamedCospan decompose/reconstruct port name roundtrip
         └── v2_hypergraph_evolution.rs     # 11 tests: evolution store roundtrip, metadata, isolation
 ```
 
@@ -337,10 +338,10 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 879 tests (714 catgraph + 165 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (714: 393 unit + 310 integration + 11 doc)
-cargo test -p catgraph-surreal # Run bridge crate tests (165: 25 unit + 140 integration)
-cargo test --examples         # Compile-check all 19 examples
+cargo test --workspace        # Run all 899 tests (724 catgraph + 175 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (724: 396 unit + 317 integration + 11 doc)
+cargo test -p catgraph-surreal # Run bridge crate tests (175: 25 unit + 150 integration)
+cargo test --examples         # Compile-check all 27 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -404,7 +405,7 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `e1_operad.rs` | Little intervals operad: containment, overlap, coalescence, monoid homomorphism. Fallible constructor with epsilon tolerance. |
 | `e2_operad.rs` | Little disks operad: 2D containment, coalescence, `from_e1_config` embedding. Fallible constructor with epsilon tolerance. |
 | `temperley_lieb.rs` | Brauer/Temperley-Lieb algebra generators (`e_i`, `s_i`), dagger, `simplify`, composition via `ExtendedPerfectMatching` |
-| `wiring_diagram.rs` | Operadic substitution built on `NamedCospan` |
+| `wiring_diagram.rs` | Operadic substitution, sequential composition (`Composable`), parallel composition (`Monoidal`) built on `NamedCospan` |
 | `petri_net.rs` | `PetriNet`, `Transition`, `Marking`: construction, `enabled`, `fire`, `reachable`, `can_reach`, `from_cospan`, `transition_as_cospan`, `parallel`, `sequential` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |
