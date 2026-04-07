@@ -11,6 +11,7 @@ pub mod gauge;
 pub mod hyperedge;
 #[allow(clippy::module_inception)]
 pub mod hypergraph;
+pub mod multiway_cospan;
 pub mod rewrite_rule;
 
 pub use evolution::{
@@ -21,4 +22,8 @@ pub use gauge::{
 };
 pub use hyperedge::Hyperedge;
 pub use hypergraph::Hypergraph;
+pub use multiway_cospan::{
+    CospanInvarianceResult, CospanMergeDetail, MultiwayCospanExt, MultiwayCospanGraph,
+    MultiwayCospan,
+};
 pub use rewrite_rule::{RewriteMatch, RewriteRule, RewriteSpan};
