@@ -33,6 +33,8 @@
 //!   for cobordism categories and complexity measures
 //! - [`adjunction`] / [`bifunctor`] / [`coherence`] / [`stokes`] — functorial
 //!   irreducibility framework (adjunctions, tensor products, coherence verification)
+//! - [`trace`] — generic [`IrreducibilityTrace`](trace::IrreducibilityTrace) trait,
+//!   [`analyze_trace`](trace::analyze_trace), repeat detection
 //!
 //! ## Petri nets
 //!
