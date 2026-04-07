@@ -45,7 +45,8 @@ catgraph/                           # Workspace root
 │   │   ├── hypergraph.rs           # Hypergraph: vertex/hyperedge storage, pattern matching
 │   │   ├── rewrite_rule.rs         # RewriteRule, RewriteMatch, RewriteSpan (DPO rewriting)
 │   │   ├── evolution.rs            # HypergraphEvolution: deterministic + multiway rewrite tracking, Wilson loops, cospan chain bridge
-│   │   └── gauge.rs                # GaugeGroup, HypergraphRewriteGroup, HypergraphLattice, plaquette/total action
+│   │   ├── gauge.rs                # GaugeGroup, HypergraphRewriteGroup, HypergraphLattice, plaquette/total action
+│   │   └── multiway_cospan.rs      # MultiwayCospanExt, multiway cospan graph, causal invariance via cospans
 │   │
 │   ├── multiway/                   # Generic multiway (non-deterministic) computation
 │   │   ├── mod.rs                  # Re-exports: MultiwayEvolutionGraph, BranchialGraph, curvature, wasserstein
@@ -65,6 +66,7 @@ catgraph/                           # Workspace root
 │   ├── interval.rs                 # DiscreteInterval, ParallelIntervals (extracted from irreducible)
 │   ├── complexity.rs               # Complexity trait, StepCount (extracted from irreducible)
 │   ├── computation_state.rs        # ComputationState (extracted from irreducible)
+│   ├── trace.rs                    # IrreducibilityTrace trait, analyze_trace, detect_repeats
 │   ├── adjunction.rs               # ZPrimeOps, AdjunctionVerification, AdjunctionIrreducibility (extracted from irreducible)
 │   ├── bifunctor.rs                # TensorProduct, IntervalTransform, tensor_bimap/first/second (extracted from irreducible)
 │   ├── coherence.rs                # Monoidal coherence verifiers: associator, unitors, braiding (extracted from irreducible)
@@ -338,8 +340,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 899 tests (724 catgraph + 175 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (724: 396 unit + 317 integration + 11 doc)
+cargo test --workspace        # Run all 919 tests (744 catgraph + 175 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (744: 416 unit + 317 integration + 11 doc)
 cargo test -p catgraph-surreal # Run bridge crate tests (175: 25 unit + 150 integration)
 cargo test --examples         # Compile-check all 27 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
@@ -416,7 +418,9 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `bifunctor.rs` | `TensorProduct` trait, `IntervalTransform`, verify_associativity/unit_laws/symmetry |
 | `coherence.rs` | `CoherenceVerification`, `DifferentialCoherence`, verify_associator/unitor/braiding coherence |
 | `stokes.rs` | `TemporalComplex` (simplicial complex), `ConservationResult`, `StokesError` |
+| `trace.rs` | `IrreducibilityTrace` trait, `analyze_trace`, `detect_repeats`, `RepeatDetection`, `TraceAnalysis` |
 | `hypergraph/` | `Hyperedge`, `Hypergraph` (pattern matching), `RewriteRule`/`RewriteSpan` (DPO rewriting), `HypergraphEvolution` (deterministic + multiway tracking, Wilson loops), `GaugeGroup`/`HypergraphRewriteGroup`/`HypergraphLattice` (lattice gauge theory), span/cospan bridge (`to_cospan_chain`, `to_span`) |
+| `hypergraph/multiway_cospan.rs` | `MultiwayCospanExt`, `MultiwayCospanGraph`, `CospanInvarianceResult` (causal invariance via cospan composition) |
 | `multiway/` | `MultiwayEvolutionGraph<S,T>` (branching state tracking), `run_multiway_bfs` (generic BFS explorer), `BranchialGraph` (time-slice foliation), `DiscreteCurvature` trait, `OllivierRicciCurvature` (edge/vertex/scalar via W₁ transport), `wasserstein_1` (transportation simplex solver) |
 
 ## Parallelization
