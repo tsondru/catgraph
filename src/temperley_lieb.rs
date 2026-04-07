@@ -32,7 +32,7 @@ use {
     },
     itertools::Itertools,
     num::{One, Zero},
-    petgraph::{
+    rustworkx_core::petgraph::{
         algo::{connected_components, has_path_connecting, DfsSpace},
         Graph, Undirected,
     },

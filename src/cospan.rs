@@ -15,7 +15,7 @@ use {
     either::Either::{self, Left, Right},
     log::warn,
     permutations::Permutation,
-    petgraph::{
+    rustworkx_core::petgraph::{
         prelude::Graph,
         stable_graph::{DefaultIx, NodeIndex},
     },
@@ -600,7 +600,7 @@ mod test {
     fn ugly_cospan() {
         use super::Cospan;
         use either::{Left, Right};
-        use petgraph::Graph;
+        use rustworkx_core::petgraph::Graph;
         let mut cospan = Cospan::<bool>::empty();
         cospan.add_boundary_node(Right(Right(false)));
         cospan.add_boundary_node(Right(Right(true)));

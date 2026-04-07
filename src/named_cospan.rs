@@ -16,7 +16,7 @@ use {
     either::Either::{self, Left, Right},
     log::warn,
     permutations::Permutation,
-    petgraph::{matrix_graph::NodeIndex, prelude::Graph, stable_graph::DefaultIx},
+    rustworkx_core::petgraph::{matrix_graph::NodeIndex, prelude::Graph, stable_graph::DefaultIx},
     rayon::prelude::*,
     std::fmt::Debug,
 };

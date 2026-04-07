@@ -1,7 +1,7 @@
 use crate::errors::CatgraphError;
 
 use {
-    petgraph::{algo::toposort, prelude::DiGraph},
+    rustworkx_core::petgraph::{algo::toposort, prelude::DiGraph},
     std::{collections::HashMap, marker::PhantomData},
 };
 
@@ -59,7 +59,7 @@ where
     }
 
     /// Find or create a DAG node for the given label, returning its `NodeIndex`.
-    fn ensure_node(&mut self, label: &BlackBoxLabel) -> petgraph::graph::NodeIndex {
+    fn ensure_node(&mut self, label: &BlackBoxLabel) -> rustworkx_core::petgraph::graph::NodeIndex {
         self.dag
             .node_indices()
             .find(|&i| self.dag[i] == *label)
