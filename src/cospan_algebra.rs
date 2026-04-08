@@ -174,12 +174,15 @@ where
 }
 
 /// Convert a `Cospan<Lambda>` into a `FrobeniusMorphism` by decomposing
-/// each leg through epi-mono factorization (Lemma 3.6).
+/// each leg through epi-mono factorization (Fong-Spivak Lemma 3.6).
+///
+/// This is the morphism-mapping component of the hypergraph functor
+/// `Cospan_Λ → FrobeniusMorphism_Λ` (Prop 3.8).
 ///
 /// # Errors
 ///
-/// Returns [`CatgraphError`] if the decomposition fails.
-fn cospan_to_frobenius<Lambda, BlackBoxLabel>(
+/// Returns [`CatgraphError`] if the epi-mono decomposition fails for either leg.
+pub fn cospan_to_frobenius<Lambda, BlackBoxLabel>(
     cospan: &Cospan<Lambda>,
 ) -> Result<FrobeniusMorphism<Lambda, BlackBoxLabel>, CatgraphError>
 where
