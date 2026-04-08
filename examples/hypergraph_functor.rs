@@ -89,41 +89,37 @@ fn main() {
     println!("Object mapping (identity):");
     println!("  'a' → '{}'", ctf.map_ob('a'));
 
-    // Morphism mapping: merge and split
-    println!("\nMorphism mapping (merge/split):");
-    let merge = Cospan::new(vec![0, 0], vec![0], vec!['a']);
-    let mapped_merge: FrobeniusMorphism<char, String> = ctf.map_mor(&merge).unwrap();
+    // Generators
+    println!("\nFrobenius generator preservation:");
+    let eta_cospan = Cospan::<char>::unit('a');
+    let mapped_eta: FrobeniusMorphism<char, String> = ctf.map_mor(&eta_cospan).unwrap();
+    println!("  η('a'): [] → {:?}  (cospan)", eta_cospan.codomain());
     println!(
-        "  merge: {:?} → {:?}  (cospan)",
-        merge.domain(),
-        merge.codomain()
-    );
-    println!(
-        "  F(merge): {:?} → {:?}  (frobenius morphism)",
-        mapped_merge.domain(),
-        mapped_merge.codomain()
+        "  F(η):   [] → {:?}  (frobenius morphism)",
+        mapped_eta.codomain()
     );
 
-    let split = Cospan::new(vec![0], vec![0, 0], vec!['a']);
-    let mapped_split: FrobeniusMorphism<char, String> = ctf.map_mor(&split).unwrap();
+    let mu_cospan = Cospan::<char>::multiplication('a');
+    let mapped_mu_c: FrobeniusMorphism<char, String> = ctf.map_mor(&mu_cospan).unwrap();
     println!(
-        "  split: {:?} → {:?}  (cospan)",
-        split.domain(),
-        split.codomain()
+        "  μ('a'): {:?} → {:?}  (cospan)",
+        mu_cospan.domain(),
+        mu_cospan.codomain()
     );
     println!(
-        "  F(split): {:?} → {:?}  (frobenius morphism)",
-        mapped_split.domain(),
-        mapped_split.codomain()
+        "  F(μ):   {:?} → {:?}  (frobenius morphism)",
+        mapped_mu_c.domain(),
+        mapped_mu_c.codomain()
     );
 
-    // Functoriality: compose split then merge
+    // Functoriality
     println!("\nFunctoriality:");
-    let composed = split.compose(&merge).unwrap();
-    let mapped_composed: FrobeniusMorphism<char, String> = ctf.map_mor(&composed).unwrap();
+    let delta_cospan = Cospan::<char>::comultiplication('a');
+    let composed_c = delta_cospan.compose(&mu_cospan).unwrap();
+    let mapped_composed_c: FrobeniusMorphism<char, String> = ctf.map_mor(&composed_c).unwrap();
     println!(
-        "  F(split;merge): {:?} → {:?}",
-        mapped_composed.domain(),
-        mapped_composed.codomain()
+        "  F(δ;μ): {:?} → {:?}",
+        mapped_composed_c.domain(),
+        mapped_composed_c.codomain()
     );
 }
