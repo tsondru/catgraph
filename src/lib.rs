@@ -17,6 +17,9 @@
 //! ## String diagrams and operads
 //!
 //! - [`frobenius`] — Frobenius algebra generators, layered morphisms, DAG-based interpretation
+//! - [`compact_closed`] — self-dual compact closed structure: cup/cap morphisms (Fong-Spivak §3.1)
+//! - [`cospan_algebra`] — lax monoidal functors from cospans to sets (Fong-Spivak §2.1)
+//! - [`hypergraph_category`] — hypergraph category trait with Frobenius generators (Fong-Spivak §2.3)
 //! - [`wiring_diagram`] — operadic substitution built on named cospans
 //! - [`temperley_lieb`] — Temperley-Lieb / Brauer algebra via perfect matchings
 //! - [`e1_operad`] / [`e2_operad`] — little intervals and little disks operads
@@ -55,7 +58,10 @@ pub mod bifunctor;
 pub mod coherence;
 pub mod stokes;
 pub mod frobenius;
+pub mod compact_closed;
 pub mod cospan;
+pub mod cospan_algebra;
+pub mod hypergraph_category;
 pub mod named_cospan;
 pub mod span;
 pub mod wiring_diagram;

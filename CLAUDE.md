@@ -39,6 +39,10 @@ catgraph/                           # Workspace root
 │   │
 │   ├── wiring_diagram.rs           # Wiring diagram operad built on cospans
 │   │
+│   ├── compact_closed.rs           # Self-dual compact closed: cup/cap, name bijection (Fong-Spivak §3.1)
+│   ├── cospan_algebra.rs           # Lax monoidal functors Cospan→Set: CospanAlgebra trait (§2.1)
+│   ├── hypergraph_category.rs      # HypergraphCategory trait with Frobenius generators (§2.3)
+│   │
 │   ├── hypergraph/                 # Hypergraph rewriting (DPO), evolution, gauge theory
 │   │   ├── mod.rs                  # Re-exports: Hyperedge, Hypergraph, RewriteRule, Evolution, Gauge
 │   │   ├── hyperedge.rs            # Hyperedge: ordered vertex sequence generalizing edges
@@ -134,6 +138,8 @@ catgraph/                           # Workspace root
 │   ├── complexity_laws.rs          # 6 tests: sequential/parallel composition, StepCount algebra
 │   ├── computation_state_laws.rs   # 7 tests: state lifecycle, interval mapping, fingerprints
 │   ├── gauge_theory.rs             # 23 tests: structure constants, Wilson loops, DPO lattice, plaquette action, holonomy values
+│   ├── compact_closed.rs           # 33 tests: cup/cap, zigzag, tensor ordering, name bijection, compose_names
+│   ├── cospan_algebra.rs           # 13 tests: PartitionAlgebra, NameAlgebra, functoriality, coherence
 │   └── rayon_parallel.rs           # 4 tests: above-threshold correctness for rayon-enabled modules
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
@@ -340,8 +346,8 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 919 tests (744 catgraph + 175 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (744: 416 unit + 317 integration + 11 doc)
+cargo test --workspace        # Run all 1015+ tests (840 catgraph + 175 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (840: 463 unit + 366 integration + 11 doc)
 cargo test -p catgraph-surreal # Run bridge crate tests (175: 25 unit + 150 integration)
 cargo test --examples         # Compile-check all 27 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
@@ -408,6 +414,9 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `e2_operad.rs` | Little disks operad: 2D containment, coalescence, `from_e1_config` embedding. Fallible constructor with epsilon tolerance. |
 | `temperley_lieb.rs` | Brauer/Temperley-Lieb algebra generators (`e_i`, `s_i`), dagger, `simplify`, composition via `ExtendedPerfectMatching` |
 | `wiring_diagram.rs` | Operadic substitution, sequential composition (`Composable`), parallel composition (`Monoidal`) built on `NamedCospan` |
+| `compact_closed.rs` | Cup/cap morphisms (η;δ, μ;ε), tensor-ordered variants, name bijection (`name`/`unname`), composition-via-names (Fong-Spivak §3.1) |
+| `cospan_algebra.rs` | `CospanAlgebra` trait (lax monoidal functor), `PartitionAlgebra`, `NameAlgebra`, `cospan_to_frobenius` (§2.1) |
+| `hypergraph_category.rs` | `HypergraphCategory` trait: Frobenius generators (η, ε, μ, δ) + derived cup/cap. Implemented for `Cospan<Lambda>` (§2.3) |
 | `petri_net.rs` | `PetriNet`, `Transition`, `Marking`: construction, `enabled`, `fire`, `reachable`, `can_reach`, `from_cospan`, `transition_as_cospan`, `parallel`, `sequential` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |

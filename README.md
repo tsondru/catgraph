@@ -4,7 +4,7 @@ Category-theoretic graph structures in Rust: cospans, spans, hypergraph rewritin
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-899 tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+1015+ tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
 
 ## What catgraph implements
 
@@ -89,6 +89,16 @@ let resolved = sys.fill_black_boxes(None)?;  // topological resolution
 ```
 
 Cycle detection prevents circular definitions. The `Contains` and `InterpretableMorphism` traits enable custom interpretation.
+
+### Hypergraph Categories and Compact Closure (Fong-Spivak)
+
+catgraph implements the core structures from [Fong-Spivak *Hypergraph Categories*](https://arxiv.org/abs/1806.08304):
+
+| Module | What it provides |
+|--------|-----------------|
+| `hypergraph_category.rs` | `HypergraphCategory` trait — Frobenius generators (η, ε, μ, δ) with derived cup/cap. Implemented for `Cospan<Lambda>`. |
+| `compact_closed.rs` | Self-dual compact closed structure — cup/cap morphisms, name bijection (`name`/`unname`), composition-via-names. |
+| `cospan_algebra.rs` | `CospanAlgebra` trait — lax monoidal functors `Cospan_Λ → C`. `PartitionAlgebra` (initial) and `NameAlgebra` implementations. |
 
 ### Brauer / Temperley-Lieb Algebra
 
@@ -282,8 +292,8 @@ cargo run --example gauge               # Lattice gauge theory, Wilson loops
 ## Testing
 
 ```bash
-cargo test --workspace        # 899 tests (724 catgraph + 175 bridge), 1 ignored
-cargo test                    # catgraph-only (724: 396 unit + 317 integration + 11 doc)
+cargo test --workspace        # 1015+ tests (840 catgraph + 175 bridge), 1 ignored
+cargo test                    # catgraph-only (840: 463 unit + 366 integration + 11 doc)
 cargo test -p catgraph-surreal # bridge crate (175: 25 unit + 150 integration)
 cargo clippy                  # zero warnings
 ```
@@ -318,6 +328,8 @@ Integration test suites:
 | `complexity_laws` | 6 | Sequential/parallel composition, StepCount algebra |
 | `computation_state_laws` | 7 | State lifecycle, interval mapping, fingerprints |
 | `gauge_theory` | 19 | Structure constants, Wilson loops, DPO on lattice, plaquette action |
+| `compact_closed` | 33 | Cup/cap, zigzag identities, tensor ordering, name bijection, compose_names |
+| `cospan_algebra` | 13 | PartitionAlgebra, NameAlgebra, functoriality, lax monoidal coherence |
 | `rayon_parallel` | 4 | Above-threshold correctness for 4 rayon-enabled modules |
 
 ## Parallelization
