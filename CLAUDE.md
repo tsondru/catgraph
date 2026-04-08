@@ -42,6 +42,7 @@ catgraph/                           # Workspace root
 │   ├── compact_closed.rs           # Self-dual compact closed: cup/cap, name bijection (Fong-Spivak §3.1)
 │   ├── cospan_algebra.rs           # Lax monoidal functors Cospan→Set: CospanAlgebra trait (§2.1)
 │   ├── hypergraph_category.rs      # HypergraphCategory trait with Frobenius generators (§2.3)
+│   ├── hypergraph_functor.rs       # HypergraphFunctor trait, RelabelingFunctor (Fong-Spivak §2.3)
 │   │
 │   ├── hypergraph/                 # Hypergraph rewriting (DPO), evolution, gauge theory
 │   │   ├── mod.rs                  # Re-exports: Hyperedge, Hypergraph, RewriteRule, Evolution, Gauge
@@ -417,6 +418,7 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `compact_closed.rs` | Cup/cap morphisms (η;δ, μ;ε), tensor-ordered variants, name bijection (`name`/`unname`), composition-via-names (Fong-Spivak §3.1) |
 | `cospan_algebra.rs` | `CospanAlgebra` trait (lax monoidal functor), `PartitionAlgebra`, `NameAlgebra`, `cospan_to_frobenius` (§2.1) |
 | `hypergraph_category.rs` | `HypergraphCategory` trait: Frobenius generators (η, ε, μ, δ) + derived cup/cap. Implemented for `Cospan<Lambda>` (§2.3) |
+| `hypergraph_functor.rs` | `HypergraphFunctor` trait (§2.3 Eq. 12), `RelabelingFunctor` (Cospan relabeling) |
 | `petri_net.rs` | `PetriNet`, `Transition`, `Marking`: construction, `enabled`, `fire`, `reachable`, `can_reach`, `from_cospan`, `transition_as_cospan`, `parallel`, `sequential` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |
@@ -489,6 +491,7 @@ Rust 2024 edition. Common patterns:
 | Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
 | Multiway persistence | `MultiwayEvolutionStore` stub ready (schema DDL + types in schema_v2.rs/types_v2.rs); full save/load deferred until `MultiwayEvolutionGraph` serialization |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds validated with correctness tests in `tests/rayon_parallel.rs` |
+| `cospan_to_frobenius` as functor | Existing `cospan_to_frobenius` in `cospan_algebra.rs` is a candidate `HypergraphFunctor` impl once `FrobeniusMorphism` implements `HypergraphCategory` |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope
