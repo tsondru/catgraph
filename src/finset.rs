@@ -397,7 +397,11 @@ impl TryFrom<FinSetMorphism> for OrderPresInj {
         }
         if v.is_empty() {
             return Ok(Self {
-                counts_iden_unit_alternating: vec![],
+                counts_iden_unit_alternating: if v_mor.1 > 0 {
+                    vec![0, v_mor.1]
+                } else {
+                    vec![]
+                },
             });
         }
         let mut previous_entry_plus_1 = 0;
