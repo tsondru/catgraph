@@ -69,6 +69,7 @@ pub trait HypergraphCategory<Lambda: Eq + Copy + Debug>:
 // ---------------------------------------------------------------------------
 
 use crate::cospan::Cospan;
+use crate::frobenius::{FrobeniusMorphism, FrobeniusOperation};
 
 impl<Lambda> HypergraphCategory<Lambda> for Cospan<Lambda>
 where
@@ -109,10 +110,53 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// FrobeniusMorphism is a hypergraph category (generators are its primitives)
+// ---------------------------------------------------------------------------
+
+impl<Lambda, BlackBoxLabel> HypergraphCategory<Lambda>
+    for FrobeniusMorphism<Lambda, BlackBoxLabel>
+where
+    Lambda: Eq + Copy + Debug + Send + Sync,
+    BlackBoxLabel: Eq + Clone + Send + Sync,
+{
+    fn unit(z: Lambda) -> Self {
+        FrobeniusOperation::Unit(z).into()
+    }
+
+    fn counit(z: Lambda) -> Self {
+        FrobeniusOperation::Counit(z).into()
+    }
+
+    fn multiplication(z: Lambda) -> Self {
+        FrobeniusOperation::Multiplication(z).into()
+    }
+
+    fn comultiplication(z: Lambda) -> Self {
+        FrobeniusOperation::Comultiplication(z).into()
+    }
+
+    fn cup(z: Lambda) -> Result<Self, CatgraphError> {
+        use crate::category::ComposableMutating;
+        let mut eta = Self::unit(z);
+        let delta = Self::comultiplication(z);
+        ComposableMutating::compose(&mut eta, delta)?;
+        Ok(eta)
+    }
+
+    fn cap(z: Lambda) -> Result<Self, CatgraphError> {
+        use crate::category::ComposableMutating;
+        let mut mu = Self::multiplication(z);
+        let eps = Self::counit(z);
+        ComposableMutating::compose(&mut mu, eps)?;
+        Ok(mu)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::Composable;
+    use crate::category::{Composable, ComposableMutating};
 
     // --- Generator types ---
 
@@ -256,5 +300,64 @@ mod tests {
         let snake = cup_id.compose(&id_cap).unwrap();
         assert_eq!(snake.domain(), vec![z]);
         assert_eq!(snake.codomain(), vec![z]);
+    }
+
+    // ---------------------------------------------------------------------------
+    // FrobeniusMorphism as HypergraphCategory
+    // ---------------------------------------------------------------------------
+
+    type FM = crate::frobenius::FrobeniusMorphism<char, String>;
+
+    #[test]
+    fn frobenius_morphism_unit_types() {
+        let eta = FM::unit('a');
+        assert!(eta.domain().is_empty());
+        assert_eq!(eta.codomain(), vec!['a']);
+    }
+
+    #[test]
+    fn frobenius_morphism_counit_types() {
+        let eps = FM::counit('a');
+        assert_eq!(eps.domain(), vec!['a']);
+        assert!(eps.codomain().is_empty());
+    }
+
+    #[test]
+    fn frobenius_morphism_multiplication_types() {
+        let mu = FM::multiplication('a');
+        assert_eq!(mu.domain(), vec!['a', 'a']);
+        assert_eq!(mu.codomain(), vec!['a']);
+    }
+
+    #[test]
+    fn frobenius_morphism_comultiplication_types() {
+        let delta = FM::comultiplication('a');
+        assert_eq!(delta.domain(), vec!['a']);
+        assert_eq!(delta.codomain(), vec!['a', 'a']);
+    }
+
+    #[test]
+    fn frobenius_morphism_cup_types() {
+        let cup = FM::cup('a').unwrap();
+        assert!(cup.domain().is_empty());
+        assert_eq!(cup.codomain(), vec!['a', 'a']);
+    }
+
+    #[test]
+    fn frobenius_morphism_cap_types() {
+        let cap = FM::cap('a').unwrap();
+        assert_eq!(cap.domain(), vec!['a', 'a']);
+        assert!(cap.codomain().is_empty());
+    }
+
+    /// Special Frobenius: δ;μ = id (domain/codomain check)
+    #[test]
+    fn frobenius_morphism_special() {
+        use crate::category::ComposableMutating;
+        let mut delta = FM::comultiplication('a');
+        let mu = FM::multiplication('a');
+        ComposableMutating::compose(&mut delta, mu).unwrap();
+        assert_eq!(delta.domain(), vec!['a']);
+        assert_eq!(delta.codomain(), vec!['a']);
     }
 }
