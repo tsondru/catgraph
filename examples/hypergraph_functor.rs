@@ -4,10 +4,11 @@
 //! while preserving all categorical structure (Fong-Spivak §2.3, Eq. 12).
 
 use catgraph::{
-    category::{Composable, HasIdentity},
+    category::{Composable, ComposableMutating, HasIdentity},
     cospan::Cospan,
+    frobenius::FrobeniusMorphism,
     hypergraph_category::HypergraphCategory,
-    hypergraph_functor::{HypergraphFunctor, RelabelingFunctor},
+    hypergraph_functor::{CospanToFrobeniusFunctor, HypergraphFunctor, RelabelingFunctor},
     monoidal::Monoidal,
 };
 
@@ -79,4 +80,50 @@ fn main() {
     mapped_parts.monoidal(functor.map_mor(&h).unwrap());
     println!("  F(g⊗h) domain   = {:?}", mapped_tensor.domain());
     println!("  F(g)⊗F(h) domain = {:?}", mapped_parts.domain());
+
+    println!("\n=== CospanToFrobeniusFunctor: Cospan → FrobeniusMorphism ===\n");
+
+    let ctf = CospanToFrobeniusFunctor::<String>::new();
+
+    // Object mapping is identity
+    println!("Object mapping (identity):");
+    println!("  'a' → '{}'", ctf.map_ob('a'));
+
+    // Morphism mapping: merge and split
+    println!("\nMorphism mapping (merge/split):");
+    let merge = Cospan::new(vec![0, 0], vec![0], vec!['a']);
+    let mapped_merge: FrobeniusMorphism<char, String> = ctf.map_mor(&merge).unwrap();
+    println!(
+        "  merge: {:?} → {:?}  (cospan)",
+        merge.domain(),
+        merge.codomain()
+    );
+    println!(
+        "  F(merge): {:?} → {:?}  (frobenius morphism)",
+        mapped_merge.domain(),
+        mapped_merge.codomain()
+    );
+
+    let split = Cospan::new(vec![0], vec![0, 0], vec!['a']);
+    let mapped_split: FrobeniusMorphism<char, String> = ctf.map_mor(&split).unwrap();
+    println!(
+        "  split: {:?} → {:?}  (cospan)",
+        split.domain(),
+        split.codomain()
+    );
+    println!(
+        "  F(split): {:?} → {:?}  (frobenius morphism)",
+        mapped_split.domain(),
+        mapped_split.codomain()
+    );
+
+    // Functoriality: compose split then merge
+    println!("\nFunctoriality:");
+    let composed = split.compose(&merge).unwrap();
+    let mapped_composed: FrobeniusMorphism<char, String> = ctf.map_mor(&composed).unwrap();
+    println!(
+        "  F(split;merge): {:?} → {:?}",
+        mapped_composed.domain(),
+        mapped_composed.codomain()
+    );
 }
