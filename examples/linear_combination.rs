@@ -181,8 +181,9 @@ fn simplify_demo() {
     type LC = LinearCombination<i64, String>;
 
     // Build a combination with a zero coefficient term.
+    let zero_coeff = 0;
     let mut lc: LC = LinearCombination::singleton("a".into()) * 5
-        + LinearCombination::singleton("b".into()) * 0
+        + LinearCombination::singleton("b".into()) * zero_coeff
         + LinearCombination::singleton("c".into()) * 3;
     println!("before simplify: {:?}", lc);
 

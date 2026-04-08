@@ -95,6 +95,10 @@ catgraph/                           # Workspace root
 │   ├── monoidal.rs                 # Tensor product, braiding, GenericMonoidalMorphism
 │   ├── finset.rs                   # Permutations, epi-mono factorization
 │   ├── frobenius.rs                # String diagrams, MorphismSystem DAG
+│   ├── hypergraph_category.rs      # Frobenius generators η, ε, μ, δ (§2.3)
+│   ├── compact_closed.rs           # Cup/cap, zigzag, name bijection (§3.1)
+│   ├── cospan_algebra.rs           # CospanAlgebra, PartitionAlgebra, NameAlgebra (§2.1)
+│   ├── hypergraph_functor.rs       # RelabelingFunctor, CospanToFrobeniusFunctor (§2.3)
 │   ├── e1_operad.rs                # Little intervals operad
 │   ├── e2_operad.rs                # Little disks operad
 │   ├── wiring_diagram.rs           # Wiring diagram operad
@@ -141,6 +145,7 @@ catgraph/                           # Workspace root
 │   ├── gauge_theory.rs             # 23 tests: structure constants, Wilson loops, DPO lattice, plaquette action, holonomy values
 │   ├── compact_closed.rs           # 33 tests: cup/cap, zigzag, tensor ordering, name bijection, compose_names
 │   ├── cospan_algebra.rs           # 13 tests: PartitionAlgebra, NameAlgebra, functoriality, coherence
+│   ├── hypergraph_functor.rs       # 21 tests: RelabelingFunctor, CospanToFrobeniusFunctor, functoriality
 │   └── rayon_parallel.rs           # 4 tests: above-threshold correctness for rayon-enabled modules
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
@@ -347,10 +352,10 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 1015+ tests (840 catgraph + 175 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (840: 463 unit + 366 integration + 11 doc)
+cargo test --workspace        # Run all 1047+ tests (876 catgraph + 175 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (876: 477 unit + 388 integration + 11 doc)
 cargo test -p catgraph-surreal # Run bridge crate tests (175: 25 unit + 150 integration)
-cargo test --examples         # Compile-check all 27 examples
+cargo test --examples         # Compile-check all 26 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
@@ -485,13 +490,10 @@ Rust 2024 edition. Common patterns:
 
 | Area | Notes |
 |------|-------|
-| Compact closure (Fong-Spivak §3.1) | Cup/cap morphisms, name bijection — schema ready (hub with source_count=0) |
-| CospanAlgebra trait (Fong-Spivak §2.1) | Lax monoidal functor from cospans to sets |
 | WeightedCospan | `weight: option<decimal>` on source_of/target_of already in schema |
 | Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
 | Multiway persistence | `MultiwayEvolutionStore` stub ready (schema DDL + types in schema_v2.rs/types_v2.rs); full save/load deferred until `MultiwayEvolutionGraph` serialization |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds validated with correctness tests in `tests/rayon_parallel.rs` |
-| `cospan_to_frobenius` as functor | Existing `cospan_to_frobenius` in `cospan_algebra.rs` is a candidate `HypergraphFunctor` impl once `FrobeniusMorphism` implements `HypergraphCategory` |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
 
 ## API Scope

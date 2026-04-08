@@ -1,14 +1,59 @@
 # catgraph
 
-Category-theoretic graph structures in Rust: cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete curvature, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, lattice gauge theory, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
+Category-theoretic graph structures in Rust, built on the cospan semantics of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304).
+
+Cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete curvature, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, lattice gauge theory, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-1015+ tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+1047+ tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+
+## Fong-Spivak Feature Map
+
+Features implementing structures from [Fong & Spivak, *Hypergraph Categories*](https://arxiv.org/abs/1806.08304):
+
+| Paper Reference | Module | Summary |
+|-----------------|--------|---------|
+| Core (§1–2) | `cospan.rs` | `Cospan<Lambda>` — morphisms in Cospan_Λ, composition via pushout (union-find). |
+| Core (§1–2) | `span.rs` | `Span<Lambda>` — dual of cospan, composition via pullback. |
+| Core | `category.rs` | `HasIdentity`, `Composable`, `ComposableMutating` traits for morphism composition. |
+| Core | `monoidal.rs` | `Monoidal`, `SymmetricMonoidalMorphism` traits; tensor product and braiding. |
+| §2.1, Def 2.2 | `cospan_algebra.rs` | `CospanAlgebra` trait — lax monoidal functors Cospan_Λ → C. `PartitionAlgebra` (initial) and `NameAlgebra` implementations. |
+| §2.3, Def 2.12 | `hypergraph_category.rs` | `HypergraphCategory` trait — Frobenius generators (η, ε, μ, δ) with derived cup/cap. Implemented for `Cospan<Lambda>`. |
+| §2.3, Eq. 12 | `hypergraph_functor.rs` | `HypergraphFunctor` trait — structure-preserving maps between hypergraph categories. `RelabelingFunctor` for cospan relabeling. |
+| §3.1, Prop 3.2–3.3 | `compact_closed.rs` | Self-dual compact closed structure — cup/cap morphisms, name bijection (`name`/`unname`), composition-via-names. |
+| §3.2, Prop 3.8 | `hypergraph_functor.rs` | `CospanToFrobeniusFunctor` — decomposes cospans into Frobenius generators via epi-mono factorization. |
+| Lemma 3.6 | `cospan_algebra.rs` | `cospan_to_frobenius` — converts cospans to `FrobeniusMorphism` via epi-mono factorization of each leg. |
+| Frobenius structure | `frobenius/` | `FrobeniusMorphism` — string diagram morphisms from Frobenius generators. `MorphismSystem` DAG for named composition with black-box substitution. |
+
+## Additional Features
+
+Features beyond the Fong-Spivak paper:
+
+| Feature | Module | Summary |
+|---------|--------|---------|
+| Named cospans | `named_cospan.rs` | Port-labeled cospans for wiring-style composition with named boundary nodes. |
+| Relation algebra | `span.rs` (`Rel`) | Relations as jointly-injective spans with reflexivity, symmetry, transitivity, set operations. |
+| Temperley-Lieb / Brauer | `temperley_lieb.rs` | [Brauer algebra](https://en.wikipedia.org/wiki/Brauer_algebra) diagrams over an arbitrary ground ring via `LinearCombination<BrauerMorphism>`. |
+| E_n operads | `e1_operad.rs`, `e2_operad.rs` | [Little cubes operads](https://ncatlab.org/nlab/show/little+cubes+operad) with fallible constructors and epsilon tolerance. |
+| Wiring diagrams | `wiring_diagram.rs` | [Wiring diagram operad](https://arxiv.org/abs/1305.0297) (Spivak 2013) built on `NamedCospan`. |
+| Petri nets | `petri_net.rs` | Place/transition nets with exact decimal weights, firing, reachability, cospan bridge. |
+| DPO rewriting | `hypergraph/` | [Double-pushout](https://en.wikipedia.org/wiki/Graph_rewriting#Double-pushout_approach) rewriting on hypergraphs with evolution tracking. |
+| Multiway evolution | `multiway/` | Non-deterministic BFS exploration, branchial foliation, [Ollivier-Ricci curvature](https://en.wikipedia.org/wiki/Ollivier%E2%80%93Ricci_curvature) via W₁ transport. |
+| Lattice gauge theory | `hypergraph/gauge.rs` | `GaugeGroup` trait, rewrite-based gauge groups, plaquette/total action, Wilson loops. |
+| Finite sets | `finset.rs` | Permutations, order-preserving surjections/injections, epi-mono factorization. |
+| Linear combinations | `linear_combination.rs` | Formal linear combinations over a ring with rayon-parallel multiplication. |
+| Interval algebra | `interval.rs` | `DiscreteInterval`, `ParallelIntervals` — composition, containment, tensor product. |
+| Computation framework | `complexity.rs`, `computation_state.rs`, `trace.rs` | `StepCount` algebra, state lifecycle, irreducibility trace analysis. |
+| Adjunctions | `adjunction.rs` | `ZPrimeOps`, triangle identities, adjunction gap verification. |
+| Bifunctors | `bifunctor.rs` | `TensorProduct` trait, `IntervalTransform`, associativity/unit/symmetry verification. |
+| Monoidal coherence | `coherence.rs` | Associator, unitor, and braiding coherence axiom verification. |
+| Stokes / conservation | `stokes.rs` | `TemporalComplex` (simplicial), conservation verification, exterior derivative. |
+| SurrealDB persistence | `catgraph-surreal/` | V1 (embedded arrays) + V2 (RELATE-based graph) persistence with FTS, HNSW, traversal. |
 
 ## What catgraph implements
 
-catgraph is an **applied category theory** library for compositional systems — specifically [Fong-Spivak](https://arxiv.org/pdf/1806.08304.pdf)-style string diagrams and [cospans](https://en.wikipedia.org/wiki/Span_(category_theory)) with source/target hypergraph semantics. It is not a general category theory library.
+catgraph is an **applied category theory** library for compositional systems — specifically Fong-Spivak-style string diagrams and [cospans](https://en.wikipedia.org/wiki/Span_(category_theory)) with source/target hypergraph semantics. It is not a general category theory library.
 
 ### Core: Cospans and Spans
 
@@ -89,16 +134,6 @@ let resolved = sys.fill_black_boxes(None)?;  // topological resolution
 ```
 
 Cycle detection prevents circular definitions. The `Contains` and `InterpretableMorphism` traits enable custom interpretation.
-
-### Hypergraph Categories and Compact Closure (Fong-Spivak)
-
-catgraph implements the core structures from [Fong-Spivak *Hypergraph Categories*](https://arxiv.org/abs/1806.08304):
-
-| Module | What it provides |
-|--------|-----------------|
-| `hypergraph_category.rs` | `HypergraphCategory` trait — Frobenius generators (η, ε, μ, δ) with derived cup/cap. Implemented for `Cospan<Lambda>`. |
-| `compact_closed.rs` | Self-dual compact closed structure — cup/cap morphisms, name bijection (`name`/`unname`), composition-via-names. |
-| `cospan_algebra.rs` | `CospanAlgebra` trait — lax monoidal functors `Cospan_Λ → C`. `PartitionAlgebra` (initial) and `NameAlgebra` implementations. |
 
 ### Brauer / Temperley-Lieb Algebra
 
@@ -271,6 +306,10 @@ cargo run --example named_cospan        # Port-labeled cospans
 cargo run --example monoidal            # Tensor product, braiding
 cargo run --example finset              # Permutations, epi-mono factorization
 cargo run --example frobenius           # String diagrams, MorphismSystem DAG
+cargo run --example hypergraph_category # Frobenius generators η, ε, μ, δ (§2.3)
+cargo run --example compact_closed      # Cup/cap, zigzag, name bijection (§3.1)
+cargo run --example cospan_algebra      # CospanAlgebra, PartitionAlgebra, NameAlgebra (§2.1)
+cargo run --example hypergraph_functor  # RelabelingFunctor, CospanToFrobeniusFunctor (§2.3)
 cargo run --example petri_net           # Petri net firing, reachability, composition
 cargo run --example e1_operad           # Little intervals operad
 cargo run --example e2_operad           # Little disks operad
@@ -292,8 +331,8 @@ cargo run --example gauge               # Lattice gauge theory, Wilson loops
 ## Testing
 
 ```bash
-cargo test --workspace        # 1015+ tests (840 catgraph + 175 bridge), 1 ignored
-cargo test                    # catgraph-only (840: 463 unit + 366 integration + 11 doc)
+cargo test --workspace        # 1047+ tests (876 catgraph + 175 bridge), 1 ignored
+cargo test                    # catgraph-only (876: 477 unit + 388 integration + 11 doc)
 cargo test -p catgraph-surreal # bridge crate (175: 25 unit + 150 integration)
 cargo clippy                  # zero warnings
 ```
@@ -424,13 +463,13 @@ This project originated as a fork of [Cobord/Hypergraph](https://github.com/Cobo
 
 ## References
 
-- [Fong-Spivak: Hypergraph Categories](https://arxiv.org/pdf/1806.08304.pdf) — cospan semantics
+- [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304) — primary theoretical foundation
+- [Spivak, *The Operad of Wiring Diagrams* (2013)](https://arxiv.org/abs/1305.0297)
 - [Span and Cospan (Wikipedia)](https://en.wikipedia.org/wiki/Span_(category_theory))
-- [Double-Pushout Graph Rewriting (Wikipedia)](https://en.wikipedia.org/wiki/Graph_rewriting#Double-pushout_approach) — DPO rewriting
-- [Ollivier-Ricci Curvature (Wikipedia)](https://en.wikipedia.org/wiki/Ollivier%E2%80%93Ricci_curvature) — discrete curvature via optimal transport
+- [Double-Pushout Graph Rewriting (Wikipedia)](https://en.wikipedia.org/wiki/Graph_rewriting#Double-pushout_approach)
+- [Ollivier-Ricci Curvature (Wikipedia)](https://en.wikipedia.org/wiki/Ollivier%E2%80%93Ricci_curvature)
 - [E_n Operad (nLab)](https://ncatlab.org/nlab/show/little+cubes+operad)
 - [Brauer Algebra (Wikipedia)](https://en.wikipedia.org/wiki/Brauer_algebra)
-- [Wiring Diagrams (Spivak 2013)](https://arxiv.org/abs/1305.0297)
 
 ## License
 
