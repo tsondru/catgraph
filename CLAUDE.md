@@ -109,7 +109,8 @@ catgraph/                           # Workspace root
 │   ├── petri_net.rs                # Petri net firing, reachability, composition
 │   ├── hypergraph.rs               # DPO rewriting, evolution, cospan bridge
 │   ├── multiway.rs                 # Multiway BFS, branchial foliation, curvature
-│   └── gauge.rs                    # Lattice gauge theory, Wilson loops
+│   ├── gauge.rs                    # Lattice gauge theory, Wilson loops
+│   └── equivalence.rs             # §4 equivalence Hyp_OF ≅ Cospan-Alg (Thm 1.2)
 │
 ├── benches/                        # Criterion benchmarks
 │   ├── pushout.rs                  # Cospan::compose at sizes 4–1024
@@ -355,10 +356,10 @@ let reconstructed: Cospan<char> = v2.reconstruct_cospan(&hub_id).await?;
 ### Running Tests
 
 ```bash
-cargo test --workspace        # Run all 1047+ tests (876 catgraph + 175 bridge), 1 ignored
-cargo test                    # Run catgraph-only tests (876: 477 unit + 388 integration + 11 doc)
+cargo test --workspace        # Run all 1080+ tests (900+ catgraph + 175 bridge), 1 ignored
+cargo test                    # Run catgraph-only tests (900+: 492 unit + 405 integration + 11 doc)
 cargo test -p catgraph-surreal # Run bridge crate tests (175: 25 unit + 150 integration)
-cargo test --examples         # Compile-check all 26 examples
+cargo test --examples         # Compile-check all 27 examples
 cargo bench --no-run          # Compile-check all 4 benchmarks
 cargo clippy                  # Lint checks
 cargo tarpaulin --out Stdout  # Coverage report
