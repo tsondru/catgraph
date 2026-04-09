@@ -16,7 +16,7 @@ categories = ["mathematics", "science", "data-structures"]
 [dependencies]
 either = "^1.15.0"
 rustworkx-core = "0.17"
-union-find = "0.4.3"
+union-find = "0.4"
 log = { version = "^0.4.29", features = ["max_level_debug", "release_max_level_warn"] }
 permutations = "^0.1.1"
 rand = "^0.10.0"

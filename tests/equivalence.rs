@@ -184,7 +184,6 @@ fn roundtrip_a_to_h_to_a_objects() {
 
 #[test]
 fn roundtrip_a_to_h_to_a_morphisms() {
-    let a = alg();
     let part = PartitionAlgebra;
 
     // Element e ∈ Part([a]) = Cospan(∅, [a])
