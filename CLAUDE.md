@@ -43,6 +43,7 @@ catgraph/                           # Workspace root
 │   ├── cospan_algebra.rs           # Lax monoidal functors Cospan→Set: CospanAlgebra trait (§2.1)
 │   ├── hypergraph_category.rs      # HypergraphCategory trait with Frobenius generators (§2.3)
 │   ├── hypergraph_functor.rs       # HypergraphFunctor trait, RelabelingFunctor (Fong-Spivak §2.3)
+│   ├── equivalence.rs             # §4 equivalence: CospanAlgebraMorphism, comp_cospan (Thm 1.2)
 │   │
 │   ├── hypergraph/                 # Hypergraph rewriting (DPO), evolution, gauge theory
 │   │   ├── mod.rs                  # Re-exports: Hyperedge, Hypergraph, RewriteRule, Evolution, Gauge
@@ -99,6 +100,7 @@ catgraph/                           # Workspace root
 │   ├── compact_closed.rs           # Cup/cap, zigzag, name bijection (§3.1)
 │   ├── cospan_algebra.rs           # CospanAlgebra, PartitionAlgebra, NameAlgebra (§2.1)
 │   ├── hypergraph_functor.rs       # RelabelingFunctor, CospanToFrobeniusFunctor (§2.3)
+│   ├── equivalence.rs             # §4 equivalence: comp_cospan, CospanAlgebraMorphism (Thm 1.2)
 │   ├── e1_operad.rs                # Little intervals operad
 │   ├── e2_operad.rs                # Little disks operad
 │   ├── wiring_diagram.rs           # Wiring diagram operad
@@ -146,6 +148,7 @@ catgraph/                           # Workspace root
 │   ├── compact_closed.rs           # 33 tests: cup/cap, zigzag, tensor ordering, name bijection, compose_names
 │   ├── cospan_algebra.rs           # 13 tests: PartitionAlgebra, NameAlgebra, functoriality, coherence
 │   ├── hypergraph_functor.rs       # 21 tests: RelabelingFunctor, CospanToFrobeniusFunctor, functoriality
+│   ├── equivalence.rs             # 17 tests: H_Part axioms, comp_cospan, roundtrip (Thm 1.2)
 │   └── rayon_parallel.rs           # 4 tests: above-threshold correctness for rayon-enabled modules
 │
 └── catgraph-surreal/               # SurrealDB persistence bridge crate
@@ -424,6 +427,7 @@ let cospan = Cospan::from_permutation(p, &types, types_as_on_domain)?;
 | `cospan_algebra.rs` | `CospanAlgebra` trait (lax monoidal functor), `PartitionAlgebra`, `NameAlgebra`, `cospan_to_frobenius` (§2.1) |
 | `hypergraph_category.rs` | `HypergraphCategory` trait: Frobenius generators (η, ε, μ, δ) + derived cup/cap. Implemented for `Cospan<Lambda>` (§2.3) |
 | `hypergraph_functor.rs` | `HypergraphFunctor` trait (§2.3 Eq. 12), `RelabelingFunctor` (Cospan relabeling) |
+| `equivalence.rs` | `comp_cospan` (Example 3.5), `CospanAlgebraMorphism` (§4.2 Lemma 4.8) — full trait stack, roundtrip (Thm 1.2/4.13) |
 | `petri_net.rs` | `PetriNet`, `Transition`, `Marking`: construction, `enabled`, `fire`, `reachable`, `can_reach`, `from_cospan`, `transition_as_cospan`, `parallel`, `sequential` |
 | `finset.rs` | `Permutation`, `OrderPresSurj`, `OrderPresInj`, `Decomposition`, epi-mono factorization |
 | `linear_combination.rs` | Vector space over morphisms (ring axioms, parallel mul) |

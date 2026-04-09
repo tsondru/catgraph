@@ -75,3 +75,4 @@ pub mod petri_net;
 pub mod trace;
 pub mod hypergraph;
 pub mod multiway;
+pub mod equivalence;

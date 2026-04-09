@@ -68,6 +68,7 @@ pub trait CospanAlgebra<Lambda: Eq + Copy + Debug> {
 /// - `map_cospan`: pushout composition `e ; c` where `e: [] → m` and `c: m → p ← n`.
 /// - `lax_monoidal`: monoidal product of cospans.
 /// - `unit`: the empty cospan `[] → [] ← []`.
+#[derive(Default)]
 pub struct PartitionAlgebra;
 
 impl<Lambda> CospanAlgebra<Lambda> for PartitionAlgebra
