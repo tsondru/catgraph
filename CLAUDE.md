@@ -491,12 +491,30 @@ Rust 2024 edition. Common patterns:
 - Use `.is_multiple_of()` instead of `% n == 0`
 - Collapse nested `if let` with `&&` (let chains)
 
+## Fong-Spivak Implementation Status
+
+All core theorems through Theorem 1.2 are implemented. See `docs/FONG-SPIVAK-XREF.md` for section-by-section status.
+
+| Paper section | Status | Module |
+|---------------|--------|--------|
+| §1–2 Core (cospans, spans, monoidal) | ✅ DONE | `cospan.rs`, `span.rs`, `category.rs`, `monoidal.rs` |
+| §2.1 Cospan-algebras (Def 2.2) | ✅ DONE | `cospan_algebra.rs` |
+| §2.3 Hypergraph categories (Def 2.12) | ✅ DONE | `hypergraph_category.rs` |
+| §2.3 Hypergraph functors (Eq 12) | ✅ DONE | `hypergraph_functor.rs` |
+| §3.1 Compact closed (Props 3.1–3.4) | ✅ DONE | `compact_closed.rs` |
+| §3.2 Frobenius generators (Lemma 3.6, Prop 3.8) | ✅ DONE | `frobenius/`, `cospan_algebra.rs` |
+| **§4 Thm 1.2: Hyp_OF ≅ Cospan-Alg** | **✅ DONE** | **`equivalence.rs`** |
+| §3.2 Universal property API | ⚠️ Deferred | — |
+| §3.3 io/ff factorization | ❌ Low priority | — |
+
+**Next: Session 3 (magnitude enrichment)** — WeightedCospan, semiring composition, Tsallis entropy (Bradley-Vigneaux). The §4.2 `CospanAlgebraMorphism` construction is the foundation: enrich `CospanAlgebra` to map to weighted sets for magnitude-enriched hypergraph categories.
+
 ## Future Work
 
 | Area | Notes |
 |------|-------|
 | WeightedCospan | `weight: option<decimal>` on source_of/target_of already in schema |
-| Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation |
+| Magnitude enrichment | Requires WeightedCospan + Tsallis entropy computation; builds on `CospanAlgebraMorphism` (§4.2) |
 | Multiway persistence | `MultiwayEvolutionStore` stub ready (schema DDL + types in schema_v2.rs/types_v2.rs); full save/load deferred until `MultiwayEvolutionGraph` serialization |
 | Benchmark tuning | Criterion benchmarks exist; rayon thresholds validated with correctness tests in `tests/rayon_parallel.rs` |
 | LayeredMorphism | ~76 LOC duplication between FrobeniusMorphism and GenericMonoidalMorphism. Generic extraction deferred (net negative: divergent trait bounds). |
