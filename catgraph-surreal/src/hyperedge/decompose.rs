@@ -117,17 +117,20 @@ impl HyperedgeStore<'_> {
             })
             .collect::<Result<Vec<_>, PersistError>>()?;
         let mut props = hub_properties;
-        if let Some(obj) = props.as_object_mut() {
-            obj.insert("middle_pairs".into(), serde_json::json!(pairs));
-            obj.insert(
-                "is_left_id".into(),
-                serde_json::json!(span.is_left_identity()),
-            );
-            obj.insert(
-                "is_right_id".into(),
-                serde_json::json!(span.is_right_identity()),
-            );
-        }
+        let obj = props.as_object_mut().ok_or_else(|| {
+            PersistError::InvalidData(
+                "hub_properties must be a JSON object to persist span data".into(),
+            )
+        })?;
+        obj.insert("middle_pairs".into(), serde_json::json!(pairs));
+        obj.insert(
+            "is_left_id".into(),
+            serde_json::json!(span.is_left_identity()),
+        );
+        obj.insert(
+            "is_right_id".into(),
+            serde_json::json!(span.is_right_identity()),
+        );
 
         // Create hub
         let src_count = i64::try_from(left.len())
@@ -187,16 +190,19 @@ impl HyperedgeStore<'_> {
         Lambda: Persistable + Copy,
     {
         let mut props = hub_properties;
-        if let Some(obj) = props.as_object_mut() {
-            obj.insert(
-                "left_port_names".into(),
-                serde_json::json!(nc.left_names()),
-            );
-            obj.insert(
-                "right_port_names".into(),
-                serde_json::json!(nc.right_names()),
-            );
-        }
+        let obj = props.as_object_mut().ok_or_else(|| {
+            PersistError::InvalidData(
+                "hub_properties must be a JSON object to persist port names".into(),
+            )
+        })?;
+        obj.insert(
+            "left_port_names".into(),
+            serde_json::json!(nc.left_names()),
+        );
+        obj.insert(
+            "right_port_names".into(),
+            serde_json::json!(nc.right_names()),
+        );
         self.decompose_cospan(nc.cospan(), hub_kind, props, |l| {
             l.to_json_value().to_string()
         })
