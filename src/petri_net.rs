@@ -23,6 +23,13 @@
 //! (monoidal product). [`PetriNet::sequential`] merges sink places of one net
 //! with Lambda-matching source places of another.
 //!
+//! ## MorphismSystem integration
+//!
+//! [`PetriNetDescription`] provides a compositional description language for
+//! building Petri nets via [`MorphismSystem`](crate::frobenius::MorphismSystem).
+//! Register primitive nets, then compose them by name using `Parallel` and
+//! `Sequential` variants. Black boxes are resolved via topological DAG sort.
+//!
 //! See also `examples/petri_net.rs` for chemical reaction modelling.
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -34,6 +41,7 @@ use rust_decimal::Decimal;
 
 use crate::cospan::Cospan;
 use crate::errors::CatgraphError;
+use crate::frobenius::{Contains, InterpretableMorphism};
 
 /// A single transition in a Petri net.
 ///
@@ -477,6 +485,73 @@ where
     }
 }
 
+/// A compositional description of a Petri net for use with
+/// [`MorphismSystem`](crate::frobenius::MorphismSystem).
+///
+/// Each variant describes how to build a `PetriNet<Lambda>`:
+/// - `Primitive` wraps a concrete net (leaf in the DAG).
+/// - `Parallel` takes the monoidal product (disjoint union) of two named nets.
+/// - `Sequential` composes two named nets by merging matching boundary places.
+/// - `BlackBox` is an opaque sub-net resolved by the `MorphismSystem` interpreter.
+#[derive(Clone, Debug)]
+pub enum PetriNetDescription<Lambda: Sized + Eq + Copy + Debug, BlackBoxLabel: Eq + Clone> {
+    /// A concrete Petri net (leaf node in the composition DAG).
+    Primitive(PetriNet<Lambda>),
+    /// Parallel composition (monoidal product) of two named sub-nets.
+    Parallel(BlackBoxLabel, BlackBoxLabel),
+    /// Sequential composition of two named sub-nets (sink/source merging).
+    Sequential(BlackBoxLabel, BlackBoxLabel),
+    /// An opaque named sub-net with declared source and sink place types.
+    BlackBox(BlackBoxLabel, Vec<Lambda>, Vec<Lambda>),
+}
+
+impl<Lambda, BlackBoxLabel> Contains<BlackBoxLabel>
+    for PetriNetDescription<Lambda, BlackBoxLabel>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+    BlackBoxLabel: Eq + Clone,
+{
+    fn contained_labels(&self) -> Vec<BlackBoxLabel> {
+        match self {
+            Self::Primitive(_) => vec![],
+            Self::Parallel(a, b) | Self::Sequential(a, b) => vec![a.clone(), b.clone()],
+            Self::BlackBox(label, _, _) => vec![label.clone()],
+        }
+    }
+}
+
+impl<Lambda, BlackBoxLabel> InterpretableMorphism<PetriNetDescription<Lambda, BlackBoxLabel>, Lambda, BlackBoxLabel>
+    for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+    BlackBoxLabel: Eq + Clone + Debug,
+{
+    fn interpret<F>(
+        desc: &PetriNetDescription<Lambda, BlackBoxLabel>,
+        black_box_interpreter: F,
+    ) -> Result<Self, CatgraphError>
+    where
+        F: Fn(&BlackBoxLabel, &[Lambda], &[Lambda]) -> Result<Self, CatgraphError>,
+    {
+        match desc {
+            PetriNetDescription::Primitive(net) => Ok(net.clone()),
+            PetriNetDescription::Parallel(a, b) => {
+                let net_a = black_box_interpreter(a, &[], &[])?;
+                let net_b = black_box_interpreter(b, &[], &[])?;
+                Ok(net_a.parallel(&net_b))
+            }
+            PetriNetDescription::Sequential(a, b) => {
+                let net_a = black_box_interpreter(a, &[], &[])?;
+                let net_b = black_box_interpreter(b, &[], &[])?;
+                net_a.sequential(&net_b)
+            }
+            PetriNetDescription::BlackBox(label, src, tgt) => {
+                black_box_interpreter(label, src, tgt)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -743,5 +818,153 @@ mod test {
         );
         let composed = a.sequential(&b).unwrap();
         assert_eq!(composed.place_count(), 4);
+    }
+
+    // ── MorphismSystem integration tests ──
+
+    use super::PetriNetDescription;
+    use crate::frobenius::{Contains, MorphismSystem};
+
+    type PetriNetSystem = MorphismSystem<String, char, PetriNetDescription<char, String>, PetriNet<char>>;
+
+    #[test]
+    fn petri_description_contains_labels() {
+        let prim: PetriNetDescription<char, String> =
+            PetriNetDescription::Primitive(combustion_net());
+        assert!(prim.contained_labels().is_empty());
+
+        let par: PetriNetDescription<char, String> =
+            PetriNetDescription::Parallel("a".into(), "b".into());
+        assert_eq!(par.contained_labels(), vec!["a", "b"]);
+
+        let seq: PetriNetDescription<char, String> =
+            PetriNetDescription::Sequential("x".into(), "y".into());
+        assert_eq!(seq.contained_labels(), vec!["x", "y"]);
+
+        let bb: PetriNetDescription<char, String> =
+            PetriNetDescription::BlackBox("z".into(), vec!['H'], vec!['O']);
+        assert_eq!(bb.contained_labels(), vec!["z"]);
+    }
+
+    #[test]
+    fn morphism_system_primitive_resolves() {
+        let mut sys: PetriNetSystem = MorphismSystem::new("comb".into());
+        sys.add_definition_simple(
+            "comb".into(),
+            combustion_net(),
+        ).unwrap();
+        let resolved = sys.fill_black_boxes(None).unwrap();
+        assert_eq!(resolved.place_count(), 3);
+        assert_eq!(resolved.transition_count(), 1);
+    }
+
+    #[test]
+    fn morphism_system_parallel_composition() {
+        let mut sys: PetriNetSystem = MorphismSystem::new("combined".into());
+        let net_a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'b'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        let net_b: PetriNet<char> = PetriNet::new(
+            vec!['c', 'd'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        sys.add_definition_simple("left".into(), net_a).unwrap();
+        sys.add_definition_simple("right".into(), net_b).unwrap();
+        sys.add_definition_composite(
+            "combined".into(),
+            PetriNetDescription::Parallel("left".into(), "right".into()),
+        ).unwrap();
+        let resolved = sys.fill_black_boxes(None).unwrap();
+        assert_eq!(resolved.place_count(), 4);
+        assert_eq!(resolved.transition_count(), 2);
+    }
+
+    #[test]
+    fn morphism_system_sequential_composition() {
+        let mut sys: PetriNetSystem = MorphismSystem::new("pipeline".into());
+        let net_a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'b'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        let net_b: PetriNet<char> = PetriNet::new(
+            vec!['b', 'c'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        sys.add_definition_simple("first".into(), net_a).unwrap();
+        sys.add_definition_simple("second".into(), net_b).unwrap();
+        sys.add_definition_composite(
+            "pipeline".into(),
+            PetriNetDescription::Sequential("first".into(), "second".into()),
+        ).unwrap();
+        let resolved = sys.fill_black_boxes(None).unwrap();
+        // Sequential merges 'b' sink of first with 'b' source of second
+        assert_eq!(resolved.place_count(), 3);
+        assert_eq!(resolved.transition_count(), 2);
+    }
+
+    #[test]
+    fn morphism_system_nested_dag() {
+        // Build: pipeline = sequential(parallel(A, B), C)
+        let mut sys: PetriNetSystem = MorphismSystem::new("pipeline".into());
+
+        let net_a: PetriNet<char> = PetriNet::new(
+            vec!['a', 'x'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        let net_b: PetriNet<char> = PetriNet::new(
+            vec!['b', 'y'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+        let net_c: PetriNet<char> = PetriNet::new(
+            vec!['x', 'z'],
+            vec![Transition::new(vec![(0, d(1))], vec![(1, d(1))])],
+        );
+
+        sys.add_definition_simple("A".into(), net_a).unwrap();
+        sys.add_definition_simple("B".into(), net_b).unwrap();
+        sys.add_definition_simple("C".into(), net_c).unwrap();
+        sys.add_definition_composite(
+            "AB".into(),
+            PetriNetDescription::Parallel("A".into(), "B".into()),
+        ).unwrap();
+        sys.add_definition_composite(
+            "pipeline".into(),
+            PetriNetDescription::Sequential("AB".into(), "C".into()),
+        ).unwrap();
+
+        let resolved = sys.fill_black_boxes(None).unwrap();
+        // AB has 4 places [a,x,b,y], 2 transitions
+        // C has 2 places [x,z], 1 transition
+        // Sequential merges x (sink of AB) with x (source of C)
+        assert_eq!(resolved.place_count(), 5); // a, x(merged), b, y, z
+        assert_eq!(resolved.transition_count(), 3);
+    }
+
+    #[test]
+    fn morphism_system_cycle_detected() {
+        let mut sys: PetriNetSystem = MorphismSystem::new("A".into());
+        sys.add_definition_composite(
+            "A".into(),
+            PetriNetDescription::Sequential("B".into(), "C".into()),
+        ).unwrap();
+        let result = sys.add_definition_composite(
+            "B".into(),
+            PetriNetDescription::Parallel("A".into(), "C".into()),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn morphism_system_black_box_resolves() {
+        let mut sys: PetriNetSystem = MorphismSystem::new("top".into());
+        sys.add_definition_simple("inner".into(), combustion_net()).unwrap();
+        sys.add_definition_composite(
+            "top".into(),
+            PetriNetDescription::BlackBox("inner".into(), vec!['H', 'O'], vec!['W']),
+        ).unwrap();
+        let resolved = sys.fill_black_boxes(None).unwrap();
+        assert_eq!(resolved.place_count(), 3);
+        assert_eq!(resolved.transition_count(), 1);
     }
 }
