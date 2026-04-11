@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["catgraph", "catgraph-surreal"]
+members = ["catgraph"]
 
-# Phase 0.0 commit 2 will remove catgraph-surreal from this list once it
-# has been extracted to its own repo at github.com/tsondru/catgraph-surreal.
+# Phase 2 will add: members = ["catgraph", "catgraph-physics"]
+# Phase 3 will add: members = ["catgraph", "catgraph-physics", "catgraph-applied"]
