@@ -31,15 +31,6 @@
 //! - [`finset`] — finite set morphisms, epi-mono factorization, permutations
 //! - [`linear_combination`] — formal linear combinations over a coefficient ring
 //!
-//! ## Computational structures
-//!
-//! - [`interval`] / [`complexity`] / [`computation_state`] — discrete interval algebra
-//!   for cobordism categories and complexity measures
-//! - [`adjunction`] / [`bifunctor`] / [`coherence`] / [`stokes`] — functorial
-//!   irreducibility framework (adjunctions, tensor products, coherence verification)
-//! - [`trace`] — generic [`IrreducibilityTrace`](trace::IrreducibilityTrace) trait,
-//!   [`analyze_trace`](trace::analyze_trace), repeat detection
-//!
 //! ## Petri nets
 //!
 //! - [`petri_net`] — place/transition nets with cospan bridge, firing, reachability,
@@ -51,13 +42,6 @@ pub mod category;
 pub mod monoidal;
 pub mod operadic;
 pub mod finset;
-pub mod interval;
-pub mod complexity;
-pub mod computation_state;
-pub mod adjunction;
-pub mod bifunctor;
-pub mod coherence;
-pub mod stokes;
 pub mod frobenius;
 pub mod compact_closed;
 pub mod cospan;
@@ -72,7 +56,6 @@ pub mod temperley_lieb;
 pub mod e1_operad;
 pub mod e2_operad;
 pub mod petri_net;
-pub mod trace;
 pub mod hypergraph;
 pub mod multiway;
 pub mod equivalence;

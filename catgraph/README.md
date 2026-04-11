@@ -2,11 +2,11 @@
 
 Category-theoretic graph structures in Rust, built on the cospan semantics of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304).
 
-Cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete curvature, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, lattice gauge theory, bifunctors, adjunctions, monoidal coherence verification, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
+Cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete curvature, Petri nets, wiring diagrams, Frobenius algebras, E_n operads, lattice gauge theory, and morphisms in (symmetric) monoidal categories, with SurrealDB persistence.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-939 tests (including 20+ proptest properties), zero clippy pedantic warnings (lib), criterion benchmarks. Rust 2024 edition.
+823 tests (including 20+ proptest properties), zero clippy pedantic warnings (lib), criterion benchmarks. Rust 2024 edition.
 
 ## Component Index
 
@@ -35,14 +35,6 @@ Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hype
 | `hypergraph/gauge.rs` | `GaugeGroup`, `HypergraphLattice` | Lattice gauge theory, Wilson loops, plaquette action |
 | `hypergraph/multiway_cospan.rs` | `MultiwayCospanExt` | Causal invariance via cospan composition |
 | `multiway/` | `MultiwayEvolutionGraph`, `BranchialGraph`, `OllivierRicciCurvature` | Multiway BFS, branchial foliation, discrete curvature |
-| `interval.rs` | `DiscreteInterval`, `ParallelIntervals` | Interval composition, containment, tensor product |
-| `complexity.rs` | `Complexity`, `StepCount` | Complexity measures, sequential composition |
-| `computation_state.rs` | `ComputationState` | State lifecycle, interval mapping |
-| `adjunction.rs` | `ZPrimeOps`, `AdjunctionVerification` | Triangle identities, adjunction gap |
-| `bifunctor.rs` | `TensorProduct`, `IntervalTransform` | Bifunctor laws verification |
-| `coherence.rs` | `CoherenceVerification`, `DifferentialCoherence` | Monoidal coherence axioms |
-| `stokes.rs` | `TemporalComplex`, `ConservationResult` | Simplicial complex, conservation verification |
-| `trace.rs` | `IrreducibilityTrace`, `analyze_trace` | Trace analysis, repeat detection |
 | `catgraph-surreal/` | `CospanStore`, `HyperedgeStore`, `PetriNetStore`, ... | SurrealDB persistence (V1 + V2) |
 
 ## Fong-Spivak Feature Map
@@ -82,12 +74,6 @@ Features beyond the Fong-Spivak paper:
 | Lattice gauge theory | `hypergraph/gauge.rs` | `GaugeGroup` trait, rewrite-based gauge groups, plaquette/total action, Wilson loops. |
 | Finite sets | `finset.rs` | Permutations, order-preserving surjections/injections, epi-mono factorization. |
 | Linear combinations | `linear_combination.rs` | Formal linear combinations over a ring with rayon-parallel multiplication. |
-| Interval algebra | `interval.rs` | `DiscreteInterval`, `ParallelIntervals` — composition, containment, tensor product. |
-| Computation framework | `complexity.rs`, `computation_state.rs`, `trace.rs` | `StepCount` algebra, state lifecycle, irreducibility trace analysis. |
-| Adjunctions | `adjunction.rs` | `ZPrimeOps`, triangle identities, adjunction gap verification. |
-| Bifunctors | `bifunctor.rs` | `TensorProduct` trait, `IntervalTransform`, associativity/unit/symmetry verification. |
-| Monoidal coherence | `coherence.rs` | Associator, unitor, and braiding coherence axiom verification. |
-| Stokes / conservation | `stokes.rs` | `TemporalComplex` (simplicial), conservation verification, exterior derivative. |
 | SurrealDB persistence | `catgraph-surreal/` | V1 (embedded arrays) + V2 (RELATE-based graph) persistence with FTS, HNSW, traversal. |
 
 ## What catgraph implements
@@ -356,12 +342,6 @@ cargo run --example e2_operad           # Little disks operad
 cargo run --example wiring_diagram      # Wiring diagram operad
 cargo run --example temperley_lieb      # TL/Brauer generators
 cargo run --example linear_combination  # Linear combinations over morphisms
-cargo run --example interval            # DiscreteInterval + ParallelIntervals
-cargo run --example complexity          # StepCount + Complexity trait
-cargo run --example computation_state   # ComputationState lifecycle
-cargo run --example adjunction          # ZPrimeOps + AdjunctionVerification
-cargo run --example bifunctor           # TensorProduct + IntervalTransform
-cargo run --example coherence           # CoherenceVerification + DifferentialCoherence
 cargo run --example stokes              # TemporalComplex + ConservationResult
 cargo run --example hypergraph          # DPO rewriting, evolution, cospan bridge
 cargo run --example multiway            # Multiway BFS, branchial foliation, curvature
@@ -387,7 +367,6 @@ Integration test suites:
 | `finset_coverage` | 20 | FinSet morphisms, decomposition, edge cases |
 | `frobenius_laws` | 8 | Braiding, spider fusion, unit/counit, monoidal |
 | `hypergraph_rewriting` | 20 | DPO rewriting, match finding, rule application |
-| `interval_laws` | 8 | Interval composition, containment, algebra laws |
 | `linear_combination_coverage` | 11 | Ring axioms, scalar mul, parallel mul |
 | `monoidal_structure` | 6 | Tensor associativity/unit, braiding, permute_side |
 | `morphism_system` | 8 | DAG resolution, cycle detection, multi-level fill |
@@ -401,11 +380,6 @@ Integration test suites:
 | `temperley_lieb` | 10 | TL/symmetric generators, braid relation, monoidal |
 | `wiring_diagram` | 14 | Operadic substitution, boundary mutations, map, sequential composition |
 | `stokes_laws` | 8 | Conservation verification, cospan chain, exterior derivative |
-| `adjunction_laws` | 5 | Triangle identities, adjunction gap, irreducibility |
-| `bifunctor_laws` | 6 | Tensor associativity/unit/symmetry, bimap |
-| `coherence_laws` | 7 | All 4 coherence axioms, DifferentialCoherence |
-| `complexity_laws` | 6 | Sequential/parallel composition, StepCount algebra |
-| `computation_state_laws` | 7 | State lifecycle, interval mapping, fingerprints |
 | `gauge_theory` | 19 | Structure constants, Wilson loops, DPO on lattice, plaquette action |
 | `compact_closed` | 44 | Cup/cap, zigzag identities, tensor ordering, name bijection, compose_names direct/via-unname equivalence, Prop 3.4 literal form |
 | `cospan_algebra` | 25 | PartitionAlgebra, NameAlgebra, functoriality, lax monoidal, Prop 4.6 initiality proptest, Lemma 4.3 A_F functor induction |
@@ -433,7 +407,6 @@ Criterion benchmarks in `benches/` cover core operations and rayon threshold val
 cargo bench                              # run all benchmarks
 cargo bench --bench pushout              # cospan pushout composition (sizes 4–1024)
 cargo bench --bench pullback             # span pullback composition (sizes 4–1024)
-cargo bench --bench interval             # interval composition, tensor, direct sum
 cargo bench --bench rayon_thresholds     # validate rayon parallel thresholds
 ```
 

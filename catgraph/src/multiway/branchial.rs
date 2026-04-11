@@ -19,7 +19,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 
 use super::evolution_graph::{MergePoint, MultiwayEvolutionGraph, MultiwayNodeId};
-use crate::interval::ParallelIntervals;
 
 /// A branchial graph at a specific time step.
 ///
@@ -199,29 +198,27 @@ pub fn extract_branchial_foliation<S: Clone + Hash, T: Clone>(
         .collect()
 }
 
-/// Compute P`arallelIntervals` from branchial structure.
+/// Compute parallel-branch step pairs from the branchial foliation.
 ///
-/// At each step, creates intervals for each parallel branch.
+/// At each step boundary `(t, t+1)`, yields one `(t, t+1)` entry per node at
+/// step `t` that has at least one forward transition. Downstream consumers
+/// (e.g. `irreducible`) wrap the raw `(usize, usize)` pairs in their own
+/// interval types — this helper keeps catgraph interval-type-free.
 #[must_use]
-pub fn branchial_to_parallel_intervals<S: Clone + Hash, T: Clone>(
+pub fn branchial_parallel_step_pairs<S: Clone + Hash, T: Clone>(
     graph: &MultiwayEvolutionGraph<S, T>,
-) -> Vec<ParallelIntervals> {
+) -> Vec<Vec<(usize, usize)>> {
     let foliation = extract_branchial_foliation(graph);
 
     foliation
         .windows(2)
         .map(|pair| {
-            let mut intervals = ParallelIntervals::new();
-            // Each node at step t that transitions to step t+1 contributes an interval
-            for &node_id in &pair[0].nodes {
-                if graph.get_forward_edges(&node_id).is_some() {
-                    intervals.add_branch(crate::interval::DiscreteInterval::new(
-                        pair[0].step,
-                        pair[1].step,
-                    ));
-                }
-            }
-            intervals
+            pair[0]
+                .nodes
+                .iter()
+                .filter(|&node_id| graph.get_forward_edges(node_id).is_some())
+                .map(|_| (pair[0].step, pair[1].step))
+                .collect()
         })
         .collect()
 }

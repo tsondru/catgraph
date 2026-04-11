@@ -6,7 +6,7 @@
 //! without domain-specific computation models.
 
 use catgraph::multiway::{
-    branchial_to_parallel_intervals, extract_branchial_foliation, run_multiway_bfs,
+    branchial_parallel_step_pairs, extract_branchial_foliation, run_multiway_bfs,
     BranchId, BranchialGraph, BranchialSummary, DiscreteCurvature,
     MultiwayEvolutionGraph, MultiwayNodeId, OllivierFoliation, OllivierRicciCurvature,
     wasserstein_1,
@@ -172,11 +172,11 @@ fn branchial_summary_peak_branching() {
 }
 
 // ---------------------------------------------------------------------------
-// branchial_to_parallel_intervals
+// branchial_parallel_step_pairs
 // ---------------------------------------------------------------------------
 
 #[test]
-fn parallel_intervals_match_branch_counts() {
+fn parallel_step_pairs_match_branch_counts() {
     let mut graph: MultiwayEvolutionGraph<i32, ()> = MultiwayEvolutionGraph::new();
     let root = graph.add_root(0);
     let ids = graph.add_fork(root, vec![(1, (), 0), (2, (), 1)]);
@@ -184,16 +184,18 @@ fn parallel_intervals_match_branch_counts() {
     graph.add_sequential_step(ids[0], 10, ());
     graph.add_sequential_step(ids[1], 20, ());
 
-    let parallel = branchial_to_parallel_intervals(&graph);
+    let parallel = branchial_parallel_step_pairs(&graph);
 
     // Foliation has steps 0, 1, 2 -> two windows: [0->1] and [1->2]
     assert_eq!(parallel.len(), 2);
 
-    // Window [0->1]: root has outgoing edges -> 1 interval
-    assert_eq!(parallel[0].branch_count(), 1);
+    // Window [0->1]: root has outgoing edges -> 1 pair
+    assert_eq!(parallel[0].len(), 1);
+    assert_eq!(parallel[0][0], (0, 1));
 
-    // Window [1->2]: both fork children have outgoing edges -> 2 intervals
-    assert_eq!(parallel[1].branch_count(), 2);
+    // Window [1->2]: both fork children have outgoing edges -> 2 pairs
+    assert_eq!(parallel[1].len(), 2);
+    assert!(parallel[1].iter().all(|&p| p == (1, 2)));
 }
 
 // ---------------------------------------------------------------------------

@@ -332,6 +332,36 @@ where
     }
 }
 
+/// Fold-compose a chain of cospans into a single composite cospan.
+///
+/// Given a sequence `c_0, c_1, ..., c_{n-1}` of `Cospan<Lambda>` values,
+/// returns `c_0 ; c_1 ; ... ; c_{n-1}` by successive pushout composition.
+/// The first cospan in the iterator seeds the accumulator; each subsequent
+/// cospan must be composable (its domain must match the running codomain),
+/// otherwise composition fails at the first mismatch.
+///
+/// This is the canonical way to build a composite cospan from a chain, and
+/// is used (for example) by temporal / interval-decomposed cospan sequences
+/// in downstream consumers.
+///
+/// # Errors
+///
+/// - `CatgraphError::Composition { message: "empty cospan chain" }` if the
+///   iterator yields no cospans.
+/// - Any `CatgraphError` returned by an intermediate `Cospan::compose` call
+///   when adjacent cospans' interfaces don't line up.
+pub fn compose_chain<Lambda, I>(cospans: I) -> Result<Cospan<Lambda>, CatgraphError>
+where
+    Lambda: Eq + Sized + Copy + Debug,
+    I: IntoIterator<Item = Cospan<Lambda>>,
+{
+    let mut iter = cospans.into_iter();
+    let first = iter.next().ok_or_else(|| CatgraphError::Composition {
+        message: "empty cospan chain".to_string(),
+    })?;
+    iter.try_fold(first, |acc, c| acc.compose(&c))
+}
+
 impl<Lambda> HasIdentity<Vec<Lambda>> for Cospan<Lambda>
 where
     Lambda: Eq + Copy + Debug,
@@ -578,6 +608,55 @@ mod test {
         use super::Cospan;
         let empty_cospan = Cospan::<u32>::empty();
         assert!(empty_cospan.is_empty());
+    }
+
+    #[test]
+    fn compose_chain_empty_is_error() {
+        use super::{compose_chain, Cospan};
+        let empty: Vec<Cospan<u32>> = vec![];
+        let result = compose_chain(empty);
+        assert!(result.is_err(), "empty chain should return Err");
+    }
+
+    #[test]
+    fn compose_chain_single_is_identity_on_input() {
+        use super::{compose_chain, Cospan};
+        let c = Cospan::new(vec![0], vec![1], vec![10u32, 20]);
+        let result = compose_chain(vec![c.clone()]).unwrap();
+        assert_eq!(result.domain(), c.domain());
+        assert_eq!(result.codomain(), c.codomain());
+        assert_eq!(result.middle(), c.middle());
+    }
+
+    #[test]
+    fn compose_chain_pair_matches_manual_compose() {
+        use super::{compose_chain, Cospan};
+        // Three composable u32-typed cospans representing a contiguous
+        // interval chain [0,1] ; [1,2] ; [2,3]. Each cospan has the
+        // interval structure used by stokes: left=[0], right=[1], middle=[t_i, t_{i+1}].
+        let c0 = Cospan::new(vec![0], vec![1], vec![0u32, 1]);
+        let c1 = Cospan::new(vec![0], vec![1], vec![1u32, 2]);
+        let c2 = Cospan::new(vec![0], vec![1], vec![2u32, 3]);
+
+        let folded = compose_chain(vec![c0.clone(), c1.clone(), c2.clone()]).unwrap();
+        let manual = c0.compose(&c1).unwrap().compose(&c2).unwrap();
+
+        assert_eq!(folded.domain(), manual.domain());
+        assert_eq!(folded.codomain(), manual.codomain());
+        assert_eq!(folded.middle(), manual.middle());
+        // Domain should be [0u32], codomain [3u32]
+        assert_eq!(folded.domain(), vec![0u32]);
+        assert_eq!(folded.codomain(), vec![3u32]);
+    }
+
+    #[test]
+    fn compose_chain_propagates_mismatch_error() {
+        use super::{compose_chain, Cospan};
+        // Second cospan's left boundary type [5] doesn't match first's right [2].
+        let c0 = Cospan::new(vec![0], vec![1], vec![1u32, 2]);
+        let c1 = Cospan::new(vec![0], vec![1], vec![5u32, 6]);
+        let result = compose_chain(vec![c0, c1]);
+        assert!(result.is_err(), "mismatched chain should return Err");
     }
 
     #[test]

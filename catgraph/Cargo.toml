@@ -1,6 +1,6 @@
 [package]
 name = "catgraph"
-version = "0.10.4"
+version = "0.10.5"
 edition = "2024"
 license = "MIT"
 description = "Category-theoretic graph structures: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, and morphisms in symmetric monoidal categories"
@@ -34,10 +34,6 @@ harness = false
 
 [[bench]]
 name = "pullback"
-harness = false
-
-[[bench]]
-name = "interval"
 harness = false
 
 [[bench]]

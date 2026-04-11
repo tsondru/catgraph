@@ -21,7 +21,6 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use crate::interval::DiscreteInterval;
 
 /// Unique identifier for a branch in the multiway graph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -487,30 +486,13 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
         cycles
     }
 
-    /// Convert to interval sequences for each branch.
-    ///
-    /// Each branch (path from root to leaf) gets a sequence of intervals
-    /// representing its computational steps.
-    #[must_use]
-    pub fn to_branch_intervals(&self) -> Vec<Vec<DiscreteInterval>> {
-        let mut result = Vec::new();
-
-        for &leaf in &self.leaves {
-            let path = self.trace_path_to_root(leaf);
-            if path.len() > 1 {
-                let intervals: Vec<DiscreteInterval> = path
-                    .windows(2)
-                    .map(|w| DiscreteInterval::new(w[0].step, w[1].step))
-                    .collect();
-                result.push(intervals);
-            }
-        }
-
-        result
-    }
-
     /// Trace path from a node back to its root.
-    fn trace_path_to_root(&self, from: MultiwayNodeId) -> Vec<MultiwayNodeId> {
+    ///
+    /// Public so downstream crates (e.g. `irreducible`) can reimplement
+    /// interval-bridge helpers without needing the private fields of
+    /// `MultiwayEvolutionGraph`.
+    #[must_use]
+    pub fn trace_path_to_root(&self, from: MultiwayNodeId) -> Vec<MultiwayNodeId> {
         let mut path = vec![from];
         let mut current = from;
 
@@ -799,17 +781,23 @@ mod tests {
     }
 
     #[test]
-    fn test_to_branch_intervals() {
+    fn test_trace_path_to_root_linear_chain() {
+        // Regression test replacing the old to_branch_intervals test.
+        // trace_path_to_root is now the public primitive downstream crates
+        // build interval/step bridges on top of.
         let mut graph: MultiwayEvolutionGraph<char, ()> = MultiwayEvolutionGraph::new();
         let root = graph.add_root('A');
         let n1 = graph.add_sequential_step(root, 'B', ());
-        let _n2 = graph.add_sequential_step(n1, 'C', ());
+        let n2 = graph.add_sequential_step(n1, 'C', ());
 
-        let intervals = graph.to_branch_intervals();
-        assert_eq!(intervals.len(), 1);
-        assert_eq!(intervals[0].len(), 2);
-        assert_eq!(intervals[0][0], DiscreteInterval::new(0, 1));
-        assert_eq!(intervals[0][1], DiscreteInterval::new(1, 2));
+        let path = graph.trace_path_to_root(n2);
+        assert_eq!(path.len(), 3, "A -> B -> C is length-3 path");
+        assert_eq!(path[0], root, "path starts at root");
+        assert_eq!(path[2], n2, "path ends at leaf");
+        // Steps progress 0, 1, 2 along a sequential chain.
+        assert_eq!(path[0].step, 0);
+        assert_eq!(path[1].step, 1);
+        assert_eq!(path[2].step, 2);
     }
 
     #[test]

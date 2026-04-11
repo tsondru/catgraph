@@ -21,7 +21,7 @@ pub use evolution_graph::{
     MultiwayEvolutionGraph, MultiwayNode, MultiwayNodeId, MultiwayStatistics,
 };
 pub use branchial::{
-    branchial_to_parallel_intervals, extract_branchial_foliation, find_all_merge_points,
+    branchial_parallel_step_pairs, extract_branchial_foliation, find_all_merge_points,
     BranchialGraph, BranchialStepStats, BranchialSummary,
 };
 pub use curvature::{CurvatureFoliation, DiscreteCurvature};
