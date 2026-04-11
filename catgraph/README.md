@@ -6,7 +6,7 @@ Cospans, spans, hypergraph rewriting (DPO), multiway evolution with discrete cur
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics, add relation algebra, Temperley-Lieb/Brauer diagrams, E_n operads, morphism systems, and SurrealDB persistence.
 
-1080+ tests (including 20 proptest properties), zero clippy warnings, criterion benchmarks. Rust 2024 edition.
+939 tests (including 20+ proptest properties), zero clippy pedantic warnings (lib), criterion benchmarks. Rust 2024 edition.
 
 ## Component Index
 
@@ -18,7 +18,7 @@ Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hype
 | `named_cospan.rs` | `NamedCospan<Lambda, L, R>` | Port-labeled cospans for wiring-style composition |
 | `monoidal.rs` | `Monoidal`, `SymmetricMonoidalMorphism`, `GenericMonoidalMorphism` | Tensor product, braiding, generic layered morphisms |
 | `frobenius/` | `FrobeniusMorphism`, `MorphismSystem` | String diagram morphisms, DAG-based black-box interpretation |
-| `compact_closed.rs` | `cup`, `cap`, `name`, `unname`, `compose_names` | Self-dual compact closed structure (§3.1) |
+| `compact_closed.rs` | `cup`, `cap`, `name`, `unname`, `compose_names_direct` / `_via_unname` / `compose_names` | Self-dual compact closed structure (§3.1), Prop 3.3 literal form |
 | `cospan_algebra.rs` | `CospanAlgebra`, `PartitionAlgebra`, `NameAlgebra` | Lax monoidal functors Cospan → Set (§2.1) |
 | `hypergraph_category.rs` | `HypergraphCategory` | Frobenius generators η, ε, μ, δ with cup/cap (§2.3) |
 | `hypergraph_functor.rs` | `HypergraphFunctor`, `RelabelingFunctor`, `CospanToFrobeniusFunctor` | Structure-preserving maps between hypergraph categories (§2.3) |
@@ -59,7 +59,9 @@ Features implementing structures from [Fong & Spivak, *Hypergraph Categories*](h
 | Def 2.5 | `frobenius/` | `FrobeniusMorphism` — string diagram morphisms from the 4 Frobenius generators. `MorphismSystem` DAG for named composition. Ex 2.8: generators as cospans. |
 | Def 2.12 | `hypergraph_category.rs` | `HypergraphCategory` trait — Frobenius generators (η, ε, μ, δ) with derived cup/cap. Prop 2.18 (strict case) implicitly satisfied. |
 | Def 2.12, Eq 12 | `hypergraph_functor.rs` | `HypergraphFunctor` trait — structure-preserving maps. `RelabelingFunctor` (Thm 3.14: free functor). |
-| Prop 3.1–3.4 | `compact_closed.rs` | Self-dual compact closed — cup/cap (Prop 3.1), name bijection (Prop 3.2), composition-via-names (Prop 3.3–3.4). Zigzag identities (Eq 13). |
+| Prop 3.1–3.4 | `compact_closed.rs` | Self-dual compact closed — cup/cap (Prop 3.1), name bijection (Prop 3.2), `compose_names_direct` realising the literal Prop 3.3 formula `(f̂ ⊗ ĝ) ; comp^Y_{X,Z}`, Prop 3.4 recovery tested by explicit `(id_X ⊗ f̂) ; (cap_X ⊗ id_Y)` construction. Zigzag identities (Eq 13). |
+| Lemma 4.3 | `cospan_algebra.rs` | `functor_induced_algebra_map` lifts any `HypergraphFunctor` to a cospan-algebra morphism α: A_H → A_H'. Tests verify naturality, monoidality, and unit preservation for `RelabelingFunctor` and `CospanToFrobeniusFunctor`. |
+| Lemma 4.9 | `equivalence.rs` | `functor_from_algebra_morphism` lifts a monoidal natural transformation α: A → B to the induced io hypergraph functor F_α: H_A → H_B by pointwise application. |
 | Lemma 3.6, Prop 3.8 | `cospan_algebra.rs`, `hypergraph_functor.rs` | `cospan_to_frobenius` + `CospanToFrobeniusFunctor` — epi-mono decomposition into Frobenius generators. |
 | **Thm 1.2** (= 4.13, 4.16) | `equivalence.rs` | `CospanAlgebraMorphism<A>` (Lemma 4.8): cospan-algebra → hypergraph category. `comp_cospan` (Ex 3.5, Eq 32). Identity/Frobenius via Eq 33. Roundtrip: `Hyp_OF ≅ Cospan-Alg`. |
 
@@ -405,9 +407,9 @@ Integration test suites:
 | `complexity_laws` | 6 | Sequential/parallel composition, StepCount algebra |
 | `computation_state_laws` | 7 | State lifecycle, interval mapping, fingerprints |
 | `gauge_theory` | 19 | Structure constants, Wilson loops, DPO on lattice, plaquette action |
-| `compact_closed` | 33 | Cup/cap, zigzag identities, tensor ordering, name bijection, compose_names |
-| `cospan_algebra` | 13 | PartitionAlgebra, NameAlgebra, functoriality, lax monoidal coherence |
-| `equivalence` | 17 | H_Part axioms, comp_cospan, roundtrip Hyp_OF ≅ Cospan-Alg (Thm 1.2) |
+| `compact_closed` | 44 | Cup/cap, zigzag identities, tensor ordering, name bijection, compose_names direct/via-unname equivalence, Prop 3.4 literal form |
+| `cospan_algebra` | 25 | PartitionAlgebra, NameAlgebra, functoriality, lax monoidal, Prop 4.6 initiality proptest, Lemma 4.3 A_F functor induction |
+| `equivalence` | 22 | H_Part axioms, comp_cospan, roundtrip Hyp_OF ≅ Cospan-Alg (Thm 1.2), Lemma 4.9 F_α io functor |
 | `rayon_parallel` | 4 | Above-threshold correctness for 4 rayon-enabled modules |
 
 ## Parallelization
