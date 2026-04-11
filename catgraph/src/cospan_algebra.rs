@@ -174,6 +174,63 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Lemma 4.3: A_F natural transformation from a hypergraph functor F: H → H'
+// ---------------------------------------------------------------------------
+
+/// Lemma 4.3 — induced cospan-algebra morphism `α: A_H → A_H'` from a hypergraph
+/// functor `F: H → H'`.
+///
+/// The element-wise formula is `α_x(e) := F(e)` — a simple pointwise application
+/// of the functor to each element of `A_H(x) = H(I, P(x))`. The content of
+/// Lemma 4.3 is that this pointwise map is automatically a monoidal natural
+/// transformation between the two name-algebras whenever `F` preserves
+/// composition, tensor product, and Frobenius structure (i.e., whenever `F` is
+/// a hypergraph functor).
+///
+/// This free function is the direct embodiment of the paper's construction:
+/// it is a thin wrapper around `F.map_mor(e)` whose purpose is to make the
+/// Lemma 4.3 correspondence explicit at the type level. Callers plug in any
+/// [`HypergraphFunctor`](crate::hypergraph_functor::HypergraphFunctor) impl and
+/// obtain the induced algebra map for free.
+///
+/// # Type parameters
+///
+/// - `L1`: source label set
+/// - `L2`: target label set
+/// - `Src`: source category morphism type (must impl
+///   [`HypergraphCategory<L1>`](crate::hypergraph_category::HypergraphCategory))
+/// - `Tgt`: target category morphism type (must impl
+///   [`HypergraphCategory<L2>`](crate::hypergraph_category::HypergraphCategory))
+/// - `F`: the hypergraph functor
+///
+/// # Errors
+///
+/// Propagates any [`CatgraphError`] returned by `functor.map_mor`.
+///
+/// # Verification
+///
+/// Naturality, monoidality, and unit preservation of the induced morphism are
+/// verified as proptests in `tests/cospan_algebra.rs` for two concrete cases:
+///
+/// - `F = RelabelingFunctor` on `Cospan<L1> → Cospan<L2>` with two
+///   [`PartitionAlgebra`] instances
+/// - `F = CospanToFrobeniusFunctor` on `Cospan<L> → FrobeniusMorphism<L, BL>`
+///   relating [`PartitionAlgebra`] to [`NameAlgebra`]
+pub fn functor_induced_algebra_map<L1, L2, Src, Tgt, F>(
+    functor: &F,
+    element: &Src,
+) -> Result<Tgt, CatgraphError>
+where
+    L1: Eq + Copy + Debug,
+    L2: Eq + Copy + Debug,
+    Src: crate::hypergraph_category::HypergraphCategory<L1>,
+    Tgt: crate::hypergraph_category::HypergraphCategory<L2>,
+    F: crate::hypergraph_functor::HypergraphFunctor<L1, L2, Src, Tgt>,
+{
+    functor.map_mor(element)
+}
+
 /// Convert a `Cospan<Lambda>` into a `FrobeniusMorphism` by decomposing
 /// each leg through epi-mono factorization (Fong-Spivak Lemma 3.6).
 ///

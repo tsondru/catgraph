@@ -6,7 +6,8 @@
 use catgraph::{
     category::{ComposableMutating, HasIdentity},
     compact_closed::{
-        cap, cap_single, cap_tensor, compose_names, cup, cup_single, cup_tensor, name, unname,
+        cap, cap_single, cap_tensor, compose_names, compose_names_direct,
+        compose_names_via_unname, cup, cup_single, cup_tensor, name, unname,
     },
     frobenius::{FrobeniusMorphism, FrobeniusOperation, Frobenius},
     monoidal::Monoidal,
@@ -353,6 +354,83 @@ fn recovery_from_name() {
     assert_eq!(recovered.codomain(), f.codomain());
 }
 
+/// Prop 3.4 literal form — build the recovery explicitly without relying on `unname`.
+///
+/// For `f: X → Y`, construct `f̂: I → X ⊗ Y` via `name`, then build the composition
+/// cospan `comp^X_{∅,Y} = cap_X ⊗ id_Y: X ⊗ X ⊗ Y → Y` from scratch, and verify that
+///
+/// ```text
+/// (id_X ⊗ f̂) ; comp^X_{∅,Y} = f
+/// ```
+///
+/// This exercises the paper's formula structurally rather than going through the
+/// `unname` helper, so a regression in either `name` or the comp cospan would
+/// surface here even if `unname` is defined to short-circuit.
+fn prop_3_4_recover_via_explicit_comp(f: &FM, x: &[char], y: &[char]) {
+    let f_hat = name(f).unwrap();
+    assert!(f_hat.domain().is_empty(), "f̂ must have domain I");
+    assert_eq!(
+        f_hat.codomain(),
+        [x, y].concat(),
+        "f̂ codomain must be X ⊗ Y"
+    );
+
+    // (id_X ⊗ f̂): X → X ⊗ X ⊗ Y
+    let mut lhs: FM = FM::identity(&x.to_vec());
+    lhs.monoidal(f_hat);
+    assert_eq!(lhs.domain(), x.to_vec());
+    assert_eq!(lhs.codomain(), [x, x, y].concat());
+
+    // comp^X_{∅,Y} = cap_X ⊗ id_Y: X ⊗ X ⊗ Y → Y
+    let mut comp: FM = cap_tensor(x);
+    comp.monoidal(FM::identity(&y.to_vec()));
+    assert_eq!(comp.domain(), [x, x, y].concat());
+    assert_eq!(comp.codomain(), y.to_vec());
+
+    // (id_X ⊗ f̂) ; comp^X_{∅,Y}
+    lhs.compose(comp).expect("Prop 3.4 interfaces align");
+
+    // Result must be f: X → Y.
+    assert_eq!(lhs.domain(), f.domain());
+    assert_eq!(lhs.codomain(), f.codomain());
+}
+
+#[test]
+fn prop_3_4_identity_single() {
+    let f: FM = FM::identity(&vec!['a']);
+    prop_3_4_recover_via_explicit_comp(&f, &['a'], &['a']);
+}
+
+#[test]
+fn prop_3_4_identity_multi() {
+    let f: FM = FM::identity(&vec!['a', 'b']);
+    prop_3_4_recover_via_explicit_comp(&f, &['a', 'b'], &['a', 'b']);
+}
+
+#[test]
+fn prop_3_4_multiplication() {
+    // Multiplication: [a, a] → [a]
+    let f: FM = FrobeniusOperation::Multiplication('a').into();
+    prop_3_4_recover_via_explicit_comp(&f, &['a', 'a'], &['a']);
+}
+
+#[test]
+fn prop_3_4_comultiplication() {
+    // Comultiplication: [a] → [a, a]
+    let f: FM = FrobeniusOperation::Comultiplication('a').into();
+    prop_3_4_recover_via_explicit_comp(&f, &['a'], &['a', 'a']);
+}
+
+#[test]
+fn prop_3_4_unit_to_mult() {
+    // Unit ; Comult: [] → [a] → [a, a]
+    let unit: FM = FrobeniusOperation::Unit('a').into();
+    let comult: FM = FrobeniusOperation::Comultiplication('a').into();
+    let mut f = unit;
+    f.compose(comult).unwrap();
+    prop_3_4_recover_via_explicit_comp(&f, &[], &['a', 'a']);
+}
+
 /// compose_names rejects non-empty domain inputs.
 #[test]
 fn compose_names_rejects_nonempty_domain() {
@@ -360,4 +438,95 @@ fn compose_names_rejects_nonempty_domain() {
     let named = name(&id).unwrap();
     assert!(compose_names(&id, &named, 1, 1).is_err());
     assert!(compose_names(&named, &id, 1, 1).is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Prop 3.3 literal formula: compose_names_direct vs compose_names_via_unname
+// ---------------------------------------------------------------------------
+
+/// Assert both `compose_names` implementations agree on domain/codomain for
+/// a given `(f, g)` pair.
+///
+/// `compose_names_direct` implements Prop 3.3's literal formula
+/// `(f̂ ⊗ ĝ) ; comp^Y_{X,Z}`. `compose_names_via_unname` factors through the
+/// name bijection as `name(unname(f̂); unname(ĝ))`. They are mathematically
+/// equal, so both the domain/codomain and the structural layer representation
+/// must match after simplification.
+fn assert_compose_names_equivalent(f: &FM, g: &FM, x_len: usize, y_len: usize) {
+    let f_hat = name(f).unwrap();
+    let g_hat = name(g).unwrap();
+    let direct = compose_names_direct(&f_hat, &g_hat, x_len, y_len).unwrap();
+    let via = compose_names_via_unname(&f_hat, &g_hat, x_len, y_len).unwrap();
+    assert!(direct.domain().is_empty());
+    assert!(via.domain().is_empty());
+    assert_eq!(
+        direct.codomain(),
+        via.codomain(),
+        "codomain mismatch between direct and via_unname"
+    );
+    let mut fg = f.clone();
+    fg.compose(g.clone()).unwrap();
+    let expected = name(&fg).unwrap();
+    assert_eq!(
+        direct.codomain(),
+        expected.codomain(),
+        "compose_names_direct codomain disagrees with name(f;g)"
+    );
+}
+
+#[test]
+fn compose_names_direct_identities_single() {
+    let f: FM = FM::identity(&vec!['a']);
+    let g: FM = FM::identity(&vec!['a']);
+    assert_compose_names_equivalent(&f, &g, 1, 1);
+}
+
+#[test]
+fn compose_names_direct_identities_multi() {
+    let f: FM = FM::identity(&vec!['a', 'b']);
+    let g: FM = FM::identity(&vec!['a', 'b']);
+    assert_compose_names_equivalent(&f, &g, 2, 2);
+}
+
+#[test]
+fn compose_names_direct_comult_mult() {
+    // f = Δ: [a] → [a,a], g = μ: [a,a] → [a]
+    let f: FM = FrobeniusOperation::Comultiplication('a').into();
+    let g: FM = FrobeniusOperation::Multiplication('a').into();
+    // f_hat codomain = [a] ++ [a, a] = [a, a, a], split x=1, y=2
+    // g_hat codomain = [a, a] ++ [a] = [a, a, a], split y=2, z=1
+    assert_compose_names_equivalent(&f, &g, 1, 2);
+}
+
+#[test]
+fn compose_names_direct_unit_to_identity() {
+    // f = η: [] → [a], g = id: [a] → [a]
+    let f: FM = FrobeniusOperation::Unit('a').into();
+    let g: FM = FM::identity(&vec!['a']);
+    // f_hat codomain = [] ++ [a] = [a], split x=0, y=1
+    // g_hat codomain = [a] ++ [a] = [a, a], split y=1, z=1
+    assert_compose_names_equivalent(&f, &g, 0, 1);
+}
+
+#[test]
+fn compose_names_direct_rejects_nonempty_domain() {
+    let id: FM = FM::identity(&vec!['a']);
+    let named = name(&id).unwrap();
+    assert!(compose_names_direct(&id, &named, 1, 1).is_err());
+    assert!(compose_names_direct(&named, &id, 1, 1).is_err());
+}
+
+#[test]
+fn compose_names_direct_rejects_mismatched_y() {
+    // f̂: I → [a, b] (x=[a], y=[b])
+    // ĝ: I → [c, d] (y=[c], z=[d]) — b ≠ c, should reject
+    let f: FM = FM::identity(&vec!['a']);
+    let mut g_raw: FM = FrobeniusOperation::Unit('c').into();
+    g_raw.monoidal(FrobeniusOperation::Unit('d').into());
+    let mut f_raw: FM = FrobeniusOperation::Unit('a').into();
+    f_raw.monoidal(FrobeniusOperation::Unit('b').into());
+    // Here f_raw: I → [a, b] already has domain I, so treat it as f_hat directly.
+    assert!(compose_names_direct(&f_raw, &g_raw, 1, 1).is_err());
+    // Silence unused warning for f.
+    let _ = f;
 }

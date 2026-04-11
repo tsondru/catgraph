@@ -346,7 +346,22 @@ where
                 }
 
                 // Rule 2: Braiding cancellation
-                // σ(a,b) then σ(b,a) → two identity wires in each layer
+                // σ(a,b) then σ(b,a) → two identity wires in each layer.
+                //
+                // The replacements must preserve each layer's OUTER type interfaces
+                // (self.left_type and next_layer.right_type) so adjacent layers
+                // above and below the simplified pair stay coupled.
+                //
+                // For self: SB(a1, b1) has source (a1, b1), target (b1, a1). We keep
+                // self.left unchanged; self.right at these positions becomes (a1, b1)
+                // instead of (b1, a1). The new interface between self and next is
+                // (a1, b1) — matching next_layer.left_type's new positions.
+                //
+                // For next: SB(b2, a2) has source (b2, a2), target (a2, b2). We must
+                // keep next.right unchanged at (a2, b2), so the replacement identities
+                // must be ordered [Id(a2), Id(b2)] — NOT [Id(b2), Id(a2)]. That gives
+                // next.left = (a2, b2) at those positions, which equals (a1, b1) and
+                // couples consistently with self.right above.
                 if let FrobeniusOperation::SymmetricBraiding(a1, b1) = &self_block.op
                     && let FrobeniusOperation::SymmetricBraiding(b2, a2) = &next_block.op
                     && a1 == a2
@@ -362,8 +377,8 @@ where
                     next_replacements.insert(
                         j,
                         vec![
-                            FrobeniusOperation::Identity(*b2),
                             FrobeniusOperation::Identity(*a2),
+                            FrobeniusOperation::Identity(*b2),
                         ],
                     );
                     self_matched[i] = true;
@@ -1065,10 +1080,6 @@ mod test {
     }
 
     #[test]
-    #[ignore] // Flaky: random permutations can trigger type mismatch in compose.
-              // Root cause: from_permutation odd-even sort can produce layers whose
-              // internal types don't line up after simplification. Pre-existing issue,
-              // not caused by hflip fix. Tracked in catgraph WIP.
     fn permutation_automatic() {
         use crate::{
             monoidal::SymmetricMonoidalMorphism,
@@ -1104,25 +1115,35 @@ mod test {
         in_place_permute(&mut types_after_this_layer, &p2.inv());
         assert_eq!(frob_prod.domain(), domain_types);
         assert_eq!(frob_prod.codomain(), types_after_this_layer);
-        // Now test with types_as_on_source = false (codomain-typed).
-        // from_permutation(p3, codomain_types, false) creates a morphism
-        // whose codomain matches codomain_types and domain is p3-permuted.
-        let types_as_on_source = false;
+        // Exercise the types_as_on_source = false branch.
+        // from_permutation(p3, T, false) produces domain = p3(T), codomain = T.
+        // We build such a morphism independently and verify its invariants, then
+        // use its own domain to chain onto frob_prod through a tailored bridge.
         let p3 = rand_perm(my_n, my_n * 2, &mut rng);
         let codomain_of_prod = frob_prod.codomain().clone();
+        let frob_p3_targeting_t = FrobeniusMorphism::<usize, ()>::from_permutation(
+            p3.clone(),
+            &codomain_of_prod,
+            false, // types_as_on_source = false → codomain = codomain_of_prod
+        )
+        .unwrap();
+        let mut expected_p3_domain = codomain_of_prod.clone();
+        in_place_permute(&mut expected_p3_domain, &p3);
+        assert_eq!(frob_p3_targeting_t.domain(), expected_p3_domain);
+        assert_eq!(frob_p3_targeting_t.codomain(), codomain_of_prod);
+        // To compose frob_prod with a permutation of codomain_of_prod, use the
+        // types_as_on_source = true variant (domain = codomain_of_prod, codomain = p3.inv(...)).
         let frob_p3 = FrobeniusMorphism::<usize, ()>::from_permutation(
             p3.clone(),
             &codomain_of_prod,
-            types_as_on_source,
+            true,
         )
         .unwrap();
-        // frob_p3.domain() should match frob_prod.codomain() for composition
         assert_eq!(frob_p3.domain(), codomain_of_prod);
         frob_prod.compose(frob_p3).unwrap();
-        assert_eq!(frob_prod.domain(), domain_types);
-        // With types_as_on_source=false, codomain is the permuted version
         let mut expected_codomain = codomain_of_prod.clone();
         in_place_permute(&mut expected_codomain, &p3.inv());
+        assert_eq!(frob_prod.domain(), domain_types);
         assert_eq!(frob_prod.codomain(), expected_codomain);
         #[allow(clippy::match_same_arms, clippy::match_like_matches_macro)]
         let all_swaps = frob_prod.layers.iter().all(|layer| {
@@ -1133,6 +1154,75 @@ mod test {
             })
         });
         assert!(all_swaps);
+    }
+
+    #[test]
+    fn from_permutation_invariants_probe() {
+        use crate::{
+            monoidal::SymmetricMonoidalMorphism,
+            utils::{in_place_permute, rand_perm},
+        };
+        let mut rng = StdRng::seed_from_u64(3003);
+        for n in 2..=10 {
+            let types: Vec<usize> = (100..100 + n).collect();
+            for trial in 0..30 {
+                let p = rand_perm(n, n * 2, &mut rng);
+                let fp_dom: FrobeniusMorphism<usize, ()> =
+                    FrobeniusMorphism::from_permutation(p.clone(), &types, true).unwrap();
+                let mut expected_cod = types.clone();
+                in_place_permute(&mut expected_cod, &p.inv());
+                assert_eq!(fp_dom.domain(), types, "n={n} trial {trial} TRUE dom");
+                assert_eq!(
+                    fp_dom.codomain(),
+                    expected_cod,
+                    "n={n} trial {trial} TRUE cod"
+                );
+
+                let fp_cod: FrobeniusMorphism<usize, ()> =
+                    FrobeniusMorphism::from_permutation(p.clone(), &types, false).unwrap();
+                let mut expected_dom = types.clone();
+                in_place_permute(&mut expected_dom, &p);
+                assert_eq!(
+                    fp_cod.codomain(),
+                    types,
+                    "n={n} trial {trial} FALSE cod"
+                );
+                assert_eq!(
+                    fp_cod.domain(),
+                    expected_dom,
+                    "n={n} trial {trial} FALSE dom"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn from_permutation_compose_probe() {
+        use crate::{
+            category::ComposableMutating,
+            monoidal::SymmetricMonoidalMorphism,
+            utils::{in_place_permute, rand_perm},
+        };
+        let mut rng = StdRng::seed_from_u64(3003);
+        for n in 2..=10 {
+            for trial in 0..30 {
+                let types: Vec<usize> = (100..100 + n).collect();
+                let p1 = rand_perm(n, n * 2, &mut rng);
+                let p2 = rand_perm(n, n * 2, &mut rng);
+                let mut f1: FrobeniusMorphism<usize, ()> =
+                    FrobeniusMorphism::from_permutation(p1.clone(), &types, true).unwrap();
+                let mut mid = types.clone();
+                in_place_permute(&mut mid, &p1.inv());
+                let f2: FrobeniusMorphism<usize, ()> =
+                    FrobeniusMorphism::from_permutation(p2.clone(), &mid, true).unwrap();
+                f1.compose(f2)
+                    .unwrap_or_else(|e| panic!("n={n} trial {trial} compose: {e:?}"));
+                let mut end = mid.clone();
+                in_place_permute(&mut end, &p2.inv());
+                assert_eq!(f1.domain(), types, "n={n} trial {trial} end dom");
+                assert_eq!(f1.codomain(), end, "n={n} trial {trial} end cod");
+            }
+        }
     }
 
     #[test]
@@ -1363,7 +1453,12 @@ mod test {
 
     #[test]
     fn test_braiding_self_inverse() {
-        // σ(a,b) then σ(b,a) should cancel to identities in both layers
+        // σ(a,b) then σ(b,a) should cancel to identities in both layers.
+        //
+        // Original interfaces: layer1 is (a,b)→(b,a), layer2 is (b,a)→(a,b).
+        // The external type interface of the composed pair is (a,b)→(a,b).
+        // Both simplified layers must realise this, so each becomes identity
+        // on [a,b] — in particular layer2.right_type must be preserved as [a,b].
         let mut layer1: FrobeniusLayer<char, ()> = FrobeniusLayer::new();
         layer1.append_block(FrobeniusOperation::SymmetricBraiding('a', 'b'));
 
@@ -1376,17 +1471,15 @@ mod test {
         assert!(self_id, "self should become identity after braiding cancel");
         assert!(next_id, "next should become identity after braiding cancel");
 
-        // Verify both layers now consist of identity blocks
         assert!(layer1.is_identity());
         assert!(layer2.is_identity());
 
-        // Verify wire types are preserved
+        // Outer interfaces preserved: layer1.left and layer2.right both [a,b].
+        // Middle interface (layer1.right, layer2.left) is [a,b], coupled.
         assert_eq!(layer1.left_type, vec!['a', 'b']);
         assert_eq!(layer1.right_type, vec!['a', 'b']);
-        assert_eq!(layer2.left_type, vec!['b', 'a']);
-        // After braiding cancel, next_layer has Identity(b), Identity(a)
-        // so left_type = [b, a] and right_type = [b, a]
-        assert_eq!(layer2.right_type, vec!['b', 'a']);
+        assert_eq!(layer2.left_type, vec!['a', 'b']);
+        assert_eq!(layer2.right_type, vec!['a', 'b']);
     }
 
     #[test]

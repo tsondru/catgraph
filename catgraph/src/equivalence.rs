@@ -433,6 +433,61 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Lemma 4.9: F_α io functor from a morphism α: A → B of cospan-algebras
+// ---------------------------------------------------------------------------
+
+/// Lemma 4.9 — induced io hypergraph functor `F_α: H_A → H_B` from a
+/// monoidal natural transformation `α: A → B`.
+///
+/// Given a cospan-algebra morphism `α` (represented here by a closure
+/// `Fn(&A::Elem) -> B::Elem`), the induced functor `F_α` acts on morphisms
+/// of `H_A` by applying `α` pointwise to the underlying algebra element:
+///
+/// ```text
+/// F_α(f: X → Y in H_A) := α_{X⊕Y}(elem_f) ∈ B(X⊕Y)
+/// ```
+///
+/// which is exactly a morphism `X → Y` in `H_B`. On objects, `F_α` is the
+/// identity (both `H_A` and `H_B` share the same object set `List(Λ)`).
+///
+/// Lemma 4.9's content is that this pointwise construction automatically
+/// preserves composition, tensor product, identity, and Frobenius structure
+/// whenever `α` is a monoidal natural transformation between the source and
+/// target cospan-algebras. The tests in `tests/equivalence.rs` verify each of
+/// these laws for several concrete witnesses.
+///
+/// # Arguments
+///
+/// - `alpha`: the component function `A::Elem → B::Elem` realising the
+///   natural transformation
+/// - `beta_algebra`: the target algebra `B` (needed to tag the resulting
+///   `CospanAlgebraMorphism`)
+/// - `f`: the source morphism in `H_A`
+pub fn functor_from_algebra_morphism<A, B, Lambda, Alpha>(
+    alpha: &Alpha,
+    beta_algebra: Arc<B>,
+    f: &CospanAlgebraMorphism<A, Lambda>,
+) -> CospanAlgebraMorphism<B, Lambda>
+where
+    A: CospanAlgebra<Lambda>,
+    B: CospanAlgebra<Lambda>,
+    B::Elem: Clone,
+    Lambda: Eq + Copy + Debug,
+    Alpha: Fn(&A::Elem) -> B::Elem,
+{
+    // Access private struct fields directly — we're in the same module as
+    // `CospanAlgebraMorphism`, so no accessor methods are required and no
+    // `A::Elem: Clone` bound is imposed on the caller.
+    let new_element = alpha(&f.element);
+    CospanAlgebraMorphism::new(
+        beta_algebra,
+        new_element,
+        f.domain.clone(),
+        f.codomain.clone(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6,10 +6,11 @@
 use std::sync::Arc;
 
 use catgraph::{
-    category::{Composable, HasIdentity},
+    category::{Composable, ComposableMutating, HasIdentity},
     cospan::Cospan,
-    cospan_algebra::{CospanAlgebra, PartitionAlgebra},
-    equivalence::{comp_cospan, CospanAlgebraMorphism},
+    cospan_algebra::{cospan_to_frobenius, CospanAlgebra, NameAlgebra, PartitionAlgebra},
+    equivalence::{comp_cospan, functor_from_algebra_morphism, CospanAlgebraMorphism},
+    frobenius::FrobeniusMorphism,
     hypergraph_category::HypergraphCategory,
     monoidal::Monoidal,
 };
@@ -246,4 +247,138 @@ fn roundtrip_frobenius_generators() {
     let cap = mu.compose(&eps).unwrap();
     assert_eq!(cap.domain(), vec!['x', 'x']);
     assert!(cap.codomain().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Lemma 4.9: F_α io functor from a morphism α: A → B of cospan-algebras
+// ---------------------------------------------------------------------------
+
+type NameMorph = CospanAlgebraMorphism<NameAlgebra<String>, char>;
+
+fn name_alg() -> Arc<NameAlgebra<String>> {
+    Arc::new(NameAlgebra::<String>::new())
+}
+
+/// Lemma 4.9 — `F_id: H_A → H_A` for `α = id` is the identity functor.
+///
+/// Verifies that `functor_from_algebra_morphism` with the identity closure
+/// leaves the domain, codomain, and the underlying algebra element of the
+/// image morphism unchanged (up to Clone).
+#[test]
+fn lemma_4_9_identity_functor_on_part_morph() {
+    let alg = alg();
+    let id_x: PartMorph = PartMorph::identity_in(Arc::clone(&alg), &['a', 'b']);
+
+    let id_alpha = |e: &Cospan<char>| e.clone();
+    let image: PartMorph = functor_from_algebra_morphism(&id_alpha, Arc::clone(&alg), &id_x);
+
+    assert_eq!(image.domain(), vec!['a', 'b']);
+    assert_eq!(image.codomain(), vec!['a', 'b']);
+    // The underlying algebra element is preserved as a cospan: domain, codomain,
+    // middle all match the original identity's structural image.
+    assert_eq!(image.element().domain(), id_x.element().domain());
+    assert_eq!(image.element().codomain(), id_x.element().codomain());
+    assert_eq!(image.element().middle(), id_x.element().middle());
+}
+
+/// Lemma 4.9 — `F_id` preserves composition: `F_id(f ; g) = F_id(f) ; F_id(g)`.
+#[test]
+fn lemma_4_9_identity_functor_preserves_composition() {
+    let alg = alg();
+    let f: PartMorph = PartMorph::identity_in(Arc::clone(&alg), &['a']);
+    let g: PartMorph = PartMorph::identity_in(Arc::clone(&alg), &['a']);
+
+    let id_alpha = |e: &Cospan<char>| e.clone();
+
+    // F_α(f ; g)
+    let fg = f.compose(&g).unwrap();
+    let lhs: PartMorph = functor_from_algebra_morphism(&id_alpha, Arc::clone(&alg), &fg);
+
+    // F_α(f) ; F_α(g)
+    let ff = functor_from_algebra_morphism(&id_alpha, Arc::clone(&alg), &f);
+    let fg_direct = functor_from_algebra_morphism(&id_alpha, Arc::clone(&alg), &g);
+    let rhs = ff.compose(&fg_direct).unwrap();
+
+    assert_eq!(lhs.domain(), rhs.domain());
+    assert_eq!(lhs.codomain(), rhs.codomain());
+    assert_eq!(lhs.element().middle(), rhs.element().middle());
+}
+
+/// Lemma 4.9 — functoriality of the construction: `F_{α;β} = F_α ; F_β`.
+///
+/// Using `α = id` and `β = id` (both on PartitionAlgebra → PartitionAlgebra)
+/// gives `F_{id;id}(f) = F_id(F_id(f)) = f`.
+#[test]
+fn lemma_4_9_functor_composition_of_morphisms() {
+    let alg = alg();
+    let f: PartMorph = PartMorph::identity_in(Arc::clone(&alg), &['a', 'b']);
+
+    let alpha = |e: &Cospan<char>| e.clone();
+    let beta = |e: &Cospan<char>| e.clone();
+    // Composed α;β
+    let alpha_then_beta = |e: &Cospan<char>| beta(&alpha(e));
+
+    let combined: PartMorph =
+        functor_from_algebra_morphism(&alpha_then_beta, Arc::clone(&alg), &f);
+    let two_step_first: PartMorph =
+        functor_from_algebra_morphism(&alpha, Arc::clone(&alg), &f);
+    let two_step: PartMorph =
+        functor_from_algebra_morphism(&beta, Arc::clone(&alg), &two_step_first);
+
+    assert_eq!(combined.domain(), two_step.domain());
+    assert_eq!(combined.codomain(), two_step.codomain());
+    assert_eq!(combined.element().middle(), two_step.element().middle());
+}
+
+/// Lemma 4.9 — non-trivial α: PartitionAlgebra → NameAlgebra via
+/// `cospan_to_frobenius`. This is the natural transformation whose existence
+/// follows from `CospanToFrobeniusFunctor` being a hypergraph functor.
+///
+/// Verifies F_α(id_x) sits in `H_{NameAlgebra}` with the expected domain/codomain.
+#[test]
+fn lemma_4_9_cospan_to_name_functor_preserves_identity() {
+    let part = alg();
+    let name = name_alg();
+
+    let id_x: PartMorph = PartMorph::identity_in(Arc::clone(&part), &['a']);
+    let alpha = |c: &Cospan<char>| -> FrobeniusMorphism<char, String> {
+        cospan_to_frobenius(c)
+            .expect("cospan_to_frobenius is total on well-formed cospans")
+    };
+    let image: NameMorph = functor_from_algebra_morphism(&alpha, Arc::clone(&name), &id_x);
+
+    assert_eq!(image.domain(), vec!['a']);
+    assert_eq!(image.codomain(), vec!['a']);
+    // The underlying element is a FrobeniusMorphism, not a Cospan — its
+    // own `domain()` / `codomain()` are the concatenation X⊕Y of the H_A
+    // morphism, which for id_X on ['a'] is [a, a] (cup cospan realised as
+    // a Frobenius morphism).
+    let elem = image.element();
+    assert!(elem.domain().is_empty());
+    assert_eq!(elem.codomain(), vec!['a', 'a']);
+}
+
+/// Lemma 4.9 — `F_α` preserves composition for the non-trivial α above:
+/// `F_α(f ; g)` agrees with `F_α(f) ; F_α(g)` on domain/codomain.
+#[test]
+fn lemma_4_9_cospan_to_name_preserves_composition() {
+    let part = alg();
+    let name = name_alg();
+
+    let f: PartMorph = PartMorph::identity_in(Arc::clone(&part), &['a']);
+    let g: PartMorph = PartMorph::identity_in(Arc::clone(&part), &['a']);
+
+    let alpha = |c: &Cospan<char>| -> FrobeniusMorphism<char, String> {
+        cospan_to_frobenius(c).expect("cospan_to_frobenius is total")
+    };
+
+    let fg = f.compose(&g).unwrap();
+    let lhs: NameMorph = functor_from_algebra_morphism(&alpha, Arc::clone(&name), &fg);
+
+    let ff: NameMorph = functor_from_algebra_morphism(&alpha, Arc::clone(&name), &f);
+    let gg: NameMorph = functor_from_algebra_morphism(&alpha, Arc::clone(&name), &g);
+    let rhs = ff.compose(&gg).unwrap();
+
+    assert_eq!(lhs.domain(), rhs.domain());
+    assert_eq!(lhs.codomain(), rhs.codomain());
 }

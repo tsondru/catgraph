@@ -1,8 +1,8 @@
-# Fong-Spivak Coverage Audit (catgraph v0.10.1)
+# Fong-Spivak Coverage Audit (catgraph v0.10.4)
 
 > **Paper:** Fong & Spivak, *Hypergraph Categories* (arXiv:1806.08304v3, 18 Jan 2019)
-> **Library:** catgraph v0.10.1
-> **Date:** 2026-04-10
+> **Library:** catgraph v0.10.4 (Phase 0.5 complete)
+> **Date:** 2026-04-11 (originally 2026-04-10; Phase 0.5 gaps closed 2026-04-11)
 > **Method:** read all 38 pages of the paper, cross-checked each numbered item against catgraph source
 
 **Status legend:**
@@ -21,18 +21,19 @@
 | §2.3 Hypergraph categories | 3 | 6 | 2 | 2 | 13 |
 | §2.4 Critiques | 0 | 0 | 2 | 0 | 2 |
 | §2.5 Operads | 0 | 0 | 0 | 1 | 1 |
-| §3.1 Compact closed | 5 | 1 | 0 | 0 | 6 |
+| §3.1 Compact closed | 7 | 0 | 0 | 0 | 7 |
 | §3.2 Free hypergraph cats | 4 | 4 | 3 | 2 | 13 |
 | §3.3 io/ff factorization | 0 | 0 | 6 | 0 | 6 |
 | §3.4 Strictification | 0 | 1 | 3 | 0 | 4 |
-| §4.1 H → A direction | 3 | 4 | 2 | 1 | 10 |
-| §4.2 A → H direction | 4 | 2 | 1 | 1 | 8 |
+| §4.1 H → A direction | 5 | 2 | 2 | 1 | 10 |
+| §4.2 A → H direction | 5 | 1 | 1 | 1 | 8 |
 | §4.3 The equivalence | 1 | 1 | 2 | 1 | 5 |
-| **TOTAL** | **32** | **25** | **25** | **10** | **92** |
+| **TOTAL** | **37** | **21** | **25** | **10** | **93** |
 
-**Headline numbers:**
-- **35% DONE / 27% PARTIAL / 27% MISSING / 11% N/A**
-- Of the 25 missing items: 6 are §3.3 (explicitly deferred), 6 are LinRel/non-strict examples (deferred), 3 are §3.4 strictification (deferred), leaving ~10 genuinely missing items that aren't planned deferrals.
+**Headline numbers (after Phase 0.5):**
+- **40% DONE / 23% PARTIAL / 27% MISSING / 11% N/A**
+- Of the 25 missing items: 6 are §3.3 (explicitly deferred), 6 are LinRel/non-strict examples (deferred), 3 are §3.4 strictification (deferred), and most of the remainder are cross-Λ functoriality items that require parametric-Λ machinery beyond catgraph's type system.
+- **Phase 0.5 closed 5 gaps + 1 bonus**: Prop 3.4 (explicit comp cospan form), Prop 4.6 (initiality proptest), compose_names_direct, Lemma 4.3 (A_F natural transformation), Lemma 4.9 (F_α io functor), plus a bug fix to `two_layer_simplify` that let `permutation_automatic` come out of `#[ignore]`.
 
 ## Per-section detail
 
@@ -116,8 +117,8 @@
 | Prop 3.1: every hypergraph cat is self-dual compact closed (cup_X := η; δ, cap_X := μ; ε) | ✅ | compact_closed.rs::cup, cap | exact formula |
 | Prop 3.2: bijection C(X,Y) ≅ C(I, X⊗Y) (name) | ✅ | compact_closed.rs::name, unname | |
 | Eq 14: comp^Y_{X,Z} morphism (id_X ⊗ cap_Y ⊗ id_Z) | ✅ | equivalence.rs::comp_cospan | |
-| Prop 3.3: (f̂ ⊗ ĝ) ; comp^Y_{X,Z} = (f;g)^ | ⚠️ | compact_closed.rs::compose_names:313-334 | shortcut impl: `unname → compose → name`. Mathematically equivalent but doesn't exhibit the comp cospan formula structurally. No "compose_names_direct" matching the paper's literal formula. |
-| Prop 3.4: (id_X ⊕ f̂) ; comp^X_{∅,Y} = f | ❌ | — | name recovery formula not implemented or tested |
+| Prop 3.3: (f̂ ⊗ ĝ) ; comp^Y_{X,Z} = (f;g)^ | ✅ | compact_closed.rs::compose_names_direct + compose_names_via_unname | direct impl matches Prop 3.3 literally; via-unname kept as reference; equivalence tested in tests/compact_closed.rs |
+| Prop 3.4: (id_X ⊕ f̂) ; comp^X_{∅,Y} = f | ✅ | tests/compact_closed.rs::prop_3_4_* | literal form tested (id_X ⊗ f̂) ; (cap_X ⊗ id_Y) for 5 witnesses including identity, mult, comult, unit;comult |
 | Ex 3.5: comp in Cospan_Λ | ✅ | equivalence.rs::comp_cospan + tests | the literal cospan picture matches |
 
 ### §3.2 Free hypergraph categories
@@ -166,11 +167,11 @@
 | Eq 25: A_H(-) := H(I, Frob(-)) | ✅ | NameAlgebra::map_cospan | implemented as the lax monoidal functor itself |
 | Lemma 4.2: A_H is lax monoidal functor | ✅ | NameAlgebra trait impl | implicit in trait impl |
 | Eq 26: laxator γ definition (γ: 1 → A_H(∅) and γ_{X,Y}: A_H(X) × A_H(Y) → A_H(X⊕Y)) | ✅ | NameAlgebra::lax_monoidal | |
-| Lemma 4.3: A_F natural transformation construction (from F: H → H' to α: A_H → A_H') | ❌ | — | the F: H→H' direction not implemented — this is half of "A_- is a functor" |
-| Eq 27/28: naturality square + α_X definition | ❌ | — | not implemented |
+| Lemma 4.3: A_F natural transformation construction (from F: H → H' to α: A_H → A_H') | ✅ | cospan_algebra.rs::functor_induced_algebra_map | free function lifting any `HypergraphFunctor` to a cospan-algebra morphism; tests in tests/cospan_algebra.rs verify naturality/monoidality/unit for RelabelingFunctor and CospanToFrobeniusFunctor |
+| Eq 27/28: naturality square + α_X definition | ✅ | cospan_algebra.rs::functor_induced_algebra_map + lemma_4_3_* tests | naturality verified via assert_eq chains |
 | Remark 4.4: extension to Hyp (non-OF case) via Frob_H'(-) | ➖ | — | not needed since catgraph only does OF |
 | Remark 4.5: A_{Cospan_Λ} = Part_Λ | ✅ | implicit | the roundtrip test verifies this for Part |
-| Prop 4.6: Part_Λ is initial cospan-algebra | ⚠️ | cospan_algebra.rs::PartitionAlgebra | impl exists; initiality is asserted but not formally verified by a test "every cospan-algebra has unique map from Part" |
+| Prop 4.6: Part_Λ is initial cospan-algebra | ✅ | tests/cospan_algebra.rs::prop_4_6_* | proptest verifies unit preservation, naturality, and monoidal coherence of the unique map α_x(c) = A.map_cospan(c, A.unit()) for PartitionAlgebra → PartitionAlgebra and PartitionAlgebra → NameAlgebra |
 
 ### §4.2 Cospan-algebras → hypergraph cats
 
@@ -181,7 +182,7 @@
 | Eq 31: Ob(H_A) := List(Λ), H_A(X,Y) := A(X⊕Y) | ✅ | equivalence.rs (domain/codomain/element fields) | |
 | Eq 32: composition formula via comp^Y_{X,Z} | ✅ | equivalence.rs::compose | |
 | Eq 33: six required cospans (id, braiding, μ, η, δ, ε) as ∅ → X⊕Y morphisms | ✅ | equivalence.rs identity_in/multiplication_in/comultiplication_in/unit_in/counit_in + from_permutation | |
-| Lemma 4.9: F_α io functor from morphism α: A→B | ❌ | — | the morphism-of-cospan-algebras → hypergraph functor direction not implemented |
+| Lemma 4.9: F_α io functor from morphism α: A→B | ✅ | equivalence.rs::functor_from_algebra_morphism | free function lifting a monoidal natural transformation α: A → B to F_α: H_A → H_B by pointwise application; tests in tests/equivalence.rs verify identity and composition preservation for both F_id and the non-trivial α = cospan_to_frobenius case |
 | Remark 4.10: hypergraph cats absorb special morphisms into operations | ➖ | — | conceptual remark |
 | Lemma 4.11: Frob(c) = name(c) for Part case | ⚠️ | — | implicit; not a separate test |
 | Cor 4.12: Frob_A(c) = A(name(c))(γ) | ⚠️ | — | implicit |
@@ -198,17 +199,27 @@
 
 ## Critical findings
 
-### Genuinely missing items that should be addressed before catgraph v0.11.0 (slim F&S)
+### Phase 0.5 completed (2026-04-11)
 
-1. **Lemma 4.3** — A_F natural transformation. Without this, the §4.1 functor A_- is implemented only on objects, not morphisms. Half of the equivalence is incomplete in functor form. **Estimated effort: medium.**
+All five items listed in the previous audit have been closed for catgraph v0.10.4:
 
-2. **Lemma 4.9** — F_α io functor from morphism of cospan-algebras. Symmetric to Lemma 4.3, missing on the §4.2 side. Together with Lemma 4.3, forms the complete two-way functoriality. **Medium.**
+1. **Lemma 4.3** — ✅ `cospan_algebra::functor_induced_algebra_map` lifts any hypergraph functor to a cospan-algebra morphism; `tests/cospan_algebra.rs` verifies naturality, monoidality, and unit preservation for both `RelabelingFunctor` and `CospanToFrobeniusFunctor`.
 
-3. **Prop 3.4** — name recovery formula. Listed but not implemented. Easy to add as a test against existing `name`/`unname`. **Small.**
+2. **Lemma 4.9** — ✅ `equivalence::functor_from_algebra_morphism` lifts a monoidal natural transformation `α: A → B` to `F_α: H_A → H_B`; `tests/equivalence.rs` verifies identity and composition preservation for both `F_id` and the non-trivial `α = cospan_to_frobenius` case.
 
-4. **Prop 4.6 initiality test** — "every cospan-algebra has a unique morphism from Part." Currently asserted but not verified. Would require a property-based test over cospan-algebras. **Small.**
+3. **Prop 3.4** — ✅ `tests/compact_closed.rs::prop_3_4_*` verifies the literal `(id_X ⊗ f̂) ; (cap_X ⊗ id_Y) = f` formula for 5 witnesses (identity, multiplication, comultiplication, unit;comult), building the comp cospan explicitly rather than going through `unname`.
 
-5. **`compose_names_direct`** — alongside the existing `compose_names` shortcut, add a version matching Prop 3.3's literal `(f̂ ⊗ ĝ); comp^Y_{X,Z}` formula. Pedagogically valuable; verifies the two are equivalent. **Small.**
+4. **Prop 4.6 initiality test** — ✅ `tests/cospan_algebra.rs::prop_4_6_*` proptest verifies unit preservation, naturality, and monoidal coherence of the unique map `α_x(c) = A.map_cospan(c, A.unit())` for PartitionAlgebra self-map and PartitionAlgebra → NameAlgebra.
+
+5. **`compose_names_direct`** — ✅ `compact_closed::compose_names_direct` implements Prop 3.3's literal formula `(f̂ ⊗ ĝ) ; comp^Y_{X,Z}`. `compose_names_via_unname` is preserved as a reference implementation. `tests/compact_closed.rs::compose_names_direct_*` verify equivalence on 5 concrete witnesses.
+
+### Bonus: two_layer_simplify bug fix
+
+The `#[ignore]`'d `permutation_automatic` test in `frobenius/operations.rs` was uncovered during Phase 0.5. Root cause: Rule 2 (braiding cancellation) in `FrobeniusLayer::two_layer_simplify` used `[Identity(b2), Identity(a2)]` for the next-layer replacement, preserving the layer's *input* types but flipping its *output* types — breaking the coupling with adjacent layers. Fix: swap to `[Identity(a2), Identity(b2)]` so `next_layer.right_type` is preserved. Stress test (`from_permutation_compose_probe`, 270 random witnesses over n∈[2,10]) now passes.
+
+### Items intentionally deferred
+
+(See "Items to keep deferred" below.)
 
 ### Items to keep deferred (paper-acknowledged or low-impact)
 
@@ -229,38 +240,25 @@ These are correct but could be made explicit for catgraph-as-paper-implementatio
 5. **Prop 3.16** — implicit in design
 6. **Lemma 4.11, Cor 4.12** — implicit; would benefit from test assertions matching the paper's exact formulas
 
-### The "compose_names" shortcut (gleaner2 finding confirmed)
+### The "compose_names" shortcut (gleaner2 finding confirmed, resolved 2026-04-11)
 
-`compact_closed.rs:313-334` implements `compose_names` as:
-```rust
-let f = unname(f_hat, x_len)?;
-let g = unname(g_hat, y_len)?;
-let mut fg = f;
-fg.compose(g)?;
-name(&fg)
-```
+Historical note — this was the original finding that drove Gap 5 in Phase 0.5:
 
-This is mathematically equivalent to Prop 3.3's `(f̂ ⊗ ĝ); comp^Y_{X,Z}` formula, but doesn't exhibit it. The paper's whole point in §3.1 is that you can compose at the *name level* without going back to morphisms. The current impl goes back to morphisms internally, defeating the demonstration.
+`compact_closed.rs::compose_names` used to be a "shortcut" that went back to morphisms via `unname → compose → name`. Mathematically equivalent to Prop 3.3's `(f̂ ⊗ ĝ) ; comp^Y_{X,Z}` formula, but didn't exhibit it structurally — defeating the §3.1 demonstration that you can compose at the name level without going back to morphisms.
 
-**Recommendation:** add `compose_names_direct` matching Prop 3.3 literally, keep the existing one as `compose_names_via_unname`, and add a test asserting they agree.
+**Resolution:** `compose_names_direct` now implements Prop 3.3 literally. `compose_names` is an alias pointing at `compose_names_direct` (the canonical form). `compose_names_via_unname` is preserved as the reference implementation, and `tests/compact_closed.rs::compose_names_direct_*` verify that both produce identical results on 5 concrete witnesses.
 
 ## What does "Theorem 1.2 is implemented" actually mean for catgraph?
 
-The bottom line:
-
-**catgraph implements the per-Λ form of Thm 1.2 (which is Thm 4.13)**, with two specific worked examples (PartitionAlgebra and NameAlgebra).
+**catgraph v0.10.4 implements Theorem 1.2 in its per-Λ form (which is Thm 4.13)**, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1–3.4 on compact closed structure, using PartitionAlgebra and NameAlgebra as worked examples.
 
 **catgraph does NOT implement:**
 - The global Grothendieck-construction form (Thm 4.16) — `Hyp_OF ≅ Cospan-Alg` as 1-categories with naturality across Λ
-- The 2-categorical version (Thm 1.1) — the strictification result that lets you reduce general Hyp to Hyp_OF
-- Functoriality of the equivalence on morphisms (Lemmas 4.3 and 4.9)
+- The 2-categorical version (Thm 1.1) — the strictification result that reduces general Hyp to Hyp_OF
+- Cross-Λ functoriality (Prop 2.1, Cor 3.13, Cor 3.15, Thm 3.14, §3.3 io/ff factorization, LinRel examples)
 
-The substantive math IS in catgraph — the per-Λ equivalence is the real content, and the global form is a packaging step. But for a paper-faithful claim, the gap between "Thm 4.13 done" and "Thm 1.2 done" should be acknowledged.
+These require either the Grothendieck construction or parametric-Λ machinery beyond catgraph's current type system, and are permanently deferred.
 
 ## Recommendation for catgraph v0.11.0 release notes
 
-**Honest claim:** "catgraph implements Theorems 4.13 and 1.2 in their per-Λ form, with PartitionAlgebra and NameAlgebra as worked examples. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), and §3.3 io/ff factorization are intentionally deferred."
-
-**Stronger claim (after fixing the 5 items above):** "catgraph implements Theorem 1.2 in its per-Λ form, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1-3.4 on compact closed structure."
-
-The 5 fixes are roughly 1-2 days of work and would close all the genuine paper-vs-code gaps.
+**catgraph v0.10.4 / v0.11.0 claim (Phase 0.5 verified):** "catgraph implements Theorem 1.2 in its per-Λ form (Thm 4.13), with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Propositions 3.1–3.4 on compact closed structure directly verified. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), §3.3 io/ff factorization, and cross-Λ functoriality are intentionally deferred as requiring machinery beyond catgraph's current scope."

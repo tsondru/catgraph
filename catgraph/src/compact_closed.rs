@@ -303,14 +303,19 @@ where
 ///
 /// Implements Fong-Spivak Prop 3.3: `(f̂ ⊗ ĝ) ; comp^Y_{X,Z} = (f;g)^`.
 ///
-/// `x_len` and `y_len` specify the boundary between X, Y in `f_hat.codomain()`
-/// and Y, Z in `g_hat.codomain()`.
+/// This is the **canonical** implementation: it materialises the comp cospan
+/// `comp^Y_{X,Z} = id_X ⊗ cap_Y ⊗ id_Z: X ⊗ Y ⊗ Y ⊗ Z → X ⊗ Z` and composes
+/// it directly with `f̂ ⊗ ĝ`, exhibiting the paper's formula structurally.
+///
+/// `x_len` and `y_len` specify the boundary between `X` and `Y` in
+/// `f_hat.codomain()` and between `Y` and `Z` in `g_hat.codomain()`.
 ///
 /// # Errors
 ///
 /// - Domain of either name is not empty.
-/// - The Y portions don't match.
-pub fn compose_names<Lambda, BlackBoxLabel>(
+/// - `x_len` exceeds `f_hat.codomain().len()` or `y_len` exceeds `g_hat.codomain().len()`.
+/// - The `Y` portions of `f_hat.codomain()` and `g_hat.codomain()` don't match.
+pub fn compose_names_direct<Lambda, BlackBoxLabel>(
     f_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
     g_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
     x_len: usize,
@@ -322,15 +327,107 @@ where
 {
     if !f_hat.domain().is_empty() || !g_hat.domain().is_empty() {
         return Err(CatgraphError::Composition {
-            message: "compose_names requires both names to have domain I (empty)".to_string(),
+            message: "compose_names_direct requires both names to have domain I (empty)"
+                .to_string(),
         });
     }
-    // Recover f and g, then compose, then take name of result
+    let f_cod = f_hat.codomain();
+    let g_cod = g_hat.codomain();
+    if x_len > f_cod.len() {
+        return Err(CatgraphError::Composition {
+            message: format!(
+                "x_len ({x_len}) exceeds f_hat.codomain().len() ({})",
+                f_cod.len()
+            ),
+        });
+    }
+    if y_len > g_cod.len() {
+        return Err(CatgraphError::Composition {
+            message: format!(
+                "y_len ({y_len}) exceeds g_hat.codomain().len() ({})",
+                g_cod.len()
+            ),
+        });
+    }
+    let x: Vec<Lambda> = f_cod[..x_len].to_vec();
+    let y_from_f: Vec<Lambda> = f_cod[x_len..].to_vec();
+    let y_from_g: Vec<Lambda> = g_cod[..y_len].to_vec();
+    if y_from_f != y_from_g {
+        return Err(CatgraphError::Composition {
+            message: format!(
+                "Y portions don't match: f_hat.Y = {y_from_f:?} vs g_hat.Y = {y_from_g:?}"
+            ),
+        });
+    }
+    let y = y_from_f;
+    let z: Vec<Lambda> = g_cod[y_len..].to_vec();
+
+    // f̂ ⊗ ĝ: I → X ⊗ Y ⊗ Y ⊗ Z
+    let mut result = f_hat.clone();
+    result.monoidal(g_hat.clone());
+
+    // comp^Y_{X,Z} = id_X ⊗ cap_Y ⊗ id_Z: X ⊗ Y ⊗ Y ⊗ Z → X ⊗ Z
+    let mut comp: FrobeniusMorphism<Lambda, BlackBoxLabel> = FrobeniusMorphism::identity(&x);
+    comp.monoidal(cap_tensor(&y));
+    comp.monoidal(FrobeniusMorphism::identity(&z));
+
+    result.compose(comp)?;
+    Ok(result)
+}
+
+/// Reference implementation of `compose_names` that goes through `unname`
+/// and `name`: `name(unname(f̂); unname(ĝ))`.
+///
+/// Mathematically equivalent to [`compose_names_direct`] — the latter
+/// exhibits the paper's Prop 3.3 formula structurally, while this version
+/// uses the name bijection as a black box. Kept as a reference for
+/// equivalence testing (see `tests/compact_closed.rs`).
+///
+/// # Errors
+///
+/// - Domain of either name is not empty.
+/// - `x_len` exceeds `f_hat.codomain().len()` or `y_len` exceeds `g_hat.codomain().len()`.
+pub fn compose_names_via_unname<Lambda, BlackBoxLabel>(
+    f_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
+    g_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
+    x_len: usize,
+    y_len: usize,
+) -> Result<FrobeniusMorphism<Lambda, BlackBoxLabel>, CatgraphError>
+where
+    Lambda: Eq + Copy + Debug + Send + Sync,
+    BlackBoxLabel: Eq + Clone + Send + Sync,
+{
+    if !f_hat.domain().is_empty() || !g_hat.domain().is_empty() {
+        return Err(CatgraphError::Composition {
+            message: "compose_names_via_unname requires both names to have domain I (empty)"
+                .to_string(),
+        });
+    }
     let f = unname(f_hat, x_len)?;
     let g = unname(g_hat, y_len)?;
     let mut fg = f;
     fg.compose(g)?;
     name(&fg)
+}
+
+/// Compose two named morphisms via the canonical direct formula.
+///
+/// Alias for [`compose_names_direct`], matching Fong-Spivak Prop 3.3 literally.
+///
+/// # Errors
+///
+/// See [`compose_names_direct`].
+pub fn compose_names<Lambda, BlackBoxLabel>(
+    f_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
+    g_hat: &FrobeniusMorphism<Lambda, BlackBoxLabel>,
+    x_len: usize,
+    y_len: usize,
+) -> Result<FrobeniusMorphism<Lambda, BlackBoxLabel>, CatgraphError>
+where
+    Lambda: Eq + Copy + Debug + Send + Sync,
+    BlackBoxLabel: Eq + Clone + Send + Sync,
+{
+    compose_names_direct(f_hat, g_hat, x_len, y_len)
 }
 
 #[cfg(test)]
