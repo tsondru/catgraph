@@ -1,9 +1,15 @@
-# Fong-Spivak Coverage Audit (catgraph v0.10.4)
+# Fong-Spivak Coverage Audit (catgraph v0.10.5)
 
 > **Paper:** Fong & Spivak, *Hypergraph Categories* (arXiv:1806.08304v3, 18 Jan 2019)
-> **Library:** catgraph v0.10.4 (Phase 0.5 complete)
-> **Date:** 2026-04-11 (originally 2026-04-10; Phase 0.5 gaps closed 2026-04-11)
+> **Library:** catgraph v0.10.5 (Phase 1 complete — Group 7 relocated to irreducible v0.4.0)
+> **Date:** 2026-04-11 (Phase 0.5 + Phase 1 both completed same day; originally audited 2026-04-10)
 > **Method:** read all 38 pages of the paper, cross-checked each numbered item against catgraph source
+>
+> **Note on Phase 1:** catgraph v0.10.5 removes 8 non-F&S modules (`interval`, `complexity`,
+> `computation_state`, `adjunction`, `bifunctor`, `coherence`, `stokes`, `trace`) back to
+> `irreducible`. None of the F&S paper items below are affected — the removed modules
+> implemented Gorard's (2023) functorial irreducibility framework, not Fong-Spivak (2019)
+> hypergraph categories. Coverage percentages are unchanged.
 
 **Status legend:**
 - ✅ DONE — implemented and tested
@@ -201,7 +207,8 @@
 
 ### Phase 0.5 completed (2026-04-11)
 
-All five items listed in the previous audit have been closed for catgraph v0.10.4:
+All five items listed in the previous audit have been closed for catgraph v0.10.4,
+and remain closed in v0.10.5:
 
 1. **Lemma 4.3** — ✅ `cospan_algebra::functor_induced_algebra_map` lifts any hypergraph functor to a cospan-algebra morphism; `tests/cospan_algebra.rs` verifies naturality, monoidality, and unit preservation for both `RelabelingFunctor` and `CospanToFrobeniusFunctor`.
 
@@ -250,7 +257,7 @@ Historical note — this was the original finding that drove Gap 5 in Phase 0.5:
 
 ## What does "Theorem 1.2 is implemented" actually mean for catgraph?
 
-**catgraph v0.10.4 implements Theorem 1.2 in its per-Λ form (which is Thm 4.13)**, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1–3.4 on compact closed structure, using PartitionAlgebra and NameAlgebra as worked examples.
+**catgraph v0.10.5 implements Theorem 1.2 in its per-Λ form (which is Thm 4.13)**, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1–3.4 on compact closed structure, using PartitionAlgebra and NameAlgebra as worked examples.
 
 **catgraph does NOT implement:**
 - The global Grothendieck-construction form (Thm 4.16) — `Hyp_OF ≅ Cospan-Alg` as 1-categories with naturality across Λ
@@ -261,4 +268,4 @@ These require either the Grothendieck construction or parametric-Λ machinery be
 
 ## Recommendation for catgraph v0.11.0 release notes
 
-**catgraph v0.10.4 / v0.11.0 claim (Phase 0.5 verified):** "catgraph implements Theorem 1.2 in its per-Λ form (Thm 4.13), with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Propositions 3.1–3.4 on compact closed structure directly verified. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), §3.3 io/ff factorization, and cross-Λ functoriality are intentionally deferred as requiring machinery beyond catgraph's current scope."
+**catgraph v0.10.5 / v0.11.0 claim (Phase 0.5 verified, Phase 1 slimmed):** "catgraph implements Theorem 1.2 in its per-Λ form (Thm 4.13), with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Propositions 3.1–3.4 on compact closed structure directly verified. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), §3.3 io/ff factorization, and cross-Λ functoriality are intentionally deferred as requiring machinery beyond catgraph's current scope. Non-F&S modules (Gorard's functorial irreducibility framework: interval/complexity/computation_state/adjunction/bifunctor/coherence/stokes/trace) now live in the downstream `irreducible` crate."
