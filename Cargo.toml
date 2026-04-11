@@ -1,48 +1,6 @@
 [workspace]
-members = [".", "catgraph-surreal"]
+resolver = "2"
+members = ["catgraph", "catgraph-surreal"]
 
-[package]
-name = "catgraph"
-version = "0.10.1"
-edition = "2024"
-license = "MIT"
-description = "Category-theoretic graph structures: cospans, spans, wiring diagrams, Frobenius algebras, E_n operads, and morphisms in symmetric monoidal categories"
-repository = "https://github.com/tsondru/catgraph"
-homepage = "https://github.com/tsondru/catgraph"
-authors = ["tsondru", "Claude <noreply@anthropic.com>"]
-keywords = ["category-theory", "cospan", "hypergraph", "monoidal", "operad"]
-categories = ["mathematics", "science", "data-structures"]
-
-[dependencies]
-either = "^1.15.0"
-rustworkx-core = "0.17"
-union-find = "0.4"
-log = { version = "^0.4.29", features = ["max_level_debug", "release_max_level_warn"] }
-permutations = "^0.1.1"
-rand = "^0.10.0"
-num = "^0.4.3"
-itertools = "^0.14.0"
-rayon = "^1.11"
-rust_decimal = "1"
-thiserror = "2"
-
-[dev-dependencies]
-env_logger = "^0.11.10"
-proptest = "1"
-criterion = { version = "0.8", features = ["html_reports"] }
-
-[[bench]]
-name = "pushout"
-harness = false
-
-[[bench]]
-name = "pullback"
-harness = false
-
-[[bench]]
-name = "interval"
-harness = false
-
-[[bench]]
-name = "rayon_thresholds"
-harness = false
+# Phase 0.0 commit 2 will remove catgraph-surreal from this list once it
+# has been extracted to its own repo at github.com/tsondru/catgraph-surreal.

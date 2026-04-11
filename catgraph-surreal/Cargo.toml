@@ -9,7 +9,7 @@ authors = ["tsondru", "Claude <noreply@anthropic.com>"]
 publish = false
 
 [dependencies]
-catgraph = { path = ".." }
+catgraph = { path = "../catgraph" }
 surrealdb = { version = "3.0.5", default-features = false, features = ["kv-mem"] }
 surrealdb-types = "3.0.5"
 serde = { version = "1", features = ["derive"] }

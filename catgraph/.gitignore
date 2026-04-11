@@ -1,10 +1,9 @@
-# Build artifacts
-/target
-Cargo.lock
-
 # Private development context
 .claude/
 CLAUDE.local.md
+
+# Build artifacts
+/target
 
 # Backups
 *.bak
