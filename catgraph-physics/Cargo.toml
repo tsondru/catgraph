@@ -1,0 +1,16 @@
+[package]
+name = "catgraph-physics"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory"
+repository = "https://github.com/tsondru/catgraph"
+authors = ["tsondru", "Claude <noreply@anthropic.com>"]
+keywords = ["hypergraph", "multiway", "rewriting", "gauge-theory", "wolfram-physics"]
+categories = ["mathematics", "science", "simulation"]
+
+[dependencies]
+catgraph = { path = "../catgraph" }
+
+[dev-dependencies]
+proptest = "1"
