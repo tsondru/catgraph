@@ -176,13 +176,67 @@ fn apply_rewrite_dpo_splits_ternary_edge() {
 }
 
 // ---------------------------------------------------------------------------
-// Holonomy values after apply_rewrite
+// record_transition and Wilson loop inter-site holonomy
 // ---------------------------------------------------------------------------
 
 #[test]
-fn holonomy_after_rewrite_is_edge_ratio() {
-    // wolfram_a_to_bb: 1 ternary edge → 2 binary edges
-    // holonomy = edges_after / edges_before = 2.0 / 1.0 = 2.0
+fn record_transition_populates_wilson_loop() {
+    // Record inter-site transitions with known holonomies and verify
+    // that wilson_loop traverses them correctly.
+    let mut lattice: HypergraphLattice<2> =
+        HypergraphLattice::new([3, 3], HypergraphRewriteGroup::new(3), vec![]);
+
+    lattice.record_transition(&[0, 0], &[1, 0], 2.0);
+    lattice.record_transition(&[1, 0], &[1, 1], 0.5);
+    lattice.record_transition(&[1, 1], &[0, 1], 2.0);
+    lattice.record_transition(&[0, 1], &[0, 0], 0.5);
+
+    // Wilson loop around the plaquette: 2.0 * 0.5 * 2.0 * 0.5 = 1.0
+    let holonomy = lattice.wilson_loop(&[&[0, 0], &[1, 0], &[1, 1], &[0, 1]]);
+    assert!(
+        (holonomy - 1.0).abs() < 1e-10,
+        "closed plaquette should have holonomy 1.0, got {holonomy}"
+    );
+}
+
+#[test]
+fn wilson_loop_non_trivial_holonomy() {
+    let mut lattice: HypergraphLattice<2> =
+        HypergraphLattice::new([3, 3], HypergraphRewriteGroup::new(3), vec![]);
+
+    // Non-unit holonomy loop
+    lattice.record_transition(&[0, 0], &[1, 0], 2.0);
+    lattice.record_transition(&[1, 0], &[0, 0], 3.0);
+
+    let holonomy = lattice.wilson_loop(&[&[0, 0], &[1, 0]]);
+    assert!(
+        (holonomy - 6.0).abs() < 1e-10,
+        "expected 2.0 * 3.0 = 6.0, got {holonomy}"
+    );
+}
+
+#[test]
+fn wilson_loop_partial_links_default_to_unit() {
+    // When only some links on a path have recorded transitions,
+    // the missing links default to holonomy 1.0.
+    let mut lattice: HypergraphLattice<2> =
+        HypergraphLattice::new([3, 3], HypergraphRewriteGroup::new(3), vec![]);
+
+    lattice.record_transition(&[0, 0], &[1, 0], 3.0);
+    // [1,0] → [0,0] has no recorded transition — defaults to 1.0
+
+    let holonomy = lattice.wilson_loop(&[&[0, 0], &[1, 0]]);
+    assert!(
+        (holonomy - 3.0).abs() < 1e-10,
+        "expected 3.0 * 1.0 = 3.0, got {holonomy}"
+    );
+}
+
+#[test]
+fn apply_rewrite_does_not_record_transition() {
+    // After the self-loop bug fix, apply_rewrite no longer inserts
+    // a (site, site) transition. A single-site Wilson loop should
+    // return 1.0 (no transition recorded).
     let rule = RewriteRule::wolfram_a_to_bb();
     let mut lattice: HypergraphLattice<1> =
         HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![rule]);
@@ -193,119 +247,48 @@ fn holonomy_after_rewrite_is_edge_ratio() {
     assert!(lattice.apply_rewrite(&[2], 0));
     assert_eq!(lattice.step_count(), 1);
 
-    // apply_rewrite stores transition with self-loop key (site, site).
-    // A single-site Wilson loop path picks up exactly that key once.
+    // No self-loop transition recorded — single-site loop is trivial
     let s = [2];
     let holonomy = lattice.wilson_loop(&[&s]);
     assert!(
-        (holonomy - 2.0).abs() < 1e-12,
-        "holonomy should be 2.0 (2 edges / 1 edge), got {holonomy}"
-    );
-}
-
-#[test]
-fn holonomy_unchanged_after_failed_rewrite() {
-    let rule = RewriteRule::wolfram_a_to_bb();
-    let mut lattice: HypergraphLattice<1> =
-        HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![rule]);
-
-    let initial = Hypergraph::from_edges(vec![vec![0, 1, 2]]);
-    lattice.set_state(&[2], initial);
-
-    // First rewrite succeeds: 1 ternary → 2 binary
-    assert!(lattice.apply_rewrite(&[2], 0));
-    assert_eq!(lattice.step_count(), 1);
-
-    let s = [2];
-    let holonomy_after_first = lattice.wilson_loop(&[&s]);
-    assert!(
-        (holonomy_after_first - 2.0).abs() < 1e-12,
-        "first rewrite holonomy should be 2.0, got {holonomy_after_first}"
-    );
-
-    // Second rewrite on same site fails — no ternary edge left to match
-    assert!(!lattice.apply_rewrite(&[2], 0));
-    assert_eq!(lattice.step_count(), 1, "step_count must not increment on failure");
-
-    // Holonomy unchanged: the failed rewrite does not touch transitions
-    let holonomy_after_second = lattice.wilson_loop(&[&s]);
-    assert!(
-        (holonomy_after_second - 2.0).abs() < 1e-12,
-        "holonomy should remain 2.0 after failed rewrite, got {holonomy_after_second}"
-    );
-}
-
-#[test]
-fn plaquette_action_documents_flat_for_large_holonomy() {
-    // After a successful rewrite, holonomy = 2.0 (> 1.0).
-    // plaquette_action clamps h >= 1.0 to action = 0.0 (flat).
-    // This documents current behavior: the plaquette_action function treats
-    // any holonomy >= 1.0 as "flat", even though h = 2.0 represents a
-    // non-trivial topology change. Serves as a regression test.
-    let rule = RewriteRule::wolfram_a_to_bb();
-    let mut lattice: HypergraphLattice<1> =
-        HypergraphLattice::new([5], HypergraphRewriteGroup::new(3), vec![rule]);
-
-    let initial = Hypergraph::from_edges(vec![vec![0, 1, 2]]);
-    lattice.set_state(&[2], initial);
-
-    assert!(lattice.apply_rewrite(&[2], 0));
-
-    let s = [2];
-    let action = lattice.plaquette_action(&[&s]);
-    assert!(
-        action.abs() < 1e-12,
-        "plaquette_action should be 0.0 for holonomy >= 1.0, got {action}"
-    );
-}
-
-#[test]
-fn wilson_loop_2d_self_loop_transitions() {
-    // Documents that apply_rewrite stores self-loop keys (site, site),
-    // so inter-site edges in a Wilson loop path get default holonomy 1.0.
-    // Only the self-loop segments contribute non-trivial holonomy.
-    let rule = RewriteRule::wolfram_a_to_bb();
-    let mut lattice: HypergraphLattice<2> =
-        HypergraphLattice::new([4, 4], HypergraphRewriteGroup::new(3), vec![rule]);
-
-    // Place ternary edges at two adjacent sites
-    let s0 = [1, 1];
-    let s1 = [2, 1];
-    lattice.set_state(&s0, Hypergraph::from_edges(vec![vec![0, 1, 2]]));
-    lattice.set_state(&s1, Hypergraph::from_edges(vec![vec![0, 1, 2]]));
-
-    // Rewrite both sites: each gets holonomy 2.0 on its self-loop key
-    assert!(lattice.apply_rewrite(&s0, 0));
-    assert!(lattice.apply_rewrite(&s1, 0));
-    assert_eq!(lattice.step_count(), 2);
-
-    // Wilson loop through a 4-site plaquette including both rewritten sites.
-    // Path: s0 → s1 → [2,2] → [1,2] → back to s0
-    // Transitions looked up:
-    //   (s0, s1)     — inter-site, not stored → default 1.0
-    //   (s1, [2,2])  — inter-site, not stored → default 1.0
-    //   ([2,2],[1,2])— inter-site, not stored → default 1.0
-    //   ([1,2], s0)  — inter-site, not stored → default 1.0
-    // Product = 1.0 (all inter-site, no self-loop keys on path)
-    let s2 = [2, 2];
-    let s3 = [1, 2];
-    let path: Vec<&[usize; 2]> = vec![&s0, &s1, &s2, &s3];
-    let holonomy = lattice.wilson_loop(&path);
-    assert!(
         (holonomy - 1.0).abs() < 1e-12,
-        "inter-site Wilson loop should be 1.0 (self-loop keys only), got {holonomy}"
+        "apply_rewrite should not record transitions; single-site holonomy should be 1.0, got {holonomy}"
     );
+}
 
-    // Contrast: single-site loops DO pick up the rewrite holonomy
-    let h0 = lattice.wilson_loop(&[&s0]);
-    let h1 = lattice.wilson_loop(&[&s1]);
+#[test]
+fn is_causally_invariant_with_flat_plaquette() {
+    // A closed plaquette where all link holonomies multiply to 1.0
+    // should be detected as causally invariant.
+    let mut lattice: HypergraphLattice<2> =
+        HypergraphLattice::new([3, 3], HypergraphRewriteGroup::new(3), vec![]);
+
+    lattice.record_transition(&[0, 0], &[1, 0], 2.0);
+    lattice.record_transition(&[1, 0], &[1, 1], 0.5);
+    lattice.record_transition(&[1, 1], &[0, 1], 2.0);
+    lattice.record_transition(&[0, 1], &[0, 0], 0.5);
+
+    let path: Vec<&[usize; 2]> = vec![&[0, 0], &[1, 0], &[1, 1], &[0, 1]];
     assert!(
-        (h0 - 2.0).abs() < 1e-12,
-        "self-loop at s0 should be 2.0, got {h0}"
+        lattice.is_causally_invariant(&path),
+        "plaquette with holonomy product 1.0 should be causally invariant"
     );
+}
+
+#[test]
+fn is_not_causally_invariant_with_curved_plaquette() {
+    let mut lattice: HypergraphLattice<2> =
+        HypergraphLattice::new([3, 3], HypergraphRewriteGroup::new(3), vec![]);
+
+    lattice.record_transition(&[0, 0], &[1, 0], 2.0);
+    lattice.record_transition(&[1, 0], &[1, 1], 2.0);
+    lattice.record_transition(&[1, 1], &[0, 1], 2.0);
+    lattice.record_transition(&[0, 1], &[0, 0], 2.0);
+
+    let path: Vec<&[usize; 2]> = vec![&[0, 0], &[1, 0], &[1, 1], &[0, 1]];
     assert!(
-        (h1 - 2.0).abs() < 1e-12,
-        "self-loop at s1 should be 2.0, got {h1}"
+        !lattice.is_causally_invariant(&path),
+        "plaquette with holonomy product 16.0 should NOT be causally invariant"
     );
 }
 

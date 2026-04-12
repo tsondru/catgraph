@@ -418,17 +418,38 @@ impl<const D: usize> HypergraphLattice<D> {
 
         let edges_after = state.edge_count();
 
-        let holonomy = if edges_before == 0 {
+        let _holonomy = if edges_before == 0 {
             1.0
         } else {
             edges_after as f64 / edges_before as f64
         };
 
-        self.transitions
-            .insert((site.to_vec(), site.to_vec()), (rule_index, holonomy));
+        // Note: we intentionally do NOT record a self-loop transition here.
+        // A rewrite at a single site does not define a gauge link between
+        // distinct lattice sites. Use `record_transition` to populate
+        // inter-site link variables that `wilson_loop` can traverse.
 
         self.step_count += 1;
         true
+    }
+
+    /// Records a gauge link holonomy between two lattice sites.
+    ///
+    /// In lattice gauge theory, link variables live on edges between sites.
+    /// This records the holonomy (accumulated gauge transformation) for the
+    /// directed link from `from` to `to`.
+    ///
+    /// Use this to populate the lattice with inter-site gauge data that
+    /// [`wilson_loop`](Self::wilson_loop) can then traverse.
+    ///
+    /// # Arguments
+    ///
+    /// * `from` - Source lattice site
+    /// * `to` - Target lattice site
+    /// * `holonomy` - Gauge transformation weight for this directed link
+    pub fn record_transition(&mut self, from: &[usize; D], to: &[usize; D], holonomy: f64) {
+        self.transitions
+            .insert((from.to_vec(), to.to_vec()), (usize::MAX, holonomy));
     }
 
     /// Computes a Wilson loop around a closed path of lattice sites.
