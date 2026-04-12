@@ -58,7 +58,7 @@ pub trait GaugeGroup {
 /// # Example
 ///
 /// ```rust
-/// use catgraph::hypergraph::{HypergraphRewriteGroup, GaugeGroup};
+/// use catgraph_physics::hypergraph::{HypergraphRewriteGroup, GaugeGroup};
 ///
 /// let group = HypergraphRewriteGroup::new(3);
 ///
@@ -81,7 +81,7 @@ impl HypergraphRewriteGroup {
     /// # Example
     ///
     /// ```rust
-    /// use catgraph::hypergraph::HypergraphRewriteGroup;
+    /// use catgraph_physics::hypergraph::HypergraphRewriteGroup;
     ///
     /// let group = HypergraphRewriteGroup::new(5);
     /// assert_eq!(group.num_rules(), 5);
@@ -269,7 +269,7 @@ use super::rewrite_rule::RewriteRule;
 /// # Example
 ///
 /// ```rust
-/// use catgraph::hypergraph::{
+/// use catgraph_physics::hypergraph::{
 ///     HypergraphLattice, HypergraphRewriteGroup, Hypergraph, RewriteRule,
 /// };
 ///
@@ -325,7 +325,7 @@ impl<const D: usize> HypergraphLattice<D> {
     /// # Example
     ///
     /// ```rust
-    /// use catgraph::hypergraph::{HypergraphLattice, HypergraphRewriteGroup};
+    /// use catgraph_physics::hypergraph::{HypergraphLattice, HypergraphRewriteGroup};
     ///
     /// let lattice: HypergraphLattice<2> = HypergraphLattice::new(
     ///     [10, 10],

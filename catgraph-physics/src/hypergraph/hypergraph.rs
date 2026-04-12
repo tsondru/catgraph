@@ -26,7 +26,7 @@ use std::hash::{Hash, Hasher};
 /// # Example
 ///
 /// ```rust
-/// use catgraph::hypergraph::Hypergraph;
+/// use catgraph_physics::hypergraph::Hypergraph;
 ///
 /// let mut graph = Hypergraph::new();
 ///
@@ -75,7 +75,7 @@ impl Hypergraph {
     /// # Example
     ///
     /// ```rust
-    /// use catgraph::hypergraph::Hypergraph;
+    /// use catgraph_physics::hypergraph::Hypergraph;
     ///
     /// let graph = Hypergraph::from_edges(vec![
     ///     vec![0, 1, 2],

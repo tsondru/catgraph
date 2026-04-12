@@ -78,7 +78,7 @@ impl RewriteSpan {
 /// # Example
 ///
 /// ```rust
-/// use catgraph::hypergraph::RewriteRule;
+/// use catgraph_physics::hypergraph::RewriteRule;
 ///
 /// // Rule: {0, 1, 2} → {0, 1}, {1, 2}
 /// // Variables 0, 1, 2 are pattern variables, not literal vertex IDs
@@ -119,7 +119,7 @@ impl RewriteRule {
     /// # Example
     ///
     /// ```rust
-    /// use catgraph::hypergraph::RewriteRule;
+    /// use catgraph_physics::hypergraph::RewriteRule;
     ///
     /// // Self-loop splitting rule: {x, x} → {x, y}, {y, x}
     /// let rule = RewriteRule::from_pattern(

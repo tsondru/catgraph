@@ -23,7 +23,7 @@ use std::hash::{Hash, Hasher};
 /// # Example
 ///
 /// ```rust
-/// use catgraph::hypergraph::Hyperedge;
+/// use catgraph_physics::hypergraph::Hyperedge;
 ///
 /// // Create an ordered hyperedge {0, 1, 2}
 /// let edge = Hyperedge::new(vec![0, 1, 2]);
@@ -50,7 +50,7 @@ impl Hyperedge {
     /// # Example
     ///
     /// ```rust
-    /// use catgraph::hypergraph::Hyperedge;
+    /// use catgraph_physics::hypergraph::Hyperedge;
     ///
     /// let edge = Hyperedge::new(vec![0, 1, 2]);
     /// assert_eq!(edge.vertices(), &[0, 1, 2]);
