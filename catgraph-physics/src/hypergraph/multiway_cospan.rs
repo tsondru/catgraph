@@ -5,8 +5,8 @@
 //! causal invariance by comparing composite cospans along different paths
 //! to the same merge point.
 
-use crate::category::Composable;
-use crate::cospan::Cospan;
+use catgraph::category::Composable;
+use catgraph::cospan::Cospan;
 use super::evolution::HypergraphEvolution;
 
 /// A single edge in the multiway cospan graph: one parent → child rewrite step.

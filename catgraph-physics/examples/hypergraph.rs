@@ -5,7 +5,7 @@
 //! and the cospan chain bridge for category-theoretic composition.
 
 use catgraph::category::Composable;
-use catgraph::hypergraph::{Hypergraph, HypergraphEvolution, RewriteRule};
+use catgraph_physics::hypergraph::{Hypergraph, HypergraphEvolution, RewriteRule};
 
 // ============================================================================
 // Construction

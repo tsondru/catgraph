@@ -4,7 +4,7 @@
 //! causal invariance via Wilson loops, gauge group construction,
 //! plaquette/total action, and lattice construction.
 
-use catgraph::hypergraph::{
+use catgraph_physics::hypergraph::{
     plaquette_action, total_action, Hypergraph, HypergraphEvolution, HypergraphLattice,
     HypergraphRewriteGroup, RewriteRule,
 };

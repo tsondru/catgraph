@@ -6,7 +6,7 @@
 
 #![allow(clippy::float_cmp)]
 
-use catgraph::hypergraph::{
+use catgraph_physics::hypergraph::{
     plaquette_action, total_action, GaugeGroup, Hypergraph, HypergraphLattice,
     HypergraphRewriteGroup, RewriteRule,
 };

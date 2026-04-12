@@ -2,3 +2,4 @@
 //! multiway evolution, and gauge theory on hypergraph substrates.
 
 pub mod multiway;
+pub mod hypergraph;

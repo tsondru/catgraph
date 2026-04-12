@@ -7,9 +7,9 @@ use super::hypergraph::Hypergraph;
 use super::rewrite_rule::{RewriteMatch, RewriteRule, RewriteSpan};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use crate::category::Composable;
-use crate::cospan::Cospan;
-use crate::span::Span;
+use catgraph::category::Composable;
+use catgraph::cospan::Cospan;
+use catgraph::span::Span;
 
 /// A single step in the multiway evolution of a hypergraph.
 ///
@@ -881,11 +881,11 @@ impl HypergraphEvolution {
     /// # Errors
     ///
     /// Returns `CatgraphError::Composition` if the cospan chain is empty.
-    pub fn compose_cospan_chain(&self) -> Result<Cospan<u32>, crate::errors::CatgraphError> {
+    pub fn compose_cospan_chain(&self) -> Result<Cospan<u32>, catgraph::errors::CatgraphError> {
         let chain = self.to_cospan_chain();
         chain.into_iter()
             .reduce(|acc, c| acc.compose(&c).expect("evolution cospans must be composable"))
-            .ok_or_else(|| crate::errors::CatgraphError::Composition {
+            .ok_or_else(|| catgraph::errors::CatgraphError::Composition {
                 message: "empty cospan chain".to_string()
             })
     }

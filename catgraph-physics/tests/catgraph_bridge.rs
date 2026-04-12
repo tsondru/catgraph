@@ -3,7 +3,7 @@
 //! Verifies `RewriteRule` -> Span conversion, `HypergraphEvolution` -> Cospan chain,
 //! cospan composability, and span property validation using catgraph's Composable trait.
 
-use catgraph::hypergraph::{Hypergraph, HypergraphEvolution, RewriteRule};
+use catgraph_physics::hypergraph::{Hypergraph, HypergraphEvolution, RewriteRule};
 
 // ---------------------------------------------------------------------------
 // Rule to Span conversion

@@ -56,5 +56,4 @@ pub mod temperley_lieb;
 pub mod e1_operad;
 pub mod e2_operad;
 pub mod petri_net;
-pub mod hypergraph;
 pub mod equivalence;
