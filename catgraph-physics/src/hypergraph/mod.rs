@@ -7,12 +7,14 @@
 //! [`Hypergraph`] stores vertices and hyperedges with pattern matching.
 
 pub mod evolution;
+pub mod evolution_cospan;
 pub mod gauge;
 pub mod hyperedge;
 #[allow(clippy::module_inception)]
 pub mod hypergraph;
 pub mod multiway_cospan;
 pub mod rewrite_rule;
+pub mod rewrite_span;
 
 pub use evolution::{
     CausalInvarianceResult, HypergraphEvolution, HypergraphNode, HypergraphStep, WilsonLoop,
