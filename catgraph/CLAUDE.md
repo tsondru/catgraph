@@ -24,7 +24,7 @@ See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for section-by-sect
 - LinRel examples (2.10, 2.11, 2.16, 2.20, 2.21, 4.14)
 
 **Out of scope** (delegated):
-- Hypergraph DPO rewriting, multiway evolution, gauge theory → `catgraph-physics` (workspace sibling, future)
+- Hypergraph DPO rewriting, multiway evolution, gauge theory → `catgraph-physics` (workspace sibling)
 - Petri nets, E_n operads, Temperley-Lieb, wiring diagrams → `catgraph-applied` (workspace sibling, future)
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 - Computational irreducibility → [irreducible](https://github.com/tsondru/irreducible)
