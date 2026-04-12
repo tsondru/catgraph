@@ -1,11 +1,11 @@
-//! Integration tests for catgraph::multiway module.
+//! Integration tests for catgraph_physics::multiway module.
 //!
 //! Tests the generic multiway evolution infrastructure: graph construction,
 //! branchial foliation, discrete curvature, and Ollivier-Ricci analysis.
 //! Uses simple integer states and trivial transitions to exercise the API
 //! without domain-specific computation models.
 
-use catgraph::multiway::{
+use catgraph_physics::multiway::{
     branchial_parallel_step_pairs, extract_branchial_foliation, run_multiway_bfs,
     BranchId, BranchialGraph, BranchialSummary, DiscreteCurvature,
     MultiwayEvolutionGraph, MultiwayNodeId, OllivierFoliation, OllivierRicciCurvature,
@@ -386,7 +386,7 @@ fn cycles_across_branches_detected() {
     // Verify the cycle involves different branches
     let cross_branch = cycles
         .iter()
-        .any(|c| !c.is_same_branch());
+        .any(|c: &_| !c.is_same_branch());
     assert!(
         cross_branch,
         "at least one cycle should span different branches"

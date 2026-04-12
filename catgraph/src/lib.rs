@@ -57,5 +57,4 @@ pub mod e1_operad;
 pub mod e2_operad;
 pub mod petri_net;
 pub mod hypergraph;
-pub mod multiway;
 pub mod equivalence;

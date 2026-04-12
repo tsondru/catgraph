@@ -4,7 +4,7 @@
 //! extraction at each time step, and discrete curvature computation
 //! via Wasserstein-1 optimal transport on the branchial structure.
 
-use catgraph::multiway::{
+use catgraph_physics::multiway::{
     extract_branchial_foliation, run_multiway_bfs, BranchialGraph, DiscreteCurvature,
     OllivierRicciCurvature,
 };
