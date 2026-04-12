@@ -17,8 +17,8 @@ pub mod curvature;
 pub mod ollivier_ricci;
 
 pub use evolution_graph::{
-    run_multiway_bfs, BranchId, MergePoint, MultiwayCycle, MultiwayEdge, MultiwayEdgeKind,
-    MultiwayEvolutionGraph, MultiwayNode, MultiwayNodeId, MultiwayStatistics,
+    run_multiway_bfs, BranchId, ConfluenceDiamond, MergePoint, MultiwayCycle, MultiwayEdge,
+    MultiwayEdgeKind, MultiwayEvolutionGraph, MultiwayNode, MultiwayNodeId, MultiwayStatistics,
 };
 pub use branchial::{
     branchial_parallel_step_pairs, extract_branchial_foliation, find_all_merge_points,

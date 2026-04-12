@@ -17,7 +17,7 @@
 //! multicomputational irreducibility means Z' is a symmetric monoidal functor.
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
@@ -110,6 +110,30 @@ impl<S> MultiwayNode<S> {
             fingerprint,
         }
     }
+}
+
+/// A confluence diamond: two paths from a common ancestor reconverge.
+///
+/// ```text
+///       top
+///      /   \
+///   left   right
+///      \   /
+///      bottom
+/// ```
+///
+/// Confluence diamonds are the 2-simplices of the multiway complex —
+/// the substrate for discrete exterior calculus in Phase 2.5.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfluenceDiamond {
+    /// The common ancestor (fork point).
+    pub top: MultiwayNodeId,
+    /// Left branch node.
+    pub left: MultiwayNodeId,
+    /// Right branch node.
+    pub right: MultiwayNodeId,
+    /// The merge point where branches reconverge.
+    pub bottom: MultiwayNodeId,
 }
 
 /// The multiway evolution graph representing branching computation.
@@ -509,6 +533,151 @@ impl<S: Hash, T: Clone> MultiwayEvolutionGraph<S, T> {
         path
     }
 
+    /// Find all confluence diamonds in the graph.
+    ///
+    /// A confluence diamond is a subgraph where a fork point has two children
+    /// that share a common descendant (merge point). These are the 2-simplices
+    /// of the multiway complex and the substrate for discrete exterior calculus.
+    ///
+    /// For each fork point, every pair of children is checked for a nearest
+    /// common descendant via alternating BFS.
+    #[must_use]
+    pub fn confluence_diamonds(&self) -> Vec<ConfluenceDiamond> {
+        let fork_points = self.find_fork_points();
+        let mut diamonds = Vec::new();
+
+        for fork in &fork_points {
+            let Some(edges) = self.forward_edges.get(fork) else {
+                continue;
+            };
+            let children: Vec<MultiwayNodeId> = edges.iter().map(|e| e.to).collect();
+
+            // Check every pair of children for a common descendant.
+            for i in 0..children.len() {
+                for j in (i + 1)..children.len() {
+                    if let Some(merge) = self.find_common_descendant(children[i], children[j]) {
+                        diamonds.push(ConfluenceDiamond {
+                            top: *fork,
+                            left: children[i],
+                            right: children[j],
+                            bottom: merge,
+                        });
+                    }
+                }
+            }
+        }
+
+        diamonds
+    }
+
+    /// Find the nearest common descendant of two nodes via alternating BFS.
+    ///
+    /// Returns `Some(node_id)` if a common descendant exists, `None` otherwise.
+    /// The search alternates expansion from both frontiers so the first hit is
+    /// the nearest common descendant in terms of total edge distance.
+    fn find_common_descendant(
+        &self,
+        a: MultiwayNodeId,
+        b: MultiwayNodeId,
+    ) -> Option<MultiwayNodeId> {
+        // Trivial case: same node.
+        if a == b {
+            return Some(a);
+        }
+
+        let mut visited_a: HashSet<MultiwayNodeId> = HashSet::new();
+        let mut visited_b: HashSet<MultiwayNodeId> = HashSet::new();
+        let mut frontier_a: VecDeque<MultiwayNodeId> = VecDeque::new();
+        let mut frontier_b: VecDeque<MultiwayNodeId> = VecDeque::new();
+
+        visited_a.insert(a);
+        visited_b.insert(b);
+        frontier_a.push_back(a);
+        frontier_b.push_back(b);
+
+        // Alternating BFS: expand one level from a, then one level from b.
+        while !frontier_a.is_empty() || !frontier_b.is_empty() {
+            // Expand frontier_a by one full level.
+            if let Some(result) = self.bfs_expand_level(&mut frontier_a, &mut visited_a, &visited_b)
+            {
+                return Some(result);
+            }
+            // Expand frontier_b by one full level.
+            if let Some(result) = self.bfs_expand_level(&mut frontier_b, &mut visited_b, &visited_a)
+            {
+                return Some(result);
+            }
+        }
+
+        None
+    }
+
+    /// Expand one BFS level from `frontier`, adding newly discovered nodes to
+    /// `visited`. If any newly discovered node is in `other_visited`, return it
+    /// as the common descendant.
+    fn bfs_expand_level(
+        &self,
+        frontier: &mut VecDeque<MultiwayNodeId>,
+        visited: &mut HashSet<MultiwayNodeId>,
+        other_visited: &HashSet<MultiwayNodeId>,
+    ) -> Option<MultiwayNodeId> {
+        let level_size = frontier.len();
+        for _ in 0..level_size {
+            let Some(current) = frontier.pop_front() else {
+                break;
+            };
+            if let Some(edges) = self.forward_edges.get(&current) {
+                for edge in edges {
+                    if visited.insert(edge.to) {
+                        if other_visited.contains(&edge.to) {
+                            return Some(edge.to);
+                        }
+                        frontier.push_back(edge.to);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Return all pairs of child nodes from a given node.
+    ///
+    /// In a multiway system, all children of a fork are parallel-independent
+    /// events — they represent alternative computations from the same state.
+    /// Each returned pair `(a, b)` satisfies `a < b` in the child list order.
+    #[must_use]
+    pub fn parallel_independent_events(
+        &self,
+        node_id: MultiwayNodeId,
+    ) -> Vec<(MultiwayNodeId, MultiwayNodeId)> {
+        let Some(edges) = self.forward_edges.get(&node_id) else {
+            return Vec::new();
+        };
+        let children: Vec<MultiwayNodeId> = edges.iter().map(|e| e.to).collect();
+
+        let mut pairs = Vec::new();
+        for i in 0..children.len() {
+            for j in (i + 1)..children.len() {
+                pairs.push((children[i], children[j]));
+            }
+        }
+        pairs
+    }
+
+    /// Check whether two events commute causally.
+    ///
+    /// Two events commute if they share a common descendant — meaning
+    /// the computation paths they represent eventually reconverge. This is
+    /// the observable notion of causal commutativity in a multiway system.
+    #[must_use]
+    pub fn events_commute(
+        &self,
+        event_a: MultiwayNodeId,
+        event_b: MultiwayNodeId,
+    ) -> bool {
+        self.find_common_descendant(event_a, event_b).is_some()
+    }
+
     /// Get statistics about the multiway graph.
     #[must_use]
     pub fn statistics(&self) -> MultiwayStatistics {
@@ -824,5 +993,224 @@ mod tests {
     fn test_node_id_display() {
         let id = MultiwayNodeId::new(BranchId(3), 7);
         assert_eq!(format!("{}", id), "B3@7");
+    }
+
+    // --- confluence_diamonds tests ---
+
+    #[test]
+    fn test_confluence_diamond_simple() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("S1a".to_string(), "rule1".to_string(), 0),
+                ("S1b".to_string(), "rule2".to_string(), 1),
+            ],
+        );
+        let a = children[0];
+        let b = children[1];
+        let merge = graph.add_sequential_step(a, "S2".to_string(), "rule1".to_string());
+        graph.add_merge_edge(b, merge, "rule2".to_string());
+
+        let diamonds = graph.confluence_diamonds();
+        assert_eq!(diamonds.len(), 1);
+        assert_eq!(diamonds[0].top, root);
+        assert_eq!(diamonds[0].left, a);
+        assert_eq!(diamonds[0].right, b);
+        assert_eq!(diamonds[0].bottom, merge);
+    }
+
+    #[test]
+    fn test_no_diamonds_in_linear_graph() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let _child = graph.add_sequential_step(root, "S1".to_string(), "step".to_string());
+        assert!(graph.confluence_diamonds().is_empty());
+    }
+
+    #[test]
+    fn test_confluence_diamond_multiple() {
+        // Two separate fork-merge pairs produce two diamonds.
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("A".to_string(), "r1".to_string(), 0),
+                ("B".to_string(), "r2".to_string(), 1),
+            ],
+        );
+        let merge1 =
+            graph.add_sequential_step(children[0], "M1".to_string(), "r1".to_string());
+        graph.add_merge_edge(children[1], merge1, "r2".to_string());
+
+        // Second fork-merge from merge1.
+        let children2 = graph.add_fork(
+            merge1,
+            vec![
+                ("C".to_string(), "r3".to_string(), 0),
+                ("D".to_string(), "r4".to_string(), 1),
+            ],
+        );
+        let merge2 =
+            graph.add_sequential_step(children2[0], "M2".to_string(), "r3".to_string());
+        graph.add_merge_edge(children2[1], merge2, "r4".to_string());
+
+        let diamonds = graph.confluence_diamonds();
+        assert_eq!(diamonds.len(), 2);
+    }
+
+    #[test]
+    fn test_confluence_diamond_three_way_fork() {
+        // A 3-way fork where all three branches merge at the same point
+        // produces C(3,2) = 3 diamonds.
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("A".to_string(), "r1".to_string(), 0),
+                ("B".to_string(), "r2".to_string(), 1),
+                ("C".to_string(), "r3".to_string(), 2),
+            ],
+        );
+        let merge =
+            graph.add_sequential_step(children[0], "M".to_string(), "r1".to_string());
+        graph.add_merge_edge(children[1], merge, "r2".to_string());
+        graph.add_merge_edge(children[2], merge, "r3".to_string());
+
+        let diamonds = graph.confluence_diamonds();
+        assert_eq!(diamonds.len(), 3, "C(3,2) = 3 pairs from a 3-way fork");
+        // All diamonds share the same top and bottom.
+        for d in &diamonds {
+            assert_eq!(d.top, root);
+            assert_eq!(d.bottom, merge);
+        }
+    }
+
+    #[test]
+    fn test_no_diamond_when_fork_without_merge() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let _children = graph.add_fork(
+            root,
+            vec![
+                ("A".to_string(), "r1".to_string(), 0),
+                ("B".to_string(), "r2".to_string(), 1),
+            ],
+        );
+        // No merge — branches diverge forever.
+        assert!(graph.confluence_diamonds().is_empty());
+    }
+
+    // --- parallel_independent_events tests ---
+
+    #[test]
+    fn test_parallel_independent_events() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("S1a".to_string(), "rule1".to_string(), 0),
+                ("S1b".to_string(), "rule2".to_string(), 1),
+            ],
+        );
+        let pairs = graph.parallel_independent_events(root);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], (children[0], children[1]));
+    }
+
+    #[test]
+    fn test_parallel_independent_events_three_way() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let _children = graph.add_fork(
+            root,
+            vec![
+                ("A".to_string(), "r1".to_string(), 0),
+                ("B".to_string(), "r2".to_string(), 1),
+                ("C".to_string(), "r3".to_string(), 2),
+            ],
+        );
+        let pairs = graph.parallel_independent_events(root);
+        assert_eq!(pairs.len(), 3, "C(3,2) = 3 pairs");
+    }
+
+    #[test]
+    fn test_parallel_independent_events_no_children() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let pairs = graph.parallel_independent_events(root);
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn test_parallel_independent_events_single_child() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let _child =
+            graph.add_sequential_step(root, "S1".to_string(), "step".to_string());
+        let pairs = graph.parallel_independent_events(root);
+        assert!(pairs.is_empty(), "single child produces zero pairs");
+    }
+
+    // --- events_commute tests ---
+
+    #[test]
+    fn test_events_commute_in_diamond() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("S1a".to_string(), "rule1".to_string(), 0),
+                ("S1b".to_string(), "rule2".to_string(), 1),
+            ],
+        );
+        let merge =
+            graph.add_sequential_step(children[0], "S2".to_string(), "r1".to_string());
+        graph.add_merge_edge(children[1], merge, "r2".to_string());
+        assert!(graph.events_commute(children[0], children[1]));
+    }
+
+    #[test]
+    fn test_events_dont_commute_without_merge() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("S1a".to_string(), "rule1".to_string(), 0),
+                ("S1b".to_string(), "rule2".to_string(), 1),
+            ],
+        );
+        assert!(!graph.events_commute(children[0], children[1]));
+    }
+
+    #[test]
+    fn test_events_commute_same_node() {
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        assert!(graph.events_commute(root, root));
+    }
+
+    #[test]
+    fn test_events_commute_transitive_descendant() {
+        // a -> c -> merge, b -> merge. a and b commute via merge.
+        let mut graph = MultiwayEvolutionGraph::<String, String>::new();
+        let root = graph.add_root("S0".to_string());
+        let children = graph.add_fork(
+            root,
+            vec![
+                ("A".to_string(), "r1".to_string(), 0),
+                ("B".to_string(), "r2".to_string(), 1),
+            ],
+        );
+        let c = graph.add_sequential_step(children[0], "C".to_string(), "r1".to_string());
+        let merge = graph.add_sequential_step(c, "M".to_string(), "r1".to_string());
+        graph.add_merge_edge(children[1], merge, "r2".to_string());
+        assert!(graph.events_commute(children[0], children[1]));
     }
 }
