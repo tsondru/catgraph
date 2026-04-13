@@ -9,10 +9,11 @@ This is a Rust workspace. See [`catgraph/README.md`](catgraph/README.md) for the
 | Crate | Path | Purpose |
 |---|---|---|
 | `catgraph` | `catgraph/` | Strict Fong-Spivak 2019 implementation |
+| `catgraph-physics` | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
 
 ## Sibling repos
 
-- [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) — SurrealDB persistence for catgraph types
+- [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) — SurrealDB persistence for catgraph and catgraph-physics types
 - [irreducible](https://github.com/tsondru/irreducible) — Gorard (2023) computational irreducibility framework
 
 ## Build
