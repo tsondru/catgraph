@@ -1,16 +1,25 @@
 [package]
 name = "catgraph-physics"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
-description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory"
+description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis"
 repository = "https://github.com/tsondru/catgraph"
 authors = ["tsondru", "Claude <noreply@anthropic.com>"]
-keywords = ["hypergraph", "multiway", "rewriting", "gauge-theory", "wolfram-physics"]
+keywords = ["hypergraph", "multiway", "rewriting", "spectral", "wolfram-physics"]
 categories = ["mathematics", "science", "simulation"]
 
 [dependencies]
 catgraph = { path = "../catgraph" }
+nalgebra = "0.34"
+nalgebra-sparse = "0.11"
+petgraph = "0.8"
+rustworkx-core = "0.17"
 
 [dev-dependencies]
 proptest = "1"
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "wasserstein_bench"
+harness = false
