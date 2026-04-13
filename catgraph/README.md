@@ -32,15 +32,20 @@ Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hype
 | `operadic.rs` | `Operadic` | Generic operadic substitution trait |
 | `petri_net.rs` | `PetriNet`, `Transition`, `Marking` | Place/transition nets, firing, reachability, cospan bridge |
 
-## Sibling crates
+## Related crates
 
-These are workspace members or separate repos — not part of catgraph core:
+**Workspace member:**
 
 | Crate | Purpose |
 |-------|---------|
-| [`catgraph-physics`](../catgraph-physics/) | Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis (workspace member) |
-| [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) | SurrealDB persistence for catgraph and catgraph-physics types (separate repo) |
-| [irreducible](https://github.com/tsondru/irreducible) | Computational irreducibility framework (separate repo) |
+| [`catgraph-physics`](../catgraph-physics/) | Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
+
+**Sibling repos** (separate git repos, depend on catgraph via git tag):
+
+| Repo | Purpose |
+|------|---------|
+| [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) | SurrealDB persistence for catgraph and catgraph-physics types |
+| [irreducible](https://github.com/tsondru/irreducible) | Computational irreducibility framework (Gorard 2023) |
 
 ## Fong-Spivak Feature Map
 
