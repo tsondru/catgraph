@@ -1,6 +1,6 @@
 [package]
 name = "catgraph"
-version = "0.10.6"
+version = "0.11.0"
 edition = "2024"
 license = "MIT"
 description = "Category-theoretic graph structures: cospans, spans, Frobenius algebras, and morphisms in symmetric monoidal categories — strict Fong-Spivak 2019"
@@ -19,7 +19,7 @@ permutations = "^0.1.1"
 rand = "^0.10.0"
 num = "^0.4.3"
 itertools = "^0.14.0"
-rayon = "^1.11"
+rayon = "^1.12"
 rust_decimal = "1"
 thiserror = "2"
 
@@ -34,8 +34,4 @@ harness = false
 
 [[bench]]
 name = "pullback"
-harness = false
-
-[[bench]]
-name = "rayon_thresholds"
 harness = false

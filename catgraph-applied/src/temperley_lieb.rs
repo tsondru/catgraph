@@ -18,18 +18,18 @@
 //!   `s_1, …, s_{n-1}` (transpositions in Hom(n, n))
 //!
 //! Implements [`Composable`], [`Monoidal`], [`HasIdentity`], and
-//! [`MonoidalMorphism`](crate::monoidal::MonoidalMorphism).
+//! [`MonoidalMorphism`](catgraph::monoidal::MonoidalMorphism).
 //!
 //! See also `examples/temperley_lieb.rs` for the braid relation and generator usage.
 
-use crate::errors::CatgraphError;
+use catgraph::errors::CatgraphError;
 
 use {
-    crate::{
+    catgraph::{
         category::{Composable, HasIdentity},
-        linear_combination::LinearCombination,
         monoidal::{Monoidal, MonoidalMorphism},
     },
+    crate::linear_combination::LinearCombination,
     itertools::Itertools,
     num::{One, Zero},
     rustworkx_core::petgraph::{
@@ -47,6 +47,13 @@ use {
 
 /// Threshold for parallelizing combinations checks in `non_crossing`.
 /// Combinations grow as n*(n-1)/2, so 8 elements = 28 combinations.
+// TODO(rayon-threshold): re-measure via `benches/rayon_thresholds.rs`. The
+// current value of 8 is flagged by the 2026-04-10 gleaner2 audit as likely
+// too low — the parallel path's per-worker setup cost may dominate for
+// small combinations counts. Remeasure with `cargo bench -p catgraph-applied
+// --bench rayon_thresholds` and adjust. See also
+// `~/.claude/summaries/rayon-summary-0.md` on `rayon_cond::CondIterator`
+// as an alternative to the if/else threshold pattern.
 const PARALLEL_COMBINATIONS_THRESHOLD: usize = 8;
 
 /// An ordered pair of point indices, representing a matched arc in a Brauer diagram.
@@ -634,7 +641,7 @@ where
 mod test {
     use std::ops::{AddAssign, MulAssign};
 
-    use crate::errors::CatgraphError;
+    use catgraph::errors::CatgraphError;
 
     use super::BrauerMorphism;
     use either::Either;
@@ -647,10 +654,10 @@ mod test {
         delta_poly_coeffs: &[T],
     ) -> Result<BrauerMorphism<T>, CatgraphError> {
         fn get_generator<T: Clone>(l_gens: &[T], r_gens: &[T], which: Either<usize, usize>) -> T {
-            use crate::utils::EitherExt;
+            use catgraph::utils::EitherExt;
             which.join(|n| l_gens[n].clone(), |n| r_gens[n].clone())
         }
-        use crate::{category::Composable, monoidal::Monoidal};
+        use catgraph::{category::Composable, monoidal::Monoidal};
         assert!(!prod_these.is_empty());
         let prod_these_0 = get_generator(e_i, s_i, prod_these[0]);
         let mut delta_poly = BrauerMorphism::delta_polynomial(delta_poly_coeffs);
@@ -677,7 +684,7 @@ mod test {
 
     #[test]
     fn t_l_relations() {
-        use crate::{category::Composable, utils::test_asserter};
+        use catgraph::{category::Composable, utils::test_asserter};
         use either::Either::Left;
         use num::Complex;
         let e_i = BrauerMorphism::<Complex<i32>>::temperley_lieb_gens(5);
@@ -737,7 +744,7 @@ mod test {
     #[test]
     fn wiki_example() {
         use super::BrauerMorphism;
-        use crate::{category::Composable, monoidal::Monoidal};
+        use catgraph::{category::Composable, monoidal::Monoidal};
         use num::Complex;
         let e_i = BrauerMorphism::<Complex<i32>>::temperley_lieb_gens(5);
         let zero_complex = Complex::<i32>::zero();
@@ -776,7 +783,7 @@ mod test {
     #[test]
     fn sym_relations() {
         use super::BrauerMorphism;
-        use crate::{
+        use catgraph::{
             category::{Composable, HasIdentity},
             utils::test_asserter,
         };
@@ -858,7 +865,7 @@ mod test {
     #[test]
     fn tangle_relations() {
         use super::BrauerMorphism;
-        use crate::{category::Composable, utils::test_asserter};
+        use catgraph::{category::Composable, utils::test_asserter};
         use either::Either::{Left, Right};
         use num::Complex;
         let n = 7;

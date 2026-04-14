@@ -5,7 +5,7 @@
 //! homomorphism via go_to_monoid.
 
 use catgraph::category::HasIdentity;
-use catgraph::e1_operad::E1;
+use catgraph_applied::e1_operad::E1;
 use catgraph::operadic::Operadic;
 
 // ============================================================================

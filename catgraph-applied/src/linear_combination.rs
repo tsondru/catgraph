@@ -32,6 +32,11 @@ use {
 
 /// Threshold for parallelizing `LinearCombination` multiplication.
 /// Below this, sequential iteration is faster due to rayon overhead.
+// `into_par_iter()` on HashMap is not `IndexedParallelIterator`, so the
+// adaptive `with_min_len` pattern (used in catgraph core) doesn't apply here.
+// The explicit threshold remains the cleanest option. `rayon_cond::CondIterator`
+// would unify the if/else branches into a single code path — see
+// `~/.claude/summaries/rayon-summary-0.md` for the rustworkx-core precedent.
 const PARALLEL_MUL_THRESHOLD: usize = 32;
 
 /// A formal linear combination: a sparse map from basis elements to coefficients.

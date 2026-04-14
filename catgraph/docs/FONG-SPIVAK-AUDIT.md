@@ -1,15 +1,24 @@
-# Fong-Spivak Coverage Audit (catgraph v0.10.5)
+# Fong-Spivak Coverage Audit (catgraph v0.11.0 — slim F&S baseline)
 
 > **Paper:** Fong & Spivak, *Hypergraph Categories* (arXiv:1806.08304v3, 18 Jan 2019)
-> **Library:** catgraph v0.10.5 (Phase 1 complete — Group 7 relocated to irreducible v0.4.0)
-> **Date:** 2026-04-11 (Phase 0.5 + Phase 1 both completed same day; originally audited 2026-04-10)
+> **Library:** catgraph v0.11.0 (Phases 0.5 + 1 + 2 + 3 complete — non-F&S modules relocated to `irreducible`, `catgraph-physics`, and `catgraph-applied`)
+> **Date:** 2026-04-14 (Phases 0.5 + 1 + 2 + 3 verified against current workspace; originally audited 2026-04-10)
 > **Method:** read all 38 pages of the paper, cross-checked each numbered item against catgraph source
 >
-> **Note on Phase 1:** catgraph v0.10.5 removes 8 non-F&S modules (`interval`, `complexity`,
+> **Note on Phase 1 (v0.10.5):** catgraph removed 8 non-F&S modules (`interval`, `complexity`,
 > `computation_state`, `adjunction`, `bifunctor`, `coherence`, `stokes`, `trace`) back to
-> `irreducible`. None of the F&S paper items below are affected — the removed modules
-> implemented Gorard's (2023) functorial irreducibility framework, not Fong-Spivak (2019)
-> hypergraph categories. Coverage percentages are unchanged.
+> `irreducible`. These implemented Gorard's (2023) functorial irreducibility framework,
+> not Fong-Spivak (2019) hypergraph categories.
+>
+> **Note on Phase 2 (v0.10.6):** catgraph removed the `hypergraph` (DPO rewriting, gauge theory,
+> evolution) and `multiway` (evolution graph, branchial, curvature, Wasserstein) modules to the
+> new workspace sibling `catgraph-physics` v0.1.0. These implemented Wolfram-physics-flavored
+> extensions, not Fong-Spivak (2019) hypergraph categories.
+>
+> None of the F&S paper items below are affected by Phase 1 or Phase 2 — coverage percentages
+> are unchanged from the 2026-04-11 audit. The F&S core (`cospan`, `span`, `named_cospan`,
+> `frobenius/`, `compact_closed`, `cospan_algebra`, `hypergraph_category`, `hypergraph_functor`,
+> `equivalence`, `finset`, `monoidal`) remains fully intact.
 
 **Status legend:**
 - ✅ DONE — implemented and tested
@@ -52,7 +61,7 @@
 | Eq 3: alternative wiring | ➖ | — | visual variant of Eq 2 |
 | Eq 4: cospan A→N←B for the running example | ✅ | named_cospan.rs::new | core type |
 | Eq 5: hierarchy of category types (cat → mon → traced → hyper) | ⚠️ | — | implicit; no explicit `TracedMonoidalCategory` layer (CLAUDE.md says "OK because hypergraph subsumes it") |
-| Eq 6: operadic substitution as a compositional view | ✅ | operadic.rs (trait) | impl currently in wiring_diagram.rs |
+| Eq 6: operadic substitution as a compositional view | ✅ | operadic.rs (trait) | impl currently in wiring_diagram.rs — **Phase 3 note:** `wiring_diagram.rs` moves to `catgraph-applied`; the `Operadic` *trait* stays in catgraph core |
 | Eq 7: labeled cospan diagram (m → p ← n) | ✅ | cospan.rs | core type |
 | Eq 8: Hyp_OF(Λ) ≅ Lax(Cospan_Λ, Set) | ✅ | equivalence.rs | morphism direction via CospanAlgebraMorphism + roundtrip tests |
 | Thm 1.1: every hypergraph cat ≅ OF (coherence) | ⚠️ | — | catgraph works inside Cospan_Λ which IS objectwise-free, but never proves the general equivalence Hyp ≃ Hyp_OF |
@@ -113,6 +122,8 @@
 ### §2.5 A word on operads
 
 (motivational discussion, no theorems)
+
+**Phase 3 reconciliation note:** catgraph's concrete operadic machinery — `wiring_diagram.rs`, `e1_operad.rs`, `e2_operad.rs`, `temperley_lieb.rs`, `linear_combination.rs`, `petri_net.rs` — is **not** part of the F&S 2019 paper's numbered content. These modules will relocate to `catgraph-applied` (workspace sibling). The core `Operadic` trait (`operadic.rs`) stays in catgraph as the abstract interface. See "Reconciliation with catgraph-applied" section below.
 
 ### §3.1 Self-dual compact closed
 
@@ -208,7 +219,7 @@
 ### Phase 0.5 completed (2026-04-11)
 
 All five items listed in the previous audit have been closed for catgraph v0.10.4,
-and remain closed in v0.10.5:
+and remain closed in v0.10.5 and v0.10.6:
 
 1. **Lemma 4.3** — ✅ `cospan_algebra::functor_induced_algebra_map` lifts any hypergraph functor to a cospan-algebra morphism; `tests/cospan_algebra.rs` verifies naturality, monoidality, and unit preservation for both `RelabelingFunctor` and `CospanToFrobeniusFunctor`.
 
@@ -257,7 +268,7 @@ Historical note — this was the original finding that drove Gap 5 in Phase 0.5:
 
 ## What does "Theorem 1.2 is implemented" actually mean for catgraph?
 
-**catgraph v0.10.5 implements Theorem 1.2 in its per-Λ form (which is Thm 4.13)**, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1–3.4 on compact closed structure, using PartitionAlgebra and NameAlgebra as worked examples.
+**catgraph v0.10.6 implements Theorem 1.2 in its per-Λ form (which is Thm 4.13)**, with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Props 3.1–3.4 on compact closed structure, using PartitionAlgebra and NameAlgebra as worked examples.
 
 **catgraph does NOT implement:**
 - The global Grothendieck-construction form (Thm 4.16) — `Hyp_OF ≅ Cospan-Alg` as 1-categories with naturality across Λ
@@ -266,6 +277,49 @@ Historical note — this was the original finding that drove Gap 5 in Phase 0.5:
 
 These require either the Grothendieck construction or parametric-Λ machinery beyond catgraph's current type system, and are permanently deferred.
 
+## Reconciliation with catgraph-applied (Phase 3 and beyond)
+
+catgraph core (v0.11.0 target) tracks the Fong-Spivak 2019 *Hypergraph Categories* paper strictly. A second, complementary applied-CT track is planned for the workspace sibling `catgraph-applied`, aligning with a different (TBD) F&S applied category theory paper whose audit docs will be added when that work begins.
+
+### Current catgraph modules that are **not** part of F&S 2019 numbered content
+
+These stay in catgraph until Phase 3, then relocate to `catgraph-applied`. They do not appear in the audit tables above because the 2019 paper does not cover them. The audit's coverage percentages are unaffected by the move.
+
+| Module | Nature | Paper relationship | Phase 3 destination |
+|---|---|---|---|
+| `wiring_diagram.rs` | Operadic substitution impl | Referenced by Eq 6 as an illustration, but the F&S paper does not develop wiring diagrams formally | `catgraph-applied` |
+| `e1_operad.rs` | 1D little-intervals operad | Not in F&S 2019 (§2.5 is motivational on operads but makes no formal claim) | `catgraph-applied` |
+| `e2_operad.rs` | 2D little-disks operad | Not in F&S 2019 | `catgraph-applied` |
+| `temperley_lieb.rs` | Temperley-Lieb category | Not in F&S 2019 (related to Jones/TL representation theory) | `catgraph-applied` |
+| `linear_combination.rs` | Formal linear combinations | Not in F&S 2019; used only by `temperley_lieb.rs` | `catgraph-applied` |
+| `petri_net.rs` | Petri net primitives | Not in F&S 2019; connects to applied CT papers on concurrency | `catgraph-applied` |
+
+The **`Operadic` trait** (`src/operadic.rs`) is the abstract interface referenced by Eq 6 and stays in catgraph core. Only the concrete implementations move.
+
+### Items to add when `catgraph-applied` audit is drafted
+
+When the F&S applied CT paper is chosen and documented in `catgraph-applied/docs/`, a parallel audit should cover items such as (placeholders — to be populated with actual numbered items from the target paper):
+
+- Operadic substitution (formal): sections on wiring diagrams, operadic composition, Σ-operad machinery
+- Colored operads (E_n family): operadic structure on configuration spaces
+- Temperley-Lieb / diagrammatic algebras: diagrammatic category presentations, Jones polynomial connections
+- Petri nets as symmetric monoidal categories: Baez-Master or Baez-Pollard alignment if that paper is chosen
+- Free monoidal category on a signature: generator-relation presentations
+
+Until that paper is chosen and documented, the above is a **TODO placeholder**. The catgraph-applied audit doc should be cross-linked from here when created.
+
+### What catgraph-applied inherits from the F&S 2019 core
+
+Every item in catgraph-applied will be built on top of catgraph's F&S 2019 primitives:
+
+- `Cospan<Lambda>` pushout composition — underlies any applied monoidal composition
+- `Frobenius` generators — underlies operadic composition of SMCs via Prop 3.8
+- `HypergraphCategory` trait — is the target category for wiring diagrams, Petri nets, and operadic morphisms
+- Compact closed structure (§3.1) — cup/cap used in string-diagram rewriting (TL, wiring)
+- `HypergraphFunctor` — the target for applied-CT semantic functors (e.g., Petri → Mark, wiring → StochMatrix)
+
+No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
+
 ## Recommendation for catgraph v0.11.0 release notes
 
-**catgraph v0.10.5 / v0.11.0 claim (Phase 0.5 verified, Phase 1 slimmed):** "catgraph implements Theorem 1.2 in its per-Λ form (Thm 4.13), with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Propositions 3.1–3.4 on compact closed structure directly verified. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), §3.3 io/ff factorization, and cross-Λ functoriality are intentionally deferred as requiring machinery beyond catgraph's current scope. Non-F&S modules (Gorard's functorial irreducibility framework: interval/complexity/computation_state/adjunction/bifunctor/coherence/stokes/trace) now live in the downstream `irreducible` crate."
+**catgraph v0.10.6 / v0.11.0 claim (Phase 0.5 verified, Phases 1 + 2 slimmed):** "catgraph implements Theorem 1.2 in its per-Λ form (Thm 4.13), with full bidirectional functoriality (Lemmas 4.3 and 4.9), all six structural cospans of §4.2, and Propositions 3.1–3.4 on compact closed structure directly verified. The global Grothendieck-construction form (Thm 4.16), the 2-categorical strictification (Thm 1.1), §3.3 io/ff factorization, and cross-Λ functoriality are intentionally deferred as requiring machinery beyond catgraph's current scope. Non-F&S modules have been relocated: Gorard's functorial irreducibility framework (interval/complexity/computation_state/adjunction/bifunctor/coherence/stokes/trace) now lives in the downstream `irreducible` crate; Wolfram-physics extensions (hypergraph DPO rewriting, gauge theory, multiway evolution, branchial analysis) now live in the workspace sibling `catgraph-physics`."

@@ -1,6 +1,6 @@
-# catgraph (F&S 2019 crate)
+# catgraph (F&S 2019 crate, v0.11.0 slim baseline)
 
-Strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304).
+Strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). v0.11.0 is the slim F&S baseline release — applied-CT extras now live in `catgraph-applied`, Wolfram-physics extensions in `catgraph-physics`.
 
 ## Scope
 
@@ -24,8 +24,8 @@ See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for section-by-sect
 - LinRel examples (2.10, 2.11, 2.16, 2.20, 2.21, 4.14)
 
 **Out of scope** (delegated):
-- Hypergraph DPO rewriting, multiway evolution, gauge theory → `catgraph-physics` (workspace sibling)
-- Petri nets, E_n operads, Temperley-Lieb, wiring diagrams → `catgraph-applied` (workspace sibling, future)
+- Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis → `catgraph-physics` (workspace sibling, v0.2.0)
+- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations → `catgraph-applied` (workspace sibling, v0.1.0)
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 - Computational irreducibility → [irreducible](https://github.com/tsondru/irreducible)
 
@@ -53,7 +53,7 @@ cargo bench -p catgraph --no-run
 - Use `.is_multiple_of()` instead of `% n == 0`
 - Collapse nested `if let` with `&&` (let chains)
 
-@.claude/refactor/architecture.md
-@.claude/refactor/fs-coverage-detail.md
-@.claude/refactor/session-state.md
-@.claude/refactor/CLAUDE.local.md
+@../.claude/refactor/catgraph-architecture.md
+@../.claude/refactor/fs-coverage-detail.md
+@../.claude/refactor/catgraph-session-state.md
+@../.claude/refactor/catgraph-CLAUDE.local.md

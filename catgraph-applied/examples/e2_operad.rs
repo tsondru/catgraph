@@ -5,8 +5,8 @@
 //! embedding from E1, name changes, and extracting sub-circles.
 
 use catgraph::category::HasIdentity;
-use catgraph::e1_operad::E1;
-use catgraph::e2_operad::E2;
+use catgraph_applied::e1_operad::E1;
+use catgraph_applied::e2_operad::E2;
 use catgraph::operadic::Operadic;
 
 // ============================================================================

@@ -1,6 +1,6 @@
 use catgraph::category::{Composable, HasIdentity};
 use catgraph::monoidal::Monoidal;
-use catgraph::temperley_lieb::BrauerMorphism;
+use catgraph_applied::temperley_lieb::BrauerMorphism;
 
 /// Composing a TL generator with the identity (on either side) returns the generator.
 #[test]

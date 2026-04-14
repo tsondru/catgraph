@@ -4,7 +4,7 @@
 //! `inj_linearly_extend`, and `linearly_extend` — functions that transform
 //! linear combinations via closures and produce new algebraic structures.
 
-use catgraph::linear_combination::LinearCombination;
+use catgraph_applied::linear_combination::LinearCombination;
 
 /// Helper: build a `LinearCombination<i64, String>` from `(coeff, basis)` pairs.
 /// Uses `FromIterator`, swapping to `(basis, coeff)` order.

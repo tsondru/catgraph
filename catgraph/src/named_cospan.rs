@@ -323,51 +323,25 @@ where
                 }
             }
         } else {
-            let total_len = self.left_names.len() + self.right_names.len();
-            if total_len >= PARALLEL_PREDICATE_THRESHOLD {
-                // Parallel path
-                let mut matched_indices: Vec<Either<LeftIndex, RightIndex>> = self
-                    .left_names
-                    .par_iter()
-                    .enumerate()
-                    .filter_map(|(index, &r)| {
-                        if left_pred(r) {
-                            Some(Left(index))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                let right_indices: Vec<_> = self
-                    .right_names
-                    .par_iter()
-                    .enumerate()
-                    .filter_map(|(index, &r)| if right_pred(r) { Some(Right(index)) } else { None })
-                    .collect();
-                matched_indices.extend(right_indices);
-                matched_indices
-            } else {
-                // Sequential path
-                let mut matched_indices: Vec<Either<LeftIndex, RightIndex>> = self
-                    .left_names
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, &r)| {
-                        if left_pred(r) {
-                            Some(Left(index))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                let right_indices = self
-                    .right_names
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, &r)| if right_pred(r) { Some(index) } else { None });
-                matched_indices.extend(right_indices.map(Right));
-                matched_indices
-            }
+            // Always parallel; `with_min_len` tells rayon's LengthSplitter not
+            // to subdivide below the threshold, so small inputs run as a single
+            // sequential task and large inputs fan out across workers.
+            let mut matched_indices: Vec<Either<LeftIndex, RightIndex>> = self
+                .left_names
+                .par_iter()
+                .with_min_len(PARALLEL_PREDICATE_THRESHOLD)
+                .enumerate()
+                .filter_map(|(index, &r)| left_pred(r).then_some(Left(index)))
+                .collect();
+            let right_indices: Vec<_> = self
+                .right_names
+                .par_iter()
+                .with_min_len(PARALLEL_PREDICATE_THRESHOLD)
+                .enumerate()
+                .filter_map(|(index, &r)| right_pred(r).then_some(Right(index)))
+                .collect();
+            matched_indices.extend(right_indices);
+            matched_indices
         }
     }
 

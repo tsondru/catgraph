@@ -2,11 +2,11 @@
 
 Strict Rust implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304).
 
-Cospans, spans, Frobenius algebras, hypergraph categories, compact closed structure, Theorem 1.2 equivalence, and morphisms in symmetric monoidal categories.
+Cospans, spans, Frobenius algebras, hypergraph categories, compact closed structure, and the Theorem 1.2 equivalence. This crate tracks the F&S 2019 paper strictly — applied-CT extras and Wolfram-physics extensions live in sibling crates.
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics and implement the full F&S paper.
 
-630 tests (including 20+ proptest properties), zero clippy pedantic warnings, criterion benchmarks. Rust 2024 edition.
+**v0.11.0 slim baseline.** Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
 
 ## Component Index
 
@@ -19,37 +19,32 @@ Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hype
 | `monoidal.rs` | `Monoidal`, `SymmetricMonoidalMorphism`, `GenericMonoidalMorphism` | Tensor product, braiding, generic layered morphisms |
 | `frobenius/` | `FrobeniusMorphism`, `MorphismSystem` | String diagram morphisms, DAG-based black-box interpretation |
 | `compact_closed.rs` | `cup`, `cap`, `name`, `unname`, `compose_names_direct` | Self-dual compact closed structure (§3.1), Prop 3.3 literal form |
-| `cospan_algebra.rs` | `CospanAlgebra`, `PartitionAlgebra`, `NameAlgebra` | Lax monoidal functors Cospan → Set (§2.1) |
+| `cospan_algebra.rs` | `CospanAlgebra`, `PartitionAlgebra`, `NameAlgebra`, `functor_induced_algebra_map` | Lax monoidal functors Cospan → Set (§2.1), Lemma 4.3 natural transformation |
 | `hypergraph_category.rs` | `HypergraphCategory` | Frobenius generators η, ε, μ, δ with cup/cap (§2.3) |
 | `hypergraph_functor.rs` | `HypergraphFunctor`, `RelabelingFunctor`, `CospanToFrobeniusFunctor` | Structure-preserving maps between hypergraph categories (§2.3) |
-| `equivalence.rs` | `CospanAlgebraMorphism`, `comp_cospan` | §4 equivalence Hyp_OF ≅ Cospan-Alg (Thm 1.2) |
-| `finset.rs` | `Permutation`, `Decomposition` | Epi-mono factorization, order-preserving maps |
-| `linear_combination.rs` | `LinearCombination<T, Basis>` | Formal linear combinations over a ring |
-| `temperley_lieb.rs` | `BrauerMorphism` | Temperley-Lieb / Brauer algebra diagrams |
-| `e1_operad.rs` | `E1` | Little intervals operad |
-| `e2_operad.rs` | `E2` | Little disks operad |
-| `wiring_diagram.rs` | `WiringDiagram` | Operadic substitution on named cospans |
-| `operadic.rs` | `Operadic` | Generic operadic substitution trait |
-| `petri_net.rs` | `PetriNet`, `Transition`, `Marking` | Place/transition nets, firing, reachability, cospan bridge |
+| `equivalence.rs` | `CospanAlgebraMorphism`, `comp_cospan`, `functor_from_algebra_morphism` | §4 equivalence Hyp_OF ≅ Cospan-Alg (Thm 1.2 per-Λ form), Lemma 4.9 io functor |
+| `operadic.rs` | `Operadic` | Abstract operadic-substitution trait (Eq 6). Concrete impls live in `catgraph-applied` |
+| `finset.rs` | `Permutation`, `Decomposition`, `OrderPresSurj`, `OrderPresInj` | Epi-mono factorization, order-preserving maps |
 
-## Related crates
+## Workspace siblings
 
-**Workspace member:**
+**Workspace members** (share the same repo, co-evolve with catgraph):
 
 | Crate | Purpose |
 |-------|---------|
 | [`catgraph-physics`](../catgraph-physics/) | Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
+| [`catgraph-applied`](../catgraph-applied/) | Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations — applied-CT extensions |
 
 **Sibling repos** (separate git repos, depend on catgraph via git tag):
 
 | Repo | Purpose |
 |------|---------|
-| [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) | SurrealDB persistence for catgraph and catgraph-physics types |
+| [catgraph-surreal](https://github.com/tsondru/catgraph-surreal) | SurrealDB persistence for catgraph, catgraph-physics, and catgraph-applied types |
 | [irreducible](https://github.com/tsondru/irreducible) | Computational irreducibility framework (Gorard 2023) |
 
 ## Fong-Spivak Feature Map
 
-Features implementing structures from [Fong & Spivak, *Hypergraph Categories*](https://arxiv.org/abs/1806.08304):
+Features implementing structures from [Fong & Spivak, *Hypergraph Categories*](https://arxiv.org/abs/1806.08304). See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for the full per-section coverage audit.
 
 | Paper Reference | Module | Summary |
 |-----------------|--------|---------|
@@ -65,7 +60,15 @@ Features implementing structures from [Fong & Spivak, *Hypergraph Categories*](h
 | Lemma 4.3 | `cospan_algebra.rs` | `functor_induced_algebra_map` lifts any `HypergraphFunctor` to a cospan-algebra morphism α: A_H → A_H'. |
 | Lemma 4.9 | `equivalence.rs` | `functor_from_algebra_morphism` lifts a monoidal natural transformation α: A → B to the induced io hypergraph functor F_α: H_A → H_B. |
 | Lemma 3.6, Prop 3.8 | `cospan_algebra.rs`, `hypergraph_functor.rs` | `cospan_to_frobenius` + `CospanToFrobeniusFunctor` — epi-mono decomposition into Frobenius generators. |
-| **Thm 1.2** (= 4.13, 4.16) | `equivalence.rs` | `CospanAlgebraMorphism<A>` (Lemma 4.8): cospan-algebra → hypergraph category. `comp_cospan` (Ex 3.5, Eq 32). Identity/Frobenius via Eq 33. Roundtrip: `Hyp_OF ≅ Cospan-Alg`. |
+| **Thm 1.2** (per-Λ = Thm 4.13) | `equivalence.rs` | `CospanAlgebraMorphism<A>` (Lemma 4.8): cospan-algebra → hypergraph category. `comp_cospan` (Ex 3.5, Eq 32). Identity/Frobenius via Eq 33. Roundtrip: `Hyp_OF ≅ Cospan-Alg` per Λ. |
+
+**Permanently deferred** (documented in [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) — require parametric Λ machinery or 2-category machinery beyond catgraph's current type system):
+
+- Cross-Λ functoriality (Prop 2.1, Cor 3.13, Cor 3.15, Thm 3.14 universal property)
+- Thm 1.1 strictification / coherence (Hyp ≃ Hyp_OF)
+- §3.3 io/ff factorization (Lemma 3.19, Prop 3.20, Cor 3.21)
+- Thm 4.16 global Grothendieck form (per-Λ Thm 4.13 suffices)
+- LinRel examples (Ex 2.10, 2.11, 2.16, 2.20, 2.21, 4.14)
 
 ## Core: Cospans and Spans
 
@@ -101,20 +104,16 @@ cargo run -p catgraph --example compact_closed
 cargo run -p catgraph --example cospan_algebra
 cargo run -p catgraph --example hypergraph_functor
 cargo run -p catgraph --example equivalence
-cargo run -p catgraph --example petri_net
-cargo run -p catgraph --example e1_operad
-cargo run -p catgraph --example e2_operad
-cargo run -p catgraph --example wiring_diagram
-cargo run -p catgraph --example temperley_lieb
-cargo run -p catgraph --example linear_combination
 ```
+
+Applied-CT examples (Petri net, wiring diagrams, operads, Temperley-Lieb) now live in `catgraph-applied/examples/`.
 
 ## Testing
 
 ```bash
-cargo test -p catgraph               # 630 tests
-cargo test -p catgraph --examples    # all examples compile and run
-cargo clippy -p catgraph -- -W clippy::pedantic  # zero warnings
+cargo test -p catgraph
+cargo test -p catgraph --examples
+cargo clippy -p catgraph -- -W clippy::pedantic
 ```
 
 ## Dependencies
@@ -125,10 +124,10 @@ cargo clippy -p catgraph -- -W clippy::pedantic  # zero warnings
 - `num` — numeric traits (One, Zero)
 - `permutations` — permutation type for symmetric monoidal
 - `union-find` — QuickUnionUf for pushout composition
-- `rayon` — data parallelism with adaptive thresholds
+- `rayon` — data parallelism with adaptive thresholds (rayon 1.12 `with_min_len`)
 - `log` — warning messages
 - `rand` — random number generation
-- `rust_decimal` — exact decimal arithmetic for Petri net weights
+- `rust_decimal` — exact decimal arithmetic
 - `thiserror` — structured error types
 - Dev: `env_logger`, `proptest`, `criterion`
 
@@ -136,7 +135,7 @@ cargo clippy -p catgraph -- -W clippy::pedantic  # zero warnings
 
 ```toml
 [dependencies]
-catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.10.6" }
+catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.11.0" }
 ```
 
 ## References

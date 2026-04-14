@@ -4,8 +4,6 @@ use {
     std::{collections::HashSet, fmt::Debug},
 };
 
-pub(crate) const F32_EPSILON: f32 = 1e-6;
-
 pub fn is_unique<T: Eq + std::hash::Hash>(s: &[T]) -> bool {
     let mut uniq = HashSet::with_capacity(s.len());
     s.iter().all(|cur| uniq.insert(cur))
@@ -162,7 +160,14 @@ pub fn same_labels_check<
     ))
 }
 
-#[cfg(test)]
+/// Assert that two `Result`s match both by equality and by an auxiliary
+/// predicate. Used in unit tests within this crate and in downstream crates
+/// to compare morphisms that lack `PartialEq` for the full structure.
+///
+/// # Panics
+///
+/// Panics if either `observed` or `expected` is `Err`, or if the auxiliary
+/// predicate fails, or if the unwrapped `Ok` values differ.
 pub fn test_asserter<T, U, F>(
     observed: Result<T, U>,
     expected: Result<T, U>,

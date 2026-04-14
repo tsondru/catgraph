@@ -5,7 +5,7 @@
 //! linear_combine with a custom combiner, simplify, change_coeffs,
 //! linearly_extend, inj_linearly_extend, and all_terms_satisfy.
 
-use catgraph::linear_combination::LinearCombination;
+use catgraph_applied::linear_combination::LinearCombination;
 
 // ============================================================================
 // Construction

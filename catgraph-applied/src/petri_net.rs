@@ -32,8 +32,8 @@ use std::fmt::Debug;
 use num::ToPrimitive;
 use rust_decimal::Decimal;
 
-use crate::cospan::Cospan;
-use crate::errors::CatgraphError;
+use catgraph::cospan::Cospan;
+use catgraph::errors::CatgraphError;
 
 /// A single transition in a Petri net.
 ///

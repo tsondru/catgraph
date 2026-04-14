@@ -1,6 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["catgraph", "catgraph-physics"]
-
-# Phase 2 will add: members = ["catgraph", "catgraph-physics"]
-# Phase 3 will add: members = ["catgraph", "catgraph-physics", "catgraph-applied"]
+members = ["catgraph", "catgraph-physics", "catgraph-applied"]

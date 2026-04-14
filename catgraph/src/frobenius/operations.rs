@@ -239,17 +239,13 @@ where
         horizontal flip where the diagram is drawn left to right
         sources and targets switched
         */
-        if self.blocks.len() >= PARALLEL_BLOCK_THRESHOLD {
-            // Parallel path
-            self.blocks
-                .par_iter_mut()
-                .for_each(|block| block.hflip(black_box_changer));
-        } else {
-            // Sequential path
-            for block in &mut self.blocks {
-                block.hflip(black_box_changer);
-            }
-        }
+        // Always parallel; `with_min_len` tells rayon's LengthSplitter not to
+        // subdivide below the threshold, so small layer blocks run as a single
+        // sequential task and large ones fan out across workers.
+        self.blocks
+            .par_iter_mut()
+            .with_min_len(PARALLEL_BLOCK_THRESHOLD)
+            .for_each(|block| block.hflip(black_box_changer));
         let temp = self.left_type.clone();
         self.left_type = self.right_type.clone();
         self.right_type = temp;

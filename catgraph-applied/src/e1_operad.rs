@@ -9,15 +9,14 @@ use itertools::Itertools;
 use num::One;
 use rand::{rngs::ThreadRng, RngExt};
 
-use crate::{
+use catgraph::{
     category::HasIdentity,
     errors::CatgraphError,
     operadic::Operadic,
-    utils::F32_EPSILON,
 };
+use crate::F32_EPSILON;
 
 type IntervalCoord = f32;
-type CoalesceError = String;
 
 /// An n-ary operation in the E1 operad: a configuration of `n` disjoint subintervals of \[0, 1\].
 #[derive(Debug)]
@@ -118,11 +117,11 @@ impl E1 {
     ///
     /// # Errors
     ///
-    /// Returns `CoalesceError` if the interval doesn't contain all sub-intervals.
+    /// Returns [`CatgraphError::Operadic`] if the interval doesn't contain all sub-intervals.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
-    ) -> Result<(), CoalesceError> {
+    ) -> Result<(), CatgraphError> {
         self.can_coalesce_boxes(all_in_this_interval)?;
         let (a, b) = all_in_this_interval;
         self.sub_intervals.retain(|(c, d)| *d <= a || *c >= b);
@@ -135,16 +134,17 @@ impl E1 {
     ///
     /// # Errors
     ///
-    /// Returns `CoalesceError` if coalescence is invalid.
+    /// Returns [`CatgraphError::Operadic`] if coalescence is invalid.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_interval: (IntervalCoord, IntervalCoord),
-    ) -> Result<(), CoalesceError> {
+    ) -> Result<(), CatgraphError> {
         let (a, b) = all_in_this_interval;
         if a >= b - F32_EPSILON || a < -F32_EPSILON || b > 1.0 + F32_EPSILON {
-            return Err(
-                "The coalescing interval must be an interval contained in (0,1)".to_string(),
-            );
+            return Err(CatgraphError::Operadic {
+                message: "The coalescing interval must be an interval contained in (0,1)"
+                    .to_string(),
+            });
         }
         for cur_pair in &self.sub_intervals {
             let (c, d) = cur_pair;
@@ -152,7 +152,10 @@ impl E1 {
             let disjoint_from = *d <= a + F32_EPSILON || *c >= b - F32_EPSILON;
             let bad_config = !(contained_within || disjoint_from);
             if bad_config {
-                return Err("All subintervals must be either contained within or disjoint from the coalescing interval".to_string());
+                return Err(CatgraphError::Operadic {
+                    message: "All subintervals must be either contained within or disjoint from the coalescing interval"
+                        .to_string(),
+                });
             }
         }
         Ok(())
@@ -245,10 +248,10 @@ mod test {
     #[test]
     fn identity_e1_nullary() {
         use super::E1;
-        use crate::category::HasIdentity;
-        use crate::errors::CatgraphError;
-        use crate::operadic::Operadic;
-        use crate::{assert_err, assert_ok};
+        use catgraph::category::HasIdentity;
+        use catgraph::errors::CatgraphError;
+        use catgraph::operadic::Operadic;
+        use catgraph::{assert_err, assert_ok};
 
         let mut x = E1::identity(&());
         let zero_ary = E1::new(vec![], true).unwrap();
@@ -280,9 +283,9 @@ mod test {
     #[test]
     fn identity_e1_random() {
         use super::{IntervalCoord, E1};
-        use crate::assert_ok;
-        use crate::category::HasIdentity;
-        use crate::operadic::Operadic;
+        use catgraph::assert_ok;
+        use catgraph::category::HasIdentity;
+        use catgraph::operadic::Operadic;
         use rand::RngExt;
 
         let arity_max: u8 = 20;
@@ -318,8 +321,8 @@ mod test {
     #[test]
     fn two_random_nontrivials() {
         use super::{IntervalCoord, E1};
-        use crate::assert_ok;
-        use crate::operadic::Operadic;
+        use catgraph::assert_ok;
+        use catgraph::operadic::Operadic;
         use rand::RngExt;
 
         let arity_max: u8 = 20;

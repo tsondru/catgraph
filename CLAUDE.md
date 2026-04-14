@@ -1,8 +1,8 @@
 # catgraph workspace
 
-Category-theoretic graph structures in Rust. Implements [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304).
+Category-theoretic graph structures in Rust. The core [`catgraph`](catgraph/) crate (v0.11.0) is a strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). Wolfram-physics extensions and applied-CT extensions live as sibling workspace crates.
 
-This is a Rust workspace. See [`catgraph/README.md`](catgraph/README.md) for the slim F&S crate.
+This is a Rust workspace with three members. See [`catgraph/README.md`](catgraph/README.md) for the slim F&S crate.
 
 ## Members
 
@@ -10,6 +10,7 @@ This is a Rust workspace. See [`catgraph/README.md`](catgraph/README.md) for the
 |---|---|---|
 | `catgraph` | `catgraph/` | Strict Fong-Spivak 2019 implementation |
 | `catgraph-physics` | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
+| `catgraph-applied` | `catgraph-applied/` | Applied CT extensions: Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations |
 
 ## Sibling repos
 

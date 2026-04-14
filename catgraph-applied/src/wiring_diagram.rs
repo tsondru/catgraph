@@ -17,11 +17,11 @@
 
 use either::Either::{Left, Right};
 
-use crate::errors::CatgraphError;
-use crate::operadic::Operadic;
+use catgraph::errors::CatgraphError;
+use catgraph::operadic::Operadic;
 
 use {
-    crate::{
+    catgraph::{
         category::Composable,
         monoidal::Monoidal,
         named_cospan::NamedCospan,
@@ -246,7 +246,7 @@ mod test {
     #[test]
     fn no_input_example() {
         use super::{Dir, WiringDiagram};
-        use crate::named_cospan::NamedCospan;
+        use catgraph::named_cospan::NamedCospan;
         use either::Right;
         let unchanged_right_names = vec![
             (Dir::In, 0),
@@ -273,11 +273,11 @@ mod test {
     #[test]
     fn operadic() {
         use super::{Dir, WiringDiagram};
-        use crate::assert_ok;
-        use crate::category::Composable;
-        use crate::named_cospan::NamedCospan;
-        use crate::operadic::Operadic;
-        use crate::monoidal::SymmetricMonoidalMorphism;
+        use catgraph::assert_ok;
+        use catgraph::category::Composable;
+        use catgraph::named_cospan::NamedCospan;
+        use catgraph::operadic::Operadic;
+        use catgraph::monoidal::SymmetricMonoidalMorphism;
         use permutations::Permutation;
 
         type WireName = usize;
@@ -362,12 +362,12 @@ mod test {
     #[test]
     fn operadic_multiple() {
         use super::{Dir, WiringDiagram};
-        use crate::assert_err;
-        use crate::assert_ok;
-        use crate::category::Composable;
-        use crate::named_cospan::NamedCospan;
-        use crate::operadic::Operadic;
-        use crate::monoidal::SymmetricMonoidalMorphism;
+        use catgraph::assert_err;
+        use catgraph::assert_ok;
+        use catgraph::category::Composable;
+        use catgraph::named_cospan::NamedCospan;
+        use catgraph::operadic::Operadic;
+        use catgraph::monoidal::SymmetricMonoidalMorphism;
         use either::Either::{Left, Right};
         use permutations::Permutation;
 
@@ -656,7 +656,7 @@ mod test {
     /// 3 middle nodes (labels true/true/false), and 3 right-side boundary nodes.
     fn simple_diagram() -> super::WiringDiagram<bool, (), usize> {
         use super::{Dir, WiringDiagram};
-        use crate::named_cospan::NamedCospan;
+        use catgraph::named_cospan::NamedCospan;
         // middle nodes: 0=true, 1=true, 2=false
         // right boundary: node 0 -> middle 0, node 1 -> middle 1, node 2 -> middle 2
         WiringDiagram::new(NamedCospan::new(
@@ -787,7 +787,7 @@ mod test {
     fn change_boundary_node_name_left() {
         use super::Dir;
         use either::Either::Left;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::named_cospan::NamedCospan;
         use super::WiringDiagram;
         // Build a diagram with left-side nodes
         let mut wd: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
@@ -836,7 +836,7 @@ mod test {
     #[test]
     fn toggle_orientation_left() {
         use super::Dir;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::named_cospan::NamedCospan;
         use super::WiringDiagram;
         let mut wd: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
             vec![0, 1],
@@ -857,7 +857,7 @@ mod test {
     #[test]
     fn toggle_orientation_undirected_stays() {
         use super::Dir;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::named_cospan::NamedCospan;
         use super::WiringDiagram;
         let mut wd: WiringDiagram<bool, (), usize> = WiringDiagram::new(NamedCospan::new(
             vec![],
@@ -890,8 +890,8 @@ mod test {
     #[test]
     fn compose_two_compatible_wiring_diagrams() {
         use super::{Dir, WiringDiagram};
-        use crate::category::Composable;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::category::Composable;
+        use catgraph::named_cospan::NamedCospan;
 
         // WD1: domain [true, false], codomain [true, false]
         // Left ports on circle 0, right ports unadorned.
@@ -928,8 +928,8 @@ mod test {
     #[test]
     fn compose_type_mismatch_fails() {
         use super::{Dir, WiringDiagram};
-        use crate::category::Composable;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::category::Composable;
+        use catgraph::named_cospan::NamedCospan;
 
         // WD1 codomain: [true, false]
         let wd1: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(
@@ -957,9 +957,9 @@ mod test {
     #[test]
     fn monoidal_product_of_wiring_diagrams() {
         use super::{Dir, WiringDiagram};
-        use crate::category::Composable;
-        use crate::monoidal::Monoidal;
-        use crate::named_cospan::NamedCospan;
+        use catgraph::category::Composable;
+        use catgraph::monoidal::Monoidal;
+        use catgraph::named_cospan::NamedCospan;
 
         // WD_A: domain [true], codomain [true]
         let wd_a: WiringDiagram<bool, i32, usize> = WiringDiagram::new(NamedCospan::new(

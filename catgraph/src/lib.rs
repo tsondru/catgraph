@@ -14,27 +14,26 @@
 //! - [`named_cospan`] — port-labeled cospans for wiring-style composition
 //! - [`monoidal`] — tensor product, symmetric braiding, generic layered morphisms
 //!
-//! ## String diagrams and operads
+//! ## Frobenius, compact closed, hypergraph categories
 //!
 //! - [`frobenius`] — Frobenius algebra generators, layered morphisms, DAG-based interpretation
 //! - [`compact_closed`] — self-dual compact closed structure: cup/cap morphisms (Fong-Spivak §3.1)
 //! - [`cospan_algebra`] — lax monoidal functors from cospans to sets (Fong-Spivak §2.1)
 //! - [`hypergraph_category`] — hypergraph category trait with Frobenius generators (Fong-Spivak §2.3)
 //! - [`hypergraph_functor`] — structure-preserving maps between hypergraph categories (Fong-Spivak §2.3)
-//! - [`wiring_diagram`] — operadic substitution built on named cospans
-//! - [`temperley_lieb`] — Temperley-Lieb / Brauer algebra via perfect matchings
-//! - [`e1_operad`] / [`e2_operad`] — little intervals and little disks operads
-//! - [`operadic`] — the `Operadic` trait for substitution
+//! - [`equivalence`] — cospan-algebra morphism + Thm 1.2 per-Λ roundtrip (Fong-Spivak §4)
+//! - [`operadic`] — the `Operadic` trait for substitution (concrete impls live in `catgraph-applied`)
 //!
 //! ## Finite sets and combinatorics
 //!
 //! - [`finset`] — finite set morphisms, epi-mono factorization, permutations
-//! - [`linear_combination`] — formal linear combinations over a coefficient ring
 //!
-//! ## Petri nets
+//! ## Out of scope — see sibling crates
 //!
-//! - [`petri_net`] — place/transition nets with cospan bridge, firing, reachability,
-//!   parallel and sequential composition
+//! - Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial analysis → `catgraph-physics`
+//! - Petri nets, wiring diagrams, `E_n` operads, Temperley-Lieb, linear combinations → `catgraph-applied`
+//! - Persistence → `catgraph-surreal` (sibling repo)
+//! - Computational irreducibility → `irreducible` (sibling repo)
 
 pub mod errors;
 pub mod utils;
@@ -50,10 +49,4 @@ pub mod hypergraph_category;
 pub mod hypergraph_functor;
 pub mod named_cospan;
 pub mod span;
-pub mod wiring_diagram;
-pub mod linear_combination;
-pub mod temperley_lieb;
-pub mod e1_operad;
-pub mod e2_operad;
-pub mod petri_net;
 pub mod equivalence;

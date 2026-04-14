@@ -10,7 +10,6 @@ use common::*;
 use catgraph::{
     category::Composable,
     cospan::Cospan,
-    linear_combination::LinearCombination,
     monoidal::SymmetricMonoidalMorphism,
     named_cospan::NamedCospan,
     span::Span,
@@ -166,63 +165,8 @@ fn cospan_to_graph_produces_correct_counts() {
 }
 
 // ---------------------------------------------------------------------------
-// 5. LinearCombination ring axioms
-// ---------------------------------------------------------------------------
-
-#[test]
-fn linear_combination_ring_axioms() {
-    // Use i64 coefficients over String targets for commutativity/associativity,
-    // and i64 coefficients over i64 targets for distributivity (needs Target: Mul).
-    type LC = LinearCombination<i64, String>;
-    type LcInt = LinearCombination<i64, i64>;
-
-    // a = 3"x" + 2"y"
-    let a: LC =
-        LinearCombination::singleton("x".into()) * 3 + LinearCombination::singleton("y".into()) * 2;
-    // b = 1"y" + 5"z"
-    let b: LC =
-        LinearCombination::singleton("y".into()) + LinearCombination::singleton("z".into()) * 5;
-    // c = 4"x" + 1"z"
-    let c: LC =
-        LinearCombination::singleton("x".into()) * 4 + LinearCombination::singleton("z".into());
-
-    // --- Commutativity of addition: a + b == b + a ---
-    let ab = a.clone() + b.clone();
-    let ba = b.clone() + a.clone();
-    assert_eq!(ab, ba, "addition should be commutative");
-
-    // --- Associativity of addition: (a + b) + c == a + (b + c) ---
-    let ab_c = (a.clone() + b.clone()) + c.clone();
-    let a_bc = a.clone() + (b.clone() + c.clone());
-    assert_eq!(ab_c, a_bc, "addition should be associative");
-
-    // --- Additive identity: a + 0 == a ---
-    let zero: LC = vec![].into_iter().collect();
-    assert_eq!(a.clone() + zero, a.clone(), "zero should be additive identity");
-
-    // --- Distributivity: scalar * (a + b) == scalar * a + scalar * b ---
-    // Use scalar multiplication (Mul<Coeffs>).
-    let scalar = 7_i64;
-    let lhs = (a.clone() + b.clone()) * scalar;
-    let rhs = a.clone() * scalar + b.clone() * scalar;
-    assert_eq!(lhs, rhs, "scalar multiplication should distribute over addition");
-
-    // --- Distributivity of LC*LC: a * (b + c) == a*b + a*c ---
-    // For this we need Target: Mul<Output=Target>, so use i64 targets.
-    let ai: LcInt = LinearCombination::singleton(2) * 3 + LinearCombination::singleton(5) * 1;
-    let bi: LcInt = LinearCombination::singleton(1) * 4 + LinearCombination::singleton(3) * 2;
-    let ci: LcInt = LinearCombination::singleton(1) * 1 + LinearCombination::singleton(7) * 3;
-
-    let lhs_ring = ai.clone() * (bi.clone() + ci.clone());
-    let rhs_ring = ai.clone() * bi.clone() + ai.clone() * ci.clone();
-    assert_eq!(
-        lhs_ring, rhs_ring,
-        "ring multiplication should distribute over addition"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// 6. Permutation cospan via from_permutation
+// 5. Permutation cospan via from_permutation
+// (LinearCombination ring axioms moved to catgraph-applied::tests::linear_combination_coverage)
 // ---------------------------------------------------------------------------
 
 #[test]

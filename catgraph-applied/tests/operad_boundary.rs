@@ -1,5 +1,5 @@
-use catgraph::e1_operad::E1;
-use catgraph::e2_operad::E2;
+use catgraph_applied::e1_operad::E1;
+use catgraph_applied::e2_operad::E2;
 use catgraph::errors::CatgraphError;
 use catgraph::operadic::Operadic;
 
@@ -237,10 +237,15 @@ fn e2_cannot_coalesce_partial_overlap() {
     // So it's a bad config (partial overlap).
     let result = e2.can_coalesce_boxes(((0.25, 0.0), 0.15));
     assert!(result.is_err(), "Partial overlap should fail");
-    assert!(
-        result.unwrap_err().contains("contained within or disjoint"),
-        "Error should mention containment/disjoint requirement"
-    );
+    match result.unwrap_err() {
+        CatgraphError::Operadic { message: msg } => {
+            assert!(
+                msg.contains("contained within or disjoint"),
+                "Error should mention containment/disjoint requirement, got: {msg}"
+            );
+        }
+        e => panic!("expected Operadic error, got: {e:?}"),
+    }
 }
 
 #[test]
@@ -468,10 +473,15 @@ fn e1_coalesce_boxes_error_partial_overlap() {
     // nor is disjoint from either one.
     let result = e1.can_coalesce_boxes((0.3, 0.7));
     assert!(result.is_err(), "Partial overlap should fail");
-    assert!(
-        result.unwrap_err().contains("contained within or disjoint"),
-        "Error should mention containment/disjoint requirement"
-    );
+    match result.unwrap_err() {
+        CatgraphError::Operadic { message: msg } => {
+            assert!(
+                msg.contains("contained within or disjoint"),
+                "Error should mention containment/disjoint requirement, got: {msg}"
+            );
+        }
+        e => panic!("expected Operadic error, got: {e:?}"),
+    }
 }
 
 #[test]

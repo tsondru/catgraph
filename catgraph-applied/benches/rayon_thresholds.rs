@@ -14,9 +14,9 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use catgraph::category::{Composable, ComposableMutating, HasIdentity};
 use catgraph::frobenius::FrobeniusMorphism;
-use catgraph::linear_combination::LinearCombination;
+use catgraph_applied::linear_combination::LinearCombination;
 use catgraph::named_cospan::NamedCospan;
-use catgraph::temperley_lieb::BrauerMorphism;
+use catgraph_applied::temperley_lieb::BrauerMorphism;
 
 // ---------------------------------------------------------------------------
 // 1. LinearCombination Mul (threshold: 32)

@@ -16,8 +16,8 @@ use catgraph::{
     monoidal::Monoidal,
     named_cospan::NamedCospan,
     operadic::Operadic,
-    wiring_diagram::{Dir, WiringDiagram},
 };
+use catgraph_applied::wiring_diagram::{Dir, WiringDiagram};
 use either::Either::{Left, Right};
 
 // ---------------------------------------------------------------------------

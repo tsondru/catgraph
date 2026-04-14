@@ -7,17 +7,15 @@ use itertools::Itertools;
 use num::pow;
 use std::collections::HashSet;
 
-use crate::{
+use catgraph::{
     category::HasIdentity,
-    e1_operad::E1,
     errors::CatgraphError,
     operadic::Operadic,
-    utils::F32_EPSILON,
 };
+use crate::{e1_operad::E1, F32_EPSILON};
 
 type PointCenter = (f32, f32);
 type Radius = f32;
-type CoalesceError = String;
 
 fn disk_contains(
     c: PointCenter,
@@ -105,11 +103,11 @@ where
     ///
     /// # Errors
     ///
-    /// Returns `CoalesceError` if the circle doesn't contain all sub-circles.
+    /// Returns [`CatgraphError::Operadic`] if the circle doesn't contain all sub-circles.
     pub fn coalesce_boxes(
         &mut self,
         all_in_this_circle: (Name, PointCenter, Radius),
-    ) -> Result<(), CoalesceError> {
+    ) -> Result<(), CatgraphError> {
         self.can_coalesce_boxes((all_in_this_circle.1, all_in_this_circle.2))?;
         let (a, b, c) = all_in_this_circle;
         self.sub_circles
@@ -123,14 +121,16 @@ where
     ///
     /// # Errors
     ///
-    /// Returns `CoalesceError` if coalescence is invalid.
+    /// Returns [`CatgraphError::Operadic`] if coalescence is invalid.
     pub fn can_coalesce_boxes(
         &self,
         all_in_this_disk: (PointCenter, Radius),
-    ) -> Result<(), CoalesceError> {
+    ) -> Result<(), CatgraphError> {
         let (a, b) = all_in_this_disk;
         if !disk_contains((0.0, 0.0), 1.0, a, Some(b)) {
-            return Err("The coalescing disk must be contained in the unit disk".to_string());
+            return Err(CatgraphError::Operadic {
+                message: "The coalescing disk must be contained in the unit disk".to_string(),
+            });
         }
         for cur_pair in &self.sub_circles {
             let (_, c, d) = cur_pair;
@@ -138,7 +138,10 @@ where
             let disjoint_from = !disk_overlaps(a, b, *c, *d);
             let bad_config = !(contained_within || disjoint_from);
             if bad_config {
-                return Err("All subcircles must be either contained within or disjoint from the coalescing disk".to_string());
+                return Err(CatgraphError::Operadic {
+                    message: "All subcircles must be either contained within or disjoint from the coalescing disk"
+                        .to_string(),
+                });
             }
         }
         Ok(())
@@ -278,9 +281,9 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::category::HasIdentity;
-    use crate::operadic::Operadic;
-    use crate::{assert_err, assert_ok};
+    use catgraph::category::HasIdentity;
+    use catgraph::operadic::Operadic;
+    use catgraph::{assert_err, assert_ok};
 
     #[test]
     fn identity_e2_nullary() {
@@ -462,10 +465,10 @@ mod test {
         // Disk centered at (2.0, 0.0) with radius 0.5 is outside the unit disk
         let e2: E2<i32> = E2::new(vec![], true).unwrap();
         let result = e2.can_coalesce_boxes(((2.0, 0.0), 0.5));
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "The coalescing disk must be contained in the unit disk"
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, CatgraphError::Operadic { ref message } if message.contains("unit disk")),
+            "expected Operadic error about unit disk, got: {err:?}"
         );
     }
 }

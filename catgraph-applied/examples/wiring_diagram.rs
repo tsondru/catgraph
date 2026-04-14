@@ -6,7 +6,7 @@
 
 use catgraph::named_cospan::NamedCospan;
 use catgraph::operadic::Operadic;
-use catgraph::wiring_diagram::{Dir, WiringDiagram};
+use catgraph_applied::wiring_diagram::{Dir, WiringDiagram};
 use either::Either::{Left, Right};
 
 // ============================================================================
