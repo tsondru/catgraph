@@ -1,6 +1,6 @@
 [package]
 name = "catgraph-physics"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "MIT"
 description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis"
