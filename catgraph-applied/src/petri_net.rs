@@ -32,9 +32,12 @@ use std::fmt::Debug;
 use num::ToPrimitive;
 use rust_decimal::Decimal;
 
-use catgraph::category::HasIdentity;
+use catgraph::category::{Composable, HasIdentity};
 use catgraph::cospan::Cospan;
 use catgraph::errors::CatgraphError;
+use catgraph::hypergraph_category::HypergraphCategory;
+use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
+use permutations::Permutation;
 
 use crate::decorated_cospan::{DecoratedCospan, Decoration};
 
@@ -603,6 +606,201 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Category-theoretic trait impls — Thm 6.77 specialized to `PetriDecoration`
+// ---------------------------------------------------------------------------
+//
+// The four trait impls below (`HasIdentity`, `Monoidal`, `Composable`,
+// `SymmetricMonoidalMorphism`) exhibit `PetriNet<Lambda>` as a hypergraph
+// category in the sense of Fong–Spivak (Def 6.60). All four supertraits are
+// required by the `HypergraphCategory<Lambda>` blanket bounds.
+//
+// Domain/codomain reconstruction. A `PetriNet` built from a cospan via
+// [`PetriNet::from_cospan`] stores the left-leg multiplicities as pre-arc
+// weights and the right-leg multiplicities as post-arc weights. The
+// [`Composable::domain`] / [`Composable::codomain`] methods invert this
+// encoding: each `(place, weight)` pair is expanded back into `weight`
+// copies of `places[place]`, aggregated across every transition. For
+// single-transition generators (`unit`, `counit`, `multiplication`,
+// `comultiplication`, `cup`, `cap`, and identity) this exactly reproduces
+// the underlying [`Cospan::domain`] / [`Cospan::codomain`] sequences.
+//
+// Composition (`Composable::compose`) and monoidal product
+// (`Monoidal::monoidal`) delegate to the inherent
+// [`PetriNet::sequential`] and [`PetriNet::parallel`] methods, which
+// preserve this encoding: `parallel` shifts place indices by the apex
+// offset and `sequential` merges Lambda-matching sink/source boundary
+// places.
+//
+// `SymmetricMonoidalMorphism` is implemented through the decorated-cospan
+// bridge. This is semantically lossy — [`PetriNet::to_decorated_cospan`]
+// uses [`Cospan::identity`] on the places, so permuting one leg of that
+// cospan and round-tripping through [`PetriNet::from_decorated_cospan`]
+// discards the permutation. The impl exists to satisfy the
+// `HypergraphCategory` supertrait bound; users requiring true braiding
+// semantics on PetriNets should operate on the underlying
+// [`DecoratedCospan`] directly.
+
+impl<Lambda> PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+{
+    /// Panics if any transition arc weight does not round-trip through `u64`.
+    fn expand_weights<'a>(
+        places: &'a [Lambda],
+        arcs: impl IntoIterator<Item = &'a (usize, Decimal)>,
+    ) -> Vec<Lambda> {
+        let mut out = Vec::new();
+        for (p, w) in arcs {
+            let count = w
+                .to_u64()
+                .expect("integer arc weight for domain/codomain expansion");
+            for _ in 0..count {
+                out.push(places[*p]);
+            }
+        }
+        out
+    }
+}
+
+impl<Lambda> HasIdentity<Vec<Lambda>> for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+{
+    /// Identity morphism on a tensor word.
+    ///
+    /// Delegates to [`Cospan::identity`] and wraps the result with
+    /// [`PetriNet::from_cospan`]. The resulting net has one place per entry
+    /// of `obj` and a single transition whose pre- and post-arcs each have
+    /// weight 1 at every place — the "pure relay" that fires unchanged.
+    fn identity(obj: &Vec<Lambda>) -> Self {
+        PetriNet::from_cospan(&Cospan::identity(obj))
+    }
+}
+
+impl<Lambda> Monoidal for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+{
+    /// Tensor product: disjoint union of places and transitions.
+    ///
+    /// Delegates to [`PetriNet::parallel`], which shifts `other`'s place
+    /// indices by `self.place_count()` and concatenates the transition lists.
+    fn monoidal(&mut self, other: Self) {
+        *self = self.parallel(&other);
+    }
+}
+
+impl<Lambda> Composable<Vec<Lambda>> for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+{
+    /// Sequential composition via [`PetriNet::sequential`] (boundary
+    /// matching on sink/source places by Lambda equality).
+    fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
+        self.sequential(other)
+    }
+
+    /// Expanded pre-arc multiplicities aggregated across every transition.
+    ///
+    /// For single-transition generators this matches the underlying
+    /// [`Cospan::domain`]. For multi-transition nets produced by
+    /// [`PetriNet::parallel`] the result is the concatenated per-transition
+    /// expansion — the domain of the monoidal product.
+    fn domain(&self) -> Vec<Lambda> {
+        let mut out = Vec::new();
+        for t in &self.transitions {
+            out.extend(Self::expand_weights(&self.places, &t.pre));
+        }
+        out
+    }
+
+    /// Expanded post-arc multiplicities aggregated across every transition.
+    /// See [`Self::domain`] for the interpretation on multi-transition nets.
+    fn codomain(&self) -> Vec<Lambda> {
+        let mut out = Vec::new();
+        for t in &self.transitions {
+            out.extend(Self::expand_weights(&self.places, &t.post));
+        }
+        out
+    }
+}
+
+impl<Lambda> SymmetricMonoidalMorphism<Lambda> for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug + 'static,
+{
+    /// Braiding via the decorated-cospan bridge.
+    ///
+    /// Round-trips `self` through [`PetriNet::to_decorated_cospan`] +
+    /// [`DecoratedCospan::permute_side`] + [`PetriNet::from_decorated_cospan`].
+    /// Because the bridge cospan's legs are identities on the place set,
+    /// the permutation is effectively dropped on the return trip — see the
+    /// module comment above for the caveat. The impl exists to satisfy the
+    /// [`HypergraphCategory`] supertrait bound.
+    fn permute_side(&mut self, p: &Permutation, of_codomain: bool) {
+        let mut dec = self.to_decorated_cospan();
+        dec.permute_side(p, of_codomain);
+        *self = PetriNet::from_decorated_cospan(dec);
+    }
+
+    /// Construct a pure-braiding `PetriNet` from a permutation on tensor factors.
+    ///
+    /// Delegates to [`DecoratedCospan::from_permutation`] with the empty
+    /// [`PetriDecoration`] and rebuilds via [`PetriNet::from_decorated_cospan`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError`] if the permutation size does not match
+    /// `types.len()` (forwarded from [`Cospan::from_permutation`]).
+    fn from_permutation(
+        p: Permutation,
+        types: &[Lambda],
+        types_as_on_domain: bool,
+    ) -> Result<Self, CatgraphError> {
+        let dec = <DecoratedCospan<Lambda, PetriDecoration<Lambda>> as SymmetricMonoidalMorphism<
+            Lambda,
+        >>::from_permutation(p, types, types_as_on_domain)?;
+        Ok(PetriNet::from_decorated_cospan(dec))
+    }
+}
+
+/// Hypergraph-category structure on `PetriNet` (Fong–Spivak Thm 6.77 specialized
+/// to the [`PetriDecoration`] functor).
+///
+/// Each Frobenius generator delegates to [`Cospan`]'s corresponding generator
+/// and wraps the result with [`PetriNet::from_cospan`]. The resulting nets are
+/// single-transition: the cospan's boundary multiplicities land in the
+/// transition's pre/post arc weights and the apex set becomes the place set.
+impl<Lambda> HypergraphCategory<Lambda> for PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug + 'static,
+{
+    fn unit(z: Lambda) -> Self {
+        PetriNet::from_cospan(&Cospan::unit(z))
+    }
+
+    fn counit(z: Lambda) -> Self {
+        PetriNet::from_cospan(&Cospan::counit(z))
+    }
+
+    fn multiplication(z: Lambda) -> Self {
+        PetriNet::from_cospan(&Cospan::multiplication(z))
+    }
+
+    fn comultiplication(z: Lambda) -> Self {
+        PetriNet::from_cospan(&Cospan::comultiplication(z))
+    }
+
+    fn cup(z: Lambda) -> Result<Self, CatgraphError> {
+        Ok(PetriNet::from_cospan(&Cospan::cup(z)?))
+    }
+
+    fn cap(z: Lambda) -> Result<Self, CatgraphError> {
+        Ok(PetriNet::from_cospan(&Cospan::cap(z)?))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -914,5 +1112,110 @@ mod test {
         );
         let composed = a.sequential(&b).unwrap();
         assert_eq!(composed.place_count(), 4);
+    }
+
+    // ---------------------------------------------------------------------
+    // HypergraphCategory impl — Thm 6.77 specialized to PetriDecoration
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn petri_net_unit_has_correct_shape() {
+        use catgraph::category::Composable;
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        let eta = PetriNet::<char>::unit('p');
+        // Unit η: [] → [p]. Domain is empty; codomain is the single place 'p'.
+        assert!(eta.domain().is_empty());
+        assert_eq!(eta.codomain(), vec!['p']);
+        // The apex (place set) is {'p'}; the net has a single transition
+        // whose post-arc produces one token at place 0.
+        assert_eq!(eta.places(), &['p']);
+        assert_eq!(eta.transition_count(), 1);
+        assert!(eta.transitions()[0].pre().is_empty());
+    }
+
+    #[test]
+    fn petri_net_counit_has_correct_shape() {
+        use catgraph::category::Composable;
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        let eps = PetriNet::<char>::counit('p');
+        // Counit ε: [p] → []. Domain is the single place; codomain is empty.
+        assert_eq!(eps.domain(), vec!['p']);
+        assert!(eps.codomain().is_empty());
+        assert_eq!(eps.places(), &['p']);
+        assert_eq!(eps.transition_count(), 1);
+        assert!(eps.transitions()[0].post().is_empty());
+    }
+
+    #[test]
+    fn petri_net_mu_delta_have_correct_shape() {
+        use catgraph::category::Composable;
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        // Multiplication μ: [p, p] → [p]. Two input tokens merge to one.
+        let mu = PetriNet::<char>::multiplication('p');
+        assert_eq!(mu.domain(), vec!['p', 'p']);
+        assert_eq!(mu.codomain(), vec!['p']);
+        assert_eq!(mu.places(), &['p']);
+        assert_eq!(mu.arc_weight_pre(0, 0), d(2));
+        assert_eq!(mu.arc_weight_post(0, 0), d(1));
+
+        // Comultiplication δ: [p] → [p, p]. One input token splits into two.
+        let delta = PetriNet::<char>::comultiplication('p');
+        assert_eq!(delta.domain(), vec!['p']);
+        assert_eq!(delta.codomain(), vec!['p', 'p']);
+        assert_eq!(delta.places(), &['p']);
+        assert_eq!(delta.arc_weight_pre(0, 0), d(1));
+        assert_eq!(delta.arc_weight_post(0, 0), d(2));
+    }
+
+    #[test]
+    fn petri_net_cup_cap_have_correct_shape() {
+        use catgraph::category::Composable;
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        // Cup η;δ: [] → [p, p]. Create a pair of tokens from nothing.
+        let cup = PetriNet::<char>::cup('p').unwrap();
+        assert!(cup.domain().is_empty());
+        assert_eq!(cup.codomain(), vec!['p', 'p']);
+
+        // Cap μ;ε: [p, p] → []. Destroy a pair of tokens.
+        let cap = PetriNet::<char>::cap('p').unwrap();
+        assert_eq!(cap.domain(), vec!['p', 'p']);
+        assert!(cap.codomain().is_empty());
+    }
+
+    #[test]
+    fn petri_net_identity_is_single_relay_transition() {
+        use catgraph::category::{Composable, HasIdentity};
+
+        let id: PetriNet<char> = PetriNet::identity(&vec!['a', 'b']);
+        // Identity on [a, b] has both domain and codomain carrying one of
+        // each place type. Order comes from `from_cospan`'s HashMap-backed
+        // arc aggregation and is therefore not guaranteed — compare as
+        // multisets via sort.
+        let mut dom = id.domain();
+        let mut cod = id.codomain();
+        dom.sort_unstable();
+        cod.sort_unstable();
+        assert_eq!(dom, vec!['a', 'b']);
+        assert_eq!(cod, vec!['a', 'b']);
+        assert_eq!(id.places(), &['a', 'b']);
+    }
+
+    #[test]
+    fn petri_net_monoidal_concatenates_places() {
+        use catgraph::category::Composable;
+        use catgraph::hypergraph_category::HypergraphCategory;
+        use catgraph::monoidal::Monoidal;
+
+        let mut eta_a = PetriNet::<char>::unit('a');
+        let eta_b = PetriNet::<char>::unit('b');
+        eta_a.monoidal(eta_b);
+        // η_a ⊗ η_b : [] → [a, b]
+        assert!(eta_a.domain().is_empty());
+        assert_eq!(eta_a.codomain(), vec!['a', 'b']);
+        assert_eq!(eta_a.place_count(), 2);
     }
 }
