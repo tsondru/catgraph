@@ -32,8 +32,11 @@ use std::fmt::Debug;
 use num::ToPrimitive;
 use rust_decimal::Decimal;
 
+use catgraph::category::HasIdentity;
 use catgraph::cospan::Cospan;
 use catgraph::errors::CatgraphError;
+
+use crate::decorated_cospan::{DecoratedCospan, Decoration};
 
 /// A single transition in a Petri net.
 ///
@@ -64,9 +67,37 @@ impl Transition {
     }
 
     /// The post-arcs (output places and their weights).
-    #[must_use] 
+    #[must_use]
     pub fn post(&self) -> &[(usize, Decimal)] {
         &self.post
+    }
+
+    /// Relabel place indices through a quotient map.
+    ///
+    /// Each place index `i` in the pre/post arcs is replaced by `quotient[i]`.
+    /// This is the action of the decoration functor `F` on the coequalizer
+    /// quotient arising in decorated-cospan composition (Fong–Spivak
+    /// Def 6.75): when two apex vertices are identified during a pushout, any
+    /// transition referring to either must have its arc endpoints redirected
+    /// to the identified representative.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any `(place, _)` pair references an index outside
+    /// `quotient.len()`.
+    #[must_use]
+    pub fn relabel(&self, quotient: &[usize]) -> Transition {
+        let pre = self
+            .pre
+            .iter()
+            .map(|(p, w)| (quotient[*p], *w))
+            .collect();
+        let post = self
+            .post
+            .iter()
+            .map(|(p, w)| (quotient[*p], *w))
+            .collect();
+        Transition { pre, post }
     }
 }
 
@@ -477,6 +508,101 @@ where
     }
 }
 
+/// Decoration functor `F : (FinSet, +) → (Set, ×)` whose apex value is a
+/// list of Petri-net transitions on that apex.
+///
+/// Concretely, `F(N) = Vec<Transition>`: the decorations living over an apex
+/// of size `|N|` are transition lists whose pre/post arcs reference indices
+/// in `{0, …, |N|-1}`. The empty apex carries the empty transition list, the
+/// laxator `combine` concatenates the two lists, and `pushforward` applies
+/// the apex quotient to every transition's arc endpoints via
+/// [`Transition::relabel`].
+///
+/// Used with [`DecoratedCospan`] this exhibits `PetriNet<Lambda>` as an
+/// instance of the generic decorated-cospan construction (Fong–Spivak
+/// Thm 6.77), with the cospan's middle set playing the role of the Petri
+/// net's place set and the decoration carrying the transitions.
+///
+/// This is a zero-sized marker type; `Lambda` is tracked at the type level
+/// only so that a `PetriDecoration<char>` and a `PetriDecoration<u32>` are
+/// distinct decoration functors.
+#[derive(Debug)]
+pub struct PetriDecoration<Lambda: Sized + Eq + Copy + Debug>(std::marker::PhantomData<Lambda>);
+
+impl<Lambda> Decoration for PetriDecoration<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug + 'static,
+{
+    type Apex = Vec<Transition>;
+
+    fn empty(_n: usize) -> Self::Apex {
+        Vec::new()
+    }
+
+    fn combine(mut a: Self::Apex, b: Self::Apex) -> Self::Apex {
+        a.extend(b);
+        a
+    }
+
+    fn pushforward(d: Self::Apex, quotient: &[usize]) -> Self::Apex {
+        d.into_iter().map(|t| t.relabel(quotient)).collect()
+    }
+}
+
+impl<Lambda> PetriNet<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug + 'static,
+{
+    /// Expose this Petri net as a decorated cospan whose apex is its place
+    /// set and whose decoration is its transition list.
+    ///
+    /// The underlying cospan is [`Cospan::identity`] on `self.places()`, so
+    /// both boundary legs are the identity map onto the full place set;
+    /// the net's semantic content lives entirely in the decoration. This
+    /// is the simplest faithful bridge: no information is quotiented or
+    /// projected, and [`PetriNet::from_decorated_cospan`] is its exact
+    /// inverse (modulo transition ordering, which is preserved).
+    ///
+    /// Using this in composition / monoidal product:
+    ///
+    /// - [`Composable::compose`] currently flags its missing pushforward
+    ///   step. That limitation is irrelevant here because the identity
+    ///   cospan produces the identity quotient, on which
+    ///   [`PetriDecoration::pushforward`] is itself the identity. For
+    ///   Petri nets with non-trivial cospan boundaries (i.e. when
+    ///   `to_decorated_cospan` is extended to emit non-identity legs), the
+    ///   pushforward wiring noted on [`crate::decorated_cospan`] becomes
+    ///   load-bearing.
+    /// - [`Monoidal::monoidal`] already does the right thing: disjoint
+    ///   union of places on the cospan side, concatenation of transition
+    ///   lists on the decoration side. There is no apex quotient in a
+    ///   monoidal product, so no pushforward step is needed.
+    ///
+    /// [`Composable::compose`]: catgraph::category::Composable::compose
+    /// [`Monoidal::monoidal`]: catgraph::monoidal::Monoidal::monoidal
+    #[must_use]
+    pub fn to_decorated_cospan(&self) -> DecoratedCospan<Lambda, PetriDecoration<Lambda>> {
+        DecoratedCospan::new(Cospan::identity(&self.places), self.transitions.clone())
+    }
+
+    /// Rebuild a Petri net from a decorated cospan.
+    ///
+    /// The cospan's middle set becomes the places and the decoration list
+    /// becomes the transitions verbatim. When `dec` was produced by
+    /// [`PetriNet::to_decorated_cospan`] this is an exact roundtrip; for
+    /// other decorated cospans with a `PetriDecoration` it is still
+    /// well-defined as long as every transition's arc indices lie within
+    /// `dec.cospan.middle().len()` (the [`Transition`] constructor does
+    /// not check this — callers are responsible for that invariant).
+    #[must_use]
+    pub fn from_decorated_cospan(dec: DecoratedCospan<Lambda, PetriDecoration<Lambda>>) -> Self {
+        Self {
+            places: dec.cospan.middle().to_vec(),
+            transitions: dec.decoration,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -729,6 +855,51 @@ mod test {
         let composed = a.sequential(&b).unwrap();
         assert_eq!(composed.place_count(), 3);
         assert_eq!(composed.transition_count(), 2);
+    }
+
+    #[test]
+    fn petri_net_as_decorated_cospan_roundtrip() {
+        let pn = combustion_net();
+        let t_count = pn.transition_count();
+        let p_count = pn.place_count();
+
+        let dec = pn.to_decorated_cospan();
+        // Apex (middle set) matches the place set exactly.
+        assert_eq!(dec.cospan.middle().len(), p_count);
+        // Decoration carries the full transition list.
+        assert_eq!(dec.decoration.len(), t_count);
+
+        let pn2: PetriNet<char> = PetriNet::from_decorated_cospan(dec);
+        assert_eq!(pn2.transition_count(), t_count);
+        assert_eq!(pn2.place_count(), p_count);
+        // Arc weights survive the roundtrip byte-for-byte.
+        assert_eq!(pn2.arc_weight_pre(0, 0), pn.arc_weight_pre(0, 0));
+        assert_eq!(pn2.arc_weight_pre(1, 0), pn.arc_weight_pre(1, 0));
+        assert_eq!(pn2.arc_weight_post(2, 0), pn.arc_weight_post(2, 0));
+    }
+
+    #[test]
+    fn transition_relabel_maps_arc_indices() {
+        // Identify places 0 and 2 onto 0; place 1 stays as 1.
+        let t = Transition::new(vec![(0, d(2)), (1, d(1))], vec![(2, d(3))]);
+        let relabelled = t.relabel(&[0, 1, 0]);
+        assert_eq!(relabelled.pre(), &[(0, d(2)), (1, d(1))]);
+        assert_eq!(relabelled.post(), &[(0, d(3))]);
+    }
+
+    #[test]
+    fn petri_decoration_pushforward_relabels_transitions() {
+        use crate::decorated_cospan::Decoration;
+        let transitions = vec![
+            Transition::new(vec![(0, d(1))], vec![(1, d(1))]),
+            Transition::new(vec![(2, d(2))], vec![(0, d(1))]),
+        ];
+        // Quotient: places 0 and 2 merge to 0, place 1 becomes 1.
+        let pushed = <PetriDecoration<char> as Decoration>::pushforward(transitions, &[0, 1, 0]);
+        assert_eq!(pushed[0].pre(), &[(0, d(1))]);
+        assert_eq!(pushed[0].post(), &[(1, d(1))]);
+        assert_eq!(pushed[1].pre(), &[(0, d(2))]);
+        assert_eq!(pushed[1].post(), &[(0, d(1))]);
     }
 
     #[test]
