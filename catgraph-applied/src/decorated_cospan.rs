@@ -31,10 +31,12 @@
 
 use std::fmt::Debug;
 
-use catgraph::category::Composable;
+use catgraph::category::{Composable, HasIdentity};
 use catgraph::cospan::Cospan;
 use catgraph::errors::CatgraphError;
-use catgraph::monoidal::Monoidal;
+use catgraph::hypergraph_category::HypergraphCategory;
+use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
+use permutations::Permutation;
 
 /// A lax symmetric monoidal functor `F : (FinSet, +) → (Set, ×)` supplying
 /// decorations on cospan apices.
@@ -197,6 +199,113 @@ where
     }
 }
 
+/// Identity morphism on a tensor word `obj`.
+///
+/// Delegates to [`Cospan::identity`] (a cospan with `|obj|` apex nodes, each
+/// connected identically to one domain and one codomain slot) and attaches
+/// the empty decoration for that apex size.
+impl<Lambda, D> HasIdentity<Vec<Lambda>> for DecoratedCospan<Lambda, D>
+where
+    Lambda: Eq + Copy + Debug,
+    D: Decoration,
+{
+    fn identity(obj: &Vec<Lambda>) -> Self {
+        Self {
+            cospan: Cospan::identity(obj),
+            decoration: D::empty(obj.len()),
+        }
+    }
+}
+
+/// Symmetric monoidal structure (braiding / permutation of tensor factors).
+///
+/// [`SymmetricMonoidalMorphism`] exposes two methods: [`permute_side`] mutates
+/// the morphism by pre/post-composing with a permutation of one leg, and
+/// [`from_permutation`] constructs a pure-braiding morphism from a permutation
+/// on a typed tensor word. In both cases the apex cardinality is unchanged —
+/// permutations re-label leg targets, not apex nodes — so the decoration is
+/// carried through unmodified (`permute_side`) or initialised to the empty
+/// decoration on an apex of size `types.len()` (`from_permutation`).
+///
+/// [`permute_side`]: SymmetricMonoidalMorphism::permute_side
+/// [`from_permutation`]: SymmetricMonoidalMorphism::from_permutation
+impl<Lambda, D> SymmetricMonoidalMorphism<Lambda> for DecoratedCospan<Lambda, D>
+where
+    Lambda: Eq + Copy + Debug,
+    D: Decoration,
+{
+    fn permute_side(&mut self, p: &Permutation, of_codomain: bool) {
+        self.cospan.permute_side(p, of_codomain);
+    }
+
+    fn from_permutation(
+        p: Permutation,
+        types: &[Lambda],
+        types_as_on_domain: bool,
+    ) -> Result<Self, CatgraphError> {
+        let cospan = Cospan::from_permutation(p, types, types_as_on_domain)?;
+        Ok(Self {
+            decoration: D::empty(types.len()),
+            cospan,
+        })
+    }
+}
+
+/// Hypergraph-category structure on decorated cospans (Fong–Spivak Thm 6.77).
+///
+/// Each Frobenius generator is obtained by wrapping the corresponding
+/// [`Cospan`] generator together with the empty decoration on the generator's
+/// apex. The apex size is `1` for unit/counit/multiplication/comultiplication
+/// and `2` for the derived cup/cap, matching the middle set size of the
+/// underlying [`Cospan`] generator.
+impl<Lambda, D> HypergraphCategory<Lambda> for DecoratedCospan<Lambda, D>
+where
+    Lambda: Eq + Copy + Debug,
+    D: Decoration,
+{
+    fn unit(z: Lambda) -> Self {
+        Self {
+            cospan: Cospan::unit(z),
+            decoration: D::empty(1),
+        }
+    }
+
+    fn counit(z: Lambda) -> Self {
+        Self {
+            cospan: Cospan::counit(z),
+            decoration: D::empty(1),
+        }
+    }
+
+    fn multiplication(z: Lambda) -> Self {
+        Self {
+            cospan: Cospan::multiplication(z),
+            decoration: D::empty(1),
+        }
+    }
+
+    fn comultiplication(z: Lambda) -> Self {
+        Self {
+            cospan: Cospan::comultiplication(z),
+            decoration: D::empty(1),
+        }
+    }
+
+    fn cup(z: Lambda) -> Result<Self, CatgraphError> {
+        Ok(Self {
+            cospan: Cospan::cup(z)?,
+            decoration: D::empty(2),
+        })
+    }
+
+    fn cap(z: Lambda) -> Result<Self, CatgraphError> {
+        Ok(Self {
+            cospan: Cospan::cap(z)?,
+            decoration: D::empty(2),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // The trivial decoration uses `type Apex = ()`, so every call to
@@ -207,6 +316,7 @@ mod tests {
     #![allow(clippy::let_unit_value, clippy::unit_arg)]
 
     use super::{Decoration, DecoratedCospan};
+    use catgraph::category::Composable;
     use catgraph::cospan::Cospan;
 
     /// The trivial decoration functor `F(n) = {*}`. Every apex carries the
@@ -290,6 +400,75 @@ mod tests {
 
         // F(+) laxator applied via compose: counters add.
         assert_eq!(composed.decoration, 8);
+    }
+
+    #[test]
+    fn counter_hypergraph_identity() {
+        use catgraph::category::HasIdentity;
+
+        let id = DecoratedCospan::<char, Counter>::identity(&vec!['a', 'b']);
+        assert_eq!(id.cospan.domain(), vec!['a', 'b']);
+        assert_eq!(id.cospan.codomain(), vec!['a', 'b']);
+        // Empty decoration for an apex of size 2 on `Counter` is `0`.
+        assert_eq!(id.decoration, 0);
+    }
+
+    #[test]
+    fn counter_hypergraph_category_generators() {
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        let eta = DecoratedCospan::<char, Counter>::unit('a');
+        assert!(eta.cospan.domain().is_empty());
+        assert_eq!(eta.cospan.codomain(), vec!['a']);
+        assert_eq!(eta.decoration, 0);
+
+        let eps = DecoratedCospan::<char, Counter>::counit('a');
+        assert_eq!(eps.cospan.domain(), vec!['a']);
+        assert!(eps.cospan.codomain().is_empty());
+        assert_eq!(eps.decoration, 0);
+    }
+
+    #[test]
+    fn counter_hypergraph_mu_delta() {
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        let mu = DecoratedCospan::<char, Counter>::multiplication('a');
+        assert_eq!(mu.cospan.domain(), vec!['a', 'a']);
+        assert_eq!(mu.cospan.codomain(), vec!['a']);
+        assert_eq!(mu.decoration, 0);
+
+        let delta = DecoratedCospan::<char, Counter>::comultiplication('a');
+        assert_eq!(delta.cospan.domain(), vec!['a']);
+        assert_eq!(delta.cospan.codomain(), vec!['a', 'a']);
+        assert_eq!(delta.decoration, 0);
+    }
+
+    #[test]
+    fn counter_hypergraph_cup_cap() {
+        use catgraph::hypergraph_category::HypergraphCategory;
+
+        let cup = DecoratedCospan::<char, Counter>::cup('a').unwrap();
+        assert!(cup.cospan.domain().is_empty());
+        assert_eq!(cup.cospan.codomain(), vec!['a', 'a']);
+
+        let cap = DecoratedCospan::<char, Counter>::cap('a').unwrap();
+        assert_eq!(cap.cospan.domain(), vec!['a', 'a']);
+        assert!(cap.cospan.codomain().is_empty());
+    }
+
+    #[test]
+    fn counter_from_permutation_shape() {
+        use catgraph::monoidal::SymmetricMonoidalMorphism;
+        use permutations::Permutation;
+
+        // Swap of two wires: permutation (0 1).
+        let swap = Permutation::transposition(2, 0, 1);
+        let braid =
+            DecoratedCospan::<char, Counter>::from_permutation(swap, &['a', 'b'], true).unwrap();
+        // domain/codomain labels are carried through — for a swap on ['a','b']
+        // the codomain label sequence is the permuted one.
+        assert_eq!(braid.cospan.domain(), vec!['a', 'b']);
+        assert_eq!(braid.decoration, 0);
     }
 
     #[test]
