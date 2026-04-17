@@ -27,14 +27,14 @@
 | §5.4 Graphical linear algebra | 0 | 0 | 2 | 1 | 0 | 3 |
 | §6.2 Colimits and connection | 0 | 0 | 0 | 2 | 4 | 6 |
 | §6.3 Hypergraph categories | 1 | 0 | 0 | 2 | 6 | 9 |
-| §6.4 Decorated cospans | 1 | 2 | 2 | 1 | 0 | 6 |
+| §6.4 Decorated cospans | 3 | 1 | 1 | 1 | 0 | 6 |
 | §6.5 Operads and their algebras | 3 | 2 | 2 | 1 | 0 | 8 |
-| **TOTAL** | **6** | **5** | **13** | **17** | **15** | **56** |
+| **TOTAL** | **8** | **4** | **12** | **17** | **15** | **56** |
 
-**Headline numbers (as of catgraph v0.11.2):**
-- **11% DONE / 9% PARTIAL / 23% MISSING / 30% N/A / 27% IN CORE**
-- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **6 are DONE, 5 PARTIAL, 13 MISSING**.
-- Of implementable items: **25% DONE / 21% PARTIAL / 54% MISSING**
+**Headline numbers (as of catgraph-applied v0.3.0):**
+- **14% DONE / 7% PARTIAL / 21% MISSING / 30% N/A / 27% IN CORE**
+- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **8 are DONE, 4 PARTIAL, 12 MISSING**.
+- Of implementable items: **33% DONE / 17% PARTIAL / 50% MISSING**
 - The 13 missing items cluster in: props/presentations (§5.2–5.4, 9 items) and decorated cospans / operad algebras (§6.4–6.5, 4 items).
 
 ---
@@ -124,9 +124,9 @@
 | Item | Status | Location | Notes |
 |---|---|---|---|
 | Rough Def 6.68: symmetric monoidal functor (F, φ) | ➖ | — | theoretical; catgraph uses `HypergraphFunctor` |
-| Def 6.75: F-decorated cospan | ⚠️ | catgraph-applied::petri_net | `PetriNet::from_cospan` / `transition_as_cospan` bridges between Petri net structure and cospans, but there is no general `DecoratedCospan<F>` type. The Petri net is a *specific* decorated cospan where the decoration functor sends N to the set of transition-weighted bipartite graphs on N. |
-| Thm 6.77: Cospan_F is a hypergraph category | ⚠️ | catgraph-applied::petri_net | `PetriNet::parallel` (monoidal product) and `PetriNet::sequential` (composition) implement the Cospan_F operations for the Petri net decoration functor, but don't prove the general theorem. No `HypergraphCategory` impl on `PetriNet`. |
-| Ex 6.79–6.86: Circ functor, decorated cospan composition for circuits | ❌ | — | no circuit decoration functor; the textbook's running example |
+| Def 6.75: F-decorated cospan | ✅ | catgraph-applied::decorated_cospan | `Decoration` trait + generic `DecoratedCospan<Lambda, D>` struct. `PetriDecoration` specializes to Petri nets; `Circuit` example specializes to EdgeSet on apex vertices. Shipped in catgraph-applied v0.3.0. |
+| Thm 6.77: Cospan_F is a hypergraph category | ✅ | catgraph-applied::decorated_cospan + petri_net | `impl HypergraphCategory<Lambda> for DecoratedCospan<Lambda, D>` realizes the theorem generically (any `D: Decoration`). `impl HypergraphCategory<Lambda> for PetriNet<Lambda>` specializes via `from_cospan`. v0.3.0. |
+| Ex 6.79–6.86: Circ functor, decorated cospan composition for circuits | ⚠️ | catgraph-applied::decorated_cospan + examples/decorated_cospan_circuit.rs | Minimal EdgeSet decoration example ships in v0.3.0 with parallel composition. Series composition requires `Cospan::compose_with_quotient` exposure (v0.3.1 follow-up). |
 | Ex 6.88: closed circuits via η;x;ε composition | ❌ | — | no closed-circuit construction |
 | Petri net cospan bridge (pre/post arc weights as left/right legs) | ✅ | catgraph-applied::petri_net | `from_cospan`, `transition_as_cospan` — multiplicity-weighted cospan bridge. `fire`, `enabled`, `reachable` for state-space exploration. |
 
@@ -163,7 +163,7 @@
 
 2. **Signal flow graphs and Mat(R) (§5.3–5.4)** — No signal flow graph type, no matrix prop, no functorial semantics S: SFG_R → Mat(R). **Impact:** catgraph cannot demonstrate the textbook's main Ch 5 result — that signal flow diagrams have functorial matrix semantics. This is a significant missing application domain (linear systems, control theory).
 
-3. **General decorated cospans (§6.4)** — `PetriNet` is a specific decorated cospan, but there is no general `DecoratedCospan<F>` parametric over a decoration functor. **Impact:** users cannot construct new hypergraph categories from symmetric monoidal functors F: (FinSet, +) → (Set, ×) without reimplementing the decorated cospan machinery.
+3. ~~**General decorated cospans (§6.4)**~~ — ✅ **CLOSED in catgraph-applied v0.3.0.** `Decoration` trait + `DecoratedCospan<Lambda, D>` in `catgraph-applied::decorated_cospan`. `PetriDecoration` specializes to Petri nets; `Circuit` EdgeSet example specializes to resistor circuits. `HypergraphCategory<Lambda>` realized generically (Thm 6.77). Known limitations flagged for v0.3.1: `D::pushforward` not yet invoked in `Composable::compose` (needs upstream `Cospan::compose_with_quotient`), and `SymmetricMonoidalMorphism` for `PetriNet` currently uses the decoration-bridge strategy which loses braiding semantics on the legs.
 
 4. **Operad algebras (§6.5 Def 6.99)** — No `OperadAlgebra` type (functor O → Set). The textbook shows that operad algebras unify decorated cospans and hypergraph props (Prop 6.101). **Impact:** the operadic perspective on compositional theories is missing.
 
@@ -193,7 +193,7 @@ catgraph-applied builds on catgraph's F&S 2019 primitives. The following textboo
 | Def 6.19: pushout composition | `cospan.rs` (union-find) | `WiringDiagram::substitute`, `PetriNet::from_cospan` |
 | Def 6.43 + 6.45: Cospan_C | `cospan.rs`, `named_cospan.rs` | `WiringDiagram` wraps `NamedCospan` |
 | Def 6.52: Frobenius structure | `frobenius/operations.rs` | `BrauerMorphism` TL generators; `WiringDiagram` operadic structure |
-| Def 6.60: hypergraph category | `hypergraph_category.rs` | available for `PetriNet` to impl (currently missing) |
+| Def 6.60: hypergraph category | `hypergraph_category.rs` | ✅ `impl HypergraphCategory<Lambda> for PetriNet<Lambda>` shipped in v0.3.0; generic `impl` for `DecoratedCospan<Lambda, D>` shipped alongside |
 | Prop 6.66: self-dual compact closed | `compact_closed.rs` | `BrauerMorphism::dagger` uses compact closed structure |
 | Thm 6.58: Cospan ≅ free Frobenius | `cospan_algebra.rs` | foundation for operadic substitution |
 | Rough Def 4.45: SMC | `monoidal.rs` | `WiringDiagram`, `BrauerMorphism` implement `Monoidal` |
@@ -202,15 +202,24 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 
 ---
 
-## Roadmap: priority gap closures for v0.2.0
+## Roadmap
 
-### Tier 1 — high value, moderate effort
+### Tier 1 — ✅ shipped in catgraph v0.11.2 / catgraph-applied v0.3.0
 
-| Gap | Textbook ref | Effort | Notes |
+| Gap | Textbook ref | Status | Location |
 |---|---|---|---|
-| `DecoratedCospan<F>` generic type | Def 6.75, Thm 6.77 | 2–3 days | Parametric over decoration functor F: (C, +) → (Set, ×). Makes PetriNet a specialization. Enables circuit examples from §6.4.3. |
-| `HypergraphCategory` impl for `PetriNet` | Def 6.60 via Thm 6.77 | 0.5 day | Given DecoratedCospan, the Frobenius structure comes from Cospan_C's colimits. |
-| ~~Spider theorem explicit test~~ | Thm 6.55 | ✅ shipped in catgraph v0.11.2 | `tests/spider_theorem.rs` |
+| ~~Spider theorem explicit test~~ | Thm 6.55 | ✅ v0.11.2 | `catgraph/tests/spider_theorem.rs` |
+| ~~`DecoratedCospan<F>` generic type~~ | Def 6.75, Thm 6.77 | ✅ v0.3.0 | `catgraph-applied/src/decorated_cospan.rs` |
+| ~~`HypergraphCategory` impl for `PetriNet`~~ | Def 6.60 via Thm 6.77 | ✅ v0.3.0 | `catgraph-applied/src/petri_net.rs` |
+
+### Tier 1.1 — v0.3.1 follow-ups (flagged during Tier 1 work)
+
+| Gap | Source | Effort | Notes |
+|---|---|---|---|
+| `Cospan::compose_with_quotient` upstream API | Task 4 self-review | 0.5 day | Quotient already computed internally; just surface it. Enables real pushforward in `DecoratedCospan::compose`. |
+| `DecoratedCospan::compose` invokes `D::pushforward` | Task 4 | 0.5 day | Once quotient is exposed, wire it through. Required for correctness of the Circuit EdgeSet example under series composition. |
+| `PetriNet::SymmetricMonoidalMorphism` braiding semantics | Task 8 | 1 day | Current impl via decoration-bridge discards leg permutations. Either extend `to_decorated_cospan` to emit non-identity legs, or implement `permute_side` directly on place indices + arc weights. |
+| `Transition::relabel` arc deduplication | Task 7 | 0.5 day | When quotient collapses arcs to the same place, produce canonical merged form rather than duplicate entries. |
 
 ### Tier 2 — medium value, enables new application domains
 
@@ -232,11 +241,17 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 
 ---
 
-## Recommendation for catgraph-applied v0.2.0 release notes
+## Release history
 
-**catgraph-applied v0.1.0** implements the operadic substitution framework (§6.5 Rough Def 6.91 + Ex 6.94), the Temperley-Lieb/Brauer diagrammatic algebra (§6.3 spider-adjacent), Petri net decorated cospans (§6.4 specialized), little-intervals and little-disks operads (E₁, E₂), and formal linear combinations as algebraic infrastructure. It inherits all Fong-Spivak 2019 core from catgraph (cospans, Frobenius, hypergraph categories, compact closed, the §4 equivalence).
+**catgraph-applied v0.1.0** — operadic substitution framework (§6.5 Rough Def 6.91 + Ex 6.94), Temperley-Lieb/Brauer diagrammatic algebra (§6.3 spider-adjacent), Petri net decorated cospans (§6.4 specialized), little-intervals and little-disks operads (E₁, E₂), and formal linear combinations as algebraic infrastructure.
 
-**For v0.2.0**, the priority is a generic `DecoratedCospan<F>` type (Def 6.75, Thm 6.77) that makes `PetriNet` a specialization and enables new application domains (circuits, chemical reaction networks). The props/presentations formalism (§5.2) and operad algebras (§6.5 Def 6.99) are secondary targets that would complete the textbook's Ch 5–6 theory stack.
+**catgraph-applied v0.2.0** — audit release. Added this document and cross-reconciliation with catgraph core's [FS19] audit.
+
+**catgraph v0.11.2** — spider theorem explicit tests (Thm 6.55).
+
+**catgraph-applied v0.3.0** — Tier 1 gap closures: generic `DecoratedCospan<Lambda, D>` (Def 6.75, Thm 6.77), `HypergraphCategory<Lambda>` impl for both `DecoratedCospan` and `PetriNet`, Circuit EdgeSet example. Three v0.3.1 follow-ups identified (pushforward wiring, braiding semantics, transition-arc dedup) — see "Tier 1.1" above.
+
+**Next release candidates:** Tier 2 (`Prop` + `Free(G)`, `OperadAlgebra`, `OperadFunctor`) → v0.4.0. Tier 3 (SFG_R, Mat(R), Corel) → v0.5.0 (requires `Prop` from Tier 2 + nalgebra dep).
 
 ---
 
