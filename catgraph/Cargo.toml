@@ -1,6 +1,6 @@
 [package]
 name = "catgraph"
-version = "0.11.1"
+version = "0.11.2"
 edition = "2024"
 license = "MIT"
 description = "Category-theoretic graph structures: cospans, spans, Frobenius algebras, and morphisms in symmetric monoidal categories — strict Fong-Spivak 2019"

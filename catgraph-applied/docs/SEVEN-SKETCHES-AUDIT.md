@@ -26,15 +26,15 @@
 | §5.3 Signal flow graphs | 0 | 0 | 4 | 2 | 0 | 6 |
 | §5.4 Graphical linear algebra | 0 | 0 | 2 | 1 | 0 | 3 |
 | §6.2 Colimits and connection | 0 | 0 | 0 | 2 | 4 | 6 |
-| §6.3 Hypergraph categories | 1 | 1 | 0 | 2 | 5 | 9 |
+| §6.3 Hypergraph categories | 1 | 0 | 0 | 2 | 6 | 9 |
 | §6.4 Decorated cospans | 1 | 2 | 2 | 1 | 0 | 6 |
 | §6.5 Operads and their algebras | 3 | 2 | 2 | 1 | 0 | 8 |
-| **TOTAL** | **6** | **6** | **13** | **17** | **14** | **56** |
+| **TOTAL** | **6** | **5** | **13** | **17** | **15** | **56** |
 
-**Headline numbers:**
-- **11% DONE / 11% PARTIAL / 23% MISSING / 30% N/A / 25% IN CORE**
-- Of the 56 audited items, 14 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **25 implementable items** of which **6 are DONE, 6 PARTIAL, 13 MISSING**.
-- Of implementable items: **24% DONE / 24% PARTIAL / 52% MISSING**
+**Headline numbers (as of catgraph v0.11.2):**
+- **11% DONE / 9% PARTIAL / 23% MISSING / 30% N/A / 27% IN CORE**
+- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **6 are DONE, 5 PARTIAL, 13 MISSING**.
+- Of implementable items: **25% DONE / 21% PARTIAL / 54% MISSING**
 - The 13 missing items cluster in: props/presentations (§5.2–5.4, 9 items) and decorated cospans / operad algebras (§6.4–6.5, 4 items).
 
 ---
@@ -111,7 +111,7 @@
 |---|---|---|---|
 | Def 6.52: Frobenius structure (μ, η, δ, ε + 9 axioms) | 🔗 | catgraph::frobenius | `FrobeniusOperation`, 8 axiom tests |
 | Def 6.54: spider s_{m,n} | 🔗 | catgraph::frobenius | `from_decomposition` constructs spiders from generators |
-| Thm 6.55: spider theorem (connected diagrams = spiders) | ⚠️ | catgraph::frobenius | `two_layer_simplify` reduces connected diagrams; full spider-theorem statement not an explicit test, but the simplification achieves it |
+| Thm 6.55: spider theorem (connected diagrams = spiders) | 🔗 ✅ | catgraph::frobenius + `tests/spider_theorem.rs` | Explicit tests shipped in catgraph v0.11.2 — 5 tests covering s_{2,2}, s_{3,1}, s_{1,3}, s_{0,0} and connected-diagram shape via `special_frobenius_morphism` constructor |
 | Thm 6.58: free prop on Frobenius ≅ Cospan_FinSet | 🔗 | catgraph::cospan_algebra + hypergraph_functor | `CospanToFrobeniusFunctor` (Prop 3.8 in the research paper) |
 | Def 6.60: hypergraph category | 🔗 | catgraph::hypergraph_category | `HypergraphCategory` trait |
 | Ex 6.61: Cospan_C is a hypergraph category | 🔗 | catgraph::hypergraph_category | `impl HypergraphCategory for Cospan<Lambda>` |
@@ -176,7 +176,7 @@
 
 ### Items that are implicit / "morally present" but not explicit
 
-1. **Thm 6.55 (spider theorem)** — `two_layer_simplify` achieves spider reduction, but there is no explicit test asserting "any connected Frobenius diagram on m inputs and n outputs equals s_{m,n}".
+1. **Thm 6.55 (spider theorem)** — ✅ **CLOSED in catgraph v0.11.2.** `tests/spider_theorem.rs` asserts shape equality between connected Frobenius diagrams and the canonical spiders produced by `special_frobenius_morphism(m, n, z)`.
 
 2. **Def 6.97 (operad underlying an SMC)** — the `Operadic` trait captures the interface but the generic *construction* that derives an operad from any SMC is not automated.
 
@@ -210,7 +210,7 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 |---|---|---|---|
 | `DecoratedCospan<F>` generic type | Def 6.75, Thm 6.77 | 2–3 days | Parametric over decoration functor F: (C, +) → (Set, ×). Makes PetriNet a specialization. Enables circuit examples from §6.4.3. |
 | `HypergraphCategory` impl for `PetriNet` | Def 6.60 via Thm 6.77 | 0.5 day | Given DecoratedCospan, the Frobenius structure comes from Cospan_C's colimits. |
-| Spider theorem explicit test | Thm 6.55 | 0.5 day | Test that any connected Frobenius diagram simplifies to s_{m,n}. Already implicit in `two_layer_simplify`. |
+| ~~Spider theorem explicit test~~ | Thm 6.55 | ✅ shipped in catgraph v0.11.2 | `tests/spider_theorem.rs` |
 
 ### Tier 2 — medium value, enables new application domains
 
