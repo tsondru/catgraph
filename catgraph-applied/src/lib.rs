@@ -14,6 +14,8 @@
 //!   (used internally by `temperley_lieb`)
 //! - [`e1_operad`] — little-intervals operad (E₁)
 //! - [`e2_operad`] — little-disks operad (E₂)
+//! - [`decorated_cospan`] — generic `DecoratedCospan<F>` over a `Decoration` functor
+//!   (Fong–Spivak Def 6.75; Thm 6.77 forthcoming)
 //!
 //! ## Relationship to catgraph
 //!
@@ -35,3 +37,4 @@ pub mod temperley_lieb;
 pub mod e1_operad;
 pub mod e2_operad;
 pub mod petri_net;
+pub mod decorated_cospan;
