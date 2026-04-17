@@ -28,6 +28,36 @@
 //! deferred to subsequent tasks. The target result is Fong–Spivak
 //! **Theorem 6.77**: decorated cospans form a hypergraph category, with
 //! special Frobenius structure inherited from the underlying `Cospan`.
+//!
+//! # Examples
+//!
+//! A flat `u32`-valued tally decoration composed in parallel via the
+//! monoidal product. The laxator `combine` adds the two tallies.
+//!
+//! ```
+//! use catgraph::cospan::Cospan;
+//! use catgraph::monoidal::Monoidal;
+//! use catgraph_applied::decorated_cospan::{DecoratedCospan, Decoration};
+//!
+//! struct Tally;
+//! impl Decoration for Tally {
+//!     type Apex = u32;
+//!     fn empty(_: usize) -> u32 { 0 }
+//!     fn combine(a: u32, b: u32) -> u32 { a + b }
+//!     fn pushforward(d: u32, _: &[usize]) -> u32 { d }
+//! }
+//!
+//! let c1 = Cospan::<char>::new(vec![0], vec![0], vec!['a']);
+//! let d1 = DecoratedCospan::<char, Tally>::new(c1, 3);
+//! let c2 = Cospan::<char>::new(vec![0], vec![0], vec!['b']);
+//! let d2 = DecoratedCospan::<char, Tally>::new(c2, 5);
+//! let mut prod = d1;
+//! prod.monoidal(d2);
+//! assert_eq!(prod.decoration, 8);
+//! ```
+//!
+//! See `examples/decorated_cospan_circuit.rs` for an `EdgeSet`-valued
+//! decoration modelling the textbook `Circ` example (§6.4 Ex 6.79–6.86).
 
 use std::fmt::Debug;
 
