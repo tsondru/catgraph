@@ -31,7 +31,10 @@
 
 use std::fmt::Debug;
 
+use catgraph::category::Composable;
 use catgraph::cospan::Cospan;
+use catgraph::errors::CatgraphError;
+use catgraph::monoidal::Monoidal;
 
 /// A lax symmetric monoidal functor `F : (FinSet, +) → (Set, ×)` supplying
 /// decorations on cospan apices.
@@ -113,6 +116,87 @@ where
     }
 }
 
+/// Sequential composition of decorated cospans.
+///
+/// Delegates the underlying cospan composition to [`Cospan::compose`] (which
+/// performs the pushout on the shared interface) and combines the two
+/// decorations using [`Decoration::combine`].
+///
+/// # Known limitation (Task 4 scope)
+///
+/// Fong–Spivak Def 6.75 composes decorated cospans as
+///
+/// ```text
+///     (c₁ ; c₂).decoration = F(q)(combine(d₁, d₂))
+/// ```
+///
+/// where `q : N₁ + N₂ → N` is the coequalizer quotient produced by the
+/// pushout. That is, after combining the decorations over the disjoint
+/// apex `N₁ + N₂`, the decoration must be pushed forward through the
+/// quotient `q` into the pushout apex `N`.
+///
+/// This implementation omits the [`Decoration::pushforward`] step and just
+/// calls [`Decoration::combine`]. This is correct for *flat* decorations
+/// whose value is invariant under apex relabelling (counters, tallies,
+/// multisets of transitions that never reference apex indices) but loses
+/// information for decorations whose data carries apex indices — e.g. a
+/// `Circuit` decoration (edges between apex vertices) would produce
+/// edges with the wrong endpoints when two vertices get glued together
+/// in the pushout.
+///
+/// A follow-up will extend [`Cospan::compose`] to expose the pushout
+/// quotient map so that pushforward can be wired in here. Until then,
+/// use this impl only for flat decorations; for non-flat decorations,
+/// compose the underlying cospans by hand and apply pushforward
+/// explicitly.
+impl<Lambda, D> Composable<Vec<Lambda>> for DecoratedCospan<Lambda, D>
+where
+    Lambda: Eq + Copy + Debug,
+    D: Decoration,
+{
+    fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
+        let composed_cospan = self.cospan.compose(&other.cospan)?;
+        let combined = D::combine(self.decoration.clone(), other.decoration.clone());
+        Ok(Self {
+            cospan: composed_cospan,
+            decoration: combined,
+        })
+    }
+
+    fn domain(&self) -> Vec<Lambda> {
+        self.cospan.domain()
+    }
+
+    fn codomain(&self) -> Vec<Lambda> {
+        self.cospan.codomain()
+    }
+}
+
+/// Monoidal (parallel) product of decorated cospans.
+///
+/// Delegates the underlying cospan tensor to [`Cospan::monoidal`] (disjoint
+/// union of apices with shifted indices) and combines the two decorations
+/// via [`Decoration::combine`], which models the lax monoidal functor's
+/// laxator `φ_{a,b} : F(a) × F(b) → F(a + b)`.
+///
+/// Unlike composition, the monoidal product does *not* quotient the apex,
+/// so `pushforward` is not needed here — `combine` alone is the full
+/// action of `F` on the `+` operation.
+impl<Lambda, D> Monoidal for DecoratedCospan<Lambda, D>
+where
+    Lambda: Eq + Copy + Debug,
+    D: Decoration,
+{
+    fn monoidal(&mut self, other: Self) {
+        self.cospan.monoidal(other.cospan);
+        // Swap in a placeholder decoration so we can own the current one
+        // and feed it into `D::combine` by value. The placeholder value is
+        // immediately overwritten before this method returns.
+        let mine = std::mem::replace(&mut self.decoration, D::empty(0));
+        self.decoration = D::combine(mine, other.decoration);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // The trivial decoration uses `type Apex = ()`, so every call to
@@ -164,5 +248,64 @@ mod tests {
         let pushed: <Trivial as Decoration>::Apex =
             Trivial::pushforward(Trivial::empty(2), &[0, 0]);
         assert_eq!(pushed, ());
+    }
+
+    /// A flat `usize`-valued decoration: empty is `0`, combine is `+`,
+    /// and pushforward is the identity (counters are apex-invariant).
+    #[derive(Debug)]
+    struct Counter;
+
+    impl Decoration for Counter {
+        type Apex = usize;
+
+        fn empty(_n: usize) -> Self::Apex {
+            0
+        }
+
+        fn combine(a: Self::Apex, b: Self::Apex) -> Self::Apex {
+            a + b
+        }
+
+        fn pushforward(d: Self::Apex, _quotient: &[usize]) -> Self::Apex {
+            d
+        }
+    }
+
+    #[test]
+    fn counter_compose_adds_decorations() {
+        use catgraph::category::Composable;
+
+        // c1: domain = ['a'], codomain = ['b']. Middle has two elements.
+        let c1 = Cospan::<char>::new(vec![0], vec![1], vec!['a', 'b']);
+        let d1 = DecoratedCospan::<char, Counter>::new(c1, 3);
+
+        // c2: domain = ['b'], codomain = ['b']. Must share the 'b'
+        // interface with c1.codomain() for pushout composition to succeed.
+        let c2 = Cospan::<char>::new(vec![0], vec![0], vec!['b']);
+        let d2 = DecoratedCospan::<char, Counter>::new(c2, 5);
+
+        let composed = d1
+            .compose(&d2)
+            .expect("decorated cospan composition should succeed");
+
+        // F(+) laxator applied via compose: counters add.
+        assert_eq!(composed.decoration, 8);
+    }
+
+    #[test]
+    fn counter_monoidal_combines_decorations() {
+        use catgraph::monoidal::Monoidal;
+
+        let c1 = Cospan::<char>::new(vec![0], vec![0], vec!['a']);
+        let d1 = DecoratedCospan::<char, Counter>::new(c1, 2);
+
+        let c2 = Cospan::<char>::new(vec![0], vec![0], vec!['b']);
+        let d2 = DecoratedCospan::<char, Counter>::new(c2, 7);
+
+        let mut prod = d1;
+        prod.monoidal(d2);
+
+        // F(+) laxator applied via monoidal: counters add.
+        assert_eq!(prod.decoration, 9);
     }
 }
