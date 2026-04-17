@@ -15,6 +15,53 @@
 //!
 //! The functor Z': 𝒯 → ℬ maps this to the cobordism category, where
 //! multicomputational irreducibility means Z' is a symmetric monoidal functor.
+//!
+//! ## Time-step discretization as a functor `F: C → D`
+//!
+//! The bridge from `MultiwayEvolutionGraph` to the cospan-chain category
+//! (via [`crate::hypergraph::evolution_cospan::to_cospan_chain`]) instantiates
+//! a general compositional pattern that also appears in:
+//!
+//! - **Gorard (2023), "A functorial perspective on (multi)computational
+//!   irreducibility"** (arXiv:2301.04690) — irreducibility = lack of functorial
+//!   exactness between a computation category and a cobordism category.
+//! - **Mamba / state-space models** — discretization parameter Δ
+//!   (exponential-trapezoidal, bilinear, zero-order hold) acts as a functor
+//!   `F: C → D` from smooth ODE morphisms to discrete recurrences; the
+//!   selection mechanism chooses a natural transformation per token.
+//! - **Bradley-Vigneaux (2025), "The magnitude of categories of texts enriched
+//!   by language models"** (arXiv:2501.06662) — generative text distribution
+//!   discretized into an autoregressive sampling process.
+//!
+//! In all three cases:
+//!
+//! | Category | Role | Morphisms |
+//! |---|---|---|
+//! | `C` | continuous / generative | differential equations, extension distributions, multiway branches |
+//! | `D` | discrete / observational | linear recurrences, token sequences, cospan chains |
+//! | `F: C → D` | discretization / sampling | chosen per step via branchial foliation |
+//!
+//! catgraph-physics implements the Wolfram-physics instance: `C` is the
+//! multiway evolution graph, `D` is the cospan-chain category (catgraph core),
+//! and the branchial foliation (per-step cross-section, see
+//! [`crate::multiway::branchial`]) plays the role of the discretization
+//! parameter Δ.
+//!
+//! ### Per-step foliation selection (selection-mechanism analogue)
+//!
+//! [`MultiwayEvolutionGraph::confluence_diamonds`] and
+//! [`MultiwayEvolutionGraph::parallel_independent_events`] expose the
+//! per-step branching structure needed to choose *which* foliation to use at
+//! each time step. Consumers (e.g. `irreducible`) can treat this as a
+//! *natural transformation* between discretization functors — each step
+//! commits to one coarsening of the multiway graph into a branchial
+//! cross-section, analogous to Mamba's input-dependent Δ selection.
+//!
+//! Enrichment (`[0,1]`-weighted hom-objects on the cospan chain) is
+//! deliberately not provided here; it lives in the planned
+//! `catgraph-magnitude` sibling crate (Phase 6), where the Bradley-Vigneaux
+//! magnitude formula `Mag(tM) = (t − 1) · Σ H_t(p_x) + #(T(⊥))` gives a
+//! quantitative measure of how much information `D` carries about `C`.
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet, VecDeque};
