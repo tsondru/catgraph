@@ -296,17 +296,17 @@ These stay in catgraph until Phase 3, then relocate to `catgraph-applied`. They 
 
 The **`Operadic` trait** (`src/operadic.rs`) is the abstract interface referenced by Eq 6 and stays in catgraph core. Only the concrete implementations move.
 
-### Items to add when `catgraph-applied` audit is drafted
+### catgraph-applied audit (Phase 5 — completed 2026-04-16)
 
-When the F&S applied CT paper is chosen and documented in `catgraph-applied/docs/`, a parallel audit should cover items such as (placeholders — to be populated with actual numbered items from the target paper):
+The applied-CT audit is anchored to Fong & Spivak, *Seven Sketches in Compositionality* (arXiv:1803.05316v3, 2018). See [`catgraph-applied/docs/SEVEN-SKETCHES-AUDIT.md`](../../catgraph-applied/docs/SEVEN-SKETCHES-AUDIT.md) for the full section-by-section audit covering:
 
-- Operadic substitution (formal): sections on wiring diagrams, operadic composition, Σ-operad machinery
-- Colored operads (E_n family): operadic structure on configuration spaces
-- Temperley-Lieb / diagrammatic algebras: diagrammatic category presentations, Jones polynomial connections
-- Petri nets as symmetric monoidal categories: Baez-Master or Baez-Pollard alignment if that paper is chosen
-- Free monoidal category on a signature: generator-relation presentations
+- **§6.5 Operads** — `Operadic` trait (core), `WiringDiagram` (Cospan operad, Ex 6.94), `E1`/`E2` operads (Rough Def 6.91)
+- **§6.4 Decorated cospans** — `PetriNet` cospan bridge (Def 6.75 specialized)
+- **§6.3 Hypergraph categories** — `BrauerMorphism` / Temperley-Lieb (spider-adjacent)
+- **§5.2–5.4 Props, signal flow** — `LinearCombination` (rig infrastructure); props/SFG/Mat(R) not yet implemented
+- **§4.4–4.5 Monoidal / compact closed** — inherited from catgraph core
 
-Until that paper is chosen and documented, the above is a **TODO placeholder**. The catgraph-applied audit doc should be cross-linked from here when created.
+The audit also includes a **cross-paper reconciliation** mapping every module in all three workspace crates (catgraph, catgraph-applied, catgraph-physics) to its paper provenance in [FS19] (this document's paper), [FS18] (Seven Sketches), or neither (Wolfram model, representation theory, etc.).
 
 ### What catgraph-applied inherits from the F&S 2019 core
 

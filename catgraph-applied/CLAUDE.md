@@ -19,11 +19,16 @@ Modules that build on catgraph's F&S 2019 core (cospans, spans, Frobenius, hyper
 - Wolfram-physics extensions (hypergraph rewriting, multiway, gauge, branchial) → `catgraph-physics`
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 
-## Alignment with F&S applied CT paper
+## Paper alignment
 
-A specific applied-CT paper (F&S or equivalent) will be added to `docs/` to anchor the design. When that paper lands, draft `docs/FONG-SPIVAK-APPLIED-AUDIT.md` following the same template as `catgraph/docs/FONG-SPIVAK-AUDIT.md`. Cross-link from the core audit's "Reconciliation with catgraph-applied" section.
+Anchored to Fong & Spivak, *Seven Sketches in Compositionality* (arXiv:1803.05316v3, 2018) — Chapters 4–6. See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section audit. Cross-linked from [`catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
 
-Until then, these modules are implementation-first and will be restructured once the paper anchor is chosen.
+Key alignments:
+- `wiring_diagram` → §6.5 Ex 6.94 (Cospan operad), §6.3.2, §4.4.2
+- `petri_net` → §6.4 Def 6.75 (decorated cospans, specialized); further reading [BFP16, BP17]
+- `temperley_lieb` → §6.3 (spider-adjacent); Jones/Kauffman/Brauer literature
+- `e1_operad` / `e2_operad` → §6.5 Rough Def 6.91; May/Boardman-Vogt literature
+- `linear_combination` → §5.3.1 (rig infrastructure)
 
 ## Build
 
