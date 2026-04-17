@@ -6,7 +6,7 @@ Cospans, spans, Frobenius algebras, hypergraph categories, compact closed struct
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics and implement the full F&S paper.
 
-**v0.11.0 slim baseline.** Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
+**v0.11.2 slim baseline** (v0.11.0 + explicit spider theorem tests). Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
 
 ## Component Index
 

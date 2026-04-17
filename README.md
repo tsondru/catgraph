@@ -1,14 +1,14 @@
 # catgraph workspace
 
-Category-theoretic graph structures in Rust. The **catgraph** crate (v0.11.0 slim baseline) is a strict Rust implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). Applied-CT extensions and Wolfram-physics extensions live in sibling workspace crates.
+Category-theoretic graph structures in Rust. The **catgraph** crate (v0.11.2, slim baseline) is a strict Rust implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). Applied-CT extensions (catgraph-applied v0.3.0) track [Fong & Spivak, *Seven Sketches in Compositionality* (2018)](https://arxiv.org/abs/1803.05316). Wolfram-physics extensions live in a third sibling workspace crate.
 
 ## Members
 
 | Crate | Path | Purpose |
 |---|---|---|
-| [`catgraph`](catgraph/) | `catgraph/` | Strict Fong-Spivak 2019 paper implementation: cospans, spans, Frobenius algebras, hypergraph categories, Theorem 1.2 equivalence |
-| [`catgraph-physics`](catgraph-physics/) | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
-| [`catgraph-applied`](catgraph-applied/) | `catgraph-applied/` | Applied CT extensions: Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations |
+| [`catgraph`](catgraph/) v0.11.2 | `catgraph/` | Strict Fong-Spivak 2019 paper implementation: cospans, spans, Frobenius algebras, hypergraph categories, Theorem 1.2 equivalence, spider theorem (Thm 6.55) |
+| [`catgraph-physics`](catgraph-physics/) v0.2.1 | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
+| [`catgraph-applied`](catgraph-applied/) v0.3.0 | `catgraph-applied/` | Applied CT extensions: generic `DecoratedCospan<F>` (Def 6.75, Thm 6.77), Petri nets as hypergraph category, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations |
 
 ## Sibling repositories
 

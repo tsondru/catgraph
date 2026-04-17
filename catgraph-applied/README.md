@@ -1,6 +1,6 @@
 # catgraph-applied
 
-Applied category theory extensions for [catgraph](../catgraph).
+Applied category theory extensions for [catgraph](../catgraph). Anchored to [Fong & Spivak, *Seven Sketches in Compositionality* (arXiv:1803.05316v3, 2018)](https://arxiv.org/abs/1803.05316), Chapters 4–6.
 
 ## Overview
 
@@ -10,8 +10,9 @@ This crate packages applied-CT modules that build on catgraph's strict Fong-Spiv
 
 | Module | Purpose |
 |---|---|
+| `decorated_cospan` | Generic `Decoration` trait + `DecoratedCospan<Lambda, D>` realizing F&S Def 6.75 + Thm 6.77 |
 | `wiring_diagram` | Operadic substitution built on named cospans |
-| `petri_net` | Place/transition nets with cospan bridge, firing, reachability, parallel/sequential composition |
+| `petri_net` | Place/transition nets with cospan bridge, firing, reachability, parallel/sequential composition, `HypergraphCategory` impl, `PetriDecoration` bridge to `DecoratedCospan` |
 | `temperley_lieb` | Temperley-Lieb / Brauer algebra via perfect matchings |
 | `linear_combination` | Formal linear combinations over a coefficient ring |
 | `e1_operad` | Little-intervals operad (E₁) |
@@ -27,11 +28,15 @@ Every module depends on catgraph's public API:
 - `Operadic` trait — abstract substitution interface (concrete impls live here)
 - `compact_closed` cup/cap — string-diagram rewriting (TL, wiring)
 
-## Roadmap
+## Paper alignment
 
-A specific F&S applied CT paper (or equivalent) will be added to `docs/` to anchor the design. An audit document (`docs/FONG-SPIVAK-APPLIED-AUDIT.md`) will follow, paralleling `catgraph/docs/FONG-SPIVAK-AUDIT.md`.
+See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section Seven Sketches coverage audit (Chapters 4–6, 56 items tracked). Cross-linked from [`../catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
 
-See the workspace plan at `../.claude/refactor/current-plan.md` (Phase 5).
+## Release history
+
+- **v0.1.0** — initial extraction from catgraph core (Petri nets, operads, Temperley-Lieb, wiring diagrams, linear combinations)
+- **v0.2.0** — Seven Sketches audit published (`docs/SEVEN-SKETCHES-AUDIT.md`)
+- **v0.3.0** — Tier 1 gap closures: `decorated_cospan` module, `HypergraphCategory` impl for `PetriNet`, Circuit EdgeSet example. Four v0.3.1 follow-ups tracked in the audit's "Tier 1.1" section (pushforward wiring, braiding semantics, transition-arc dedup, quotient exposure).
 
 ## Build
 
