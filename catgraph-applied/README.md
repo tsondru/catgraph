@@ -36,7 +36,8 @@ See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the secti
 
 - **v0.1.0** — initial extraction from catgraph core (Petri nets, operads, Temperley-Lieb, wiring diagrams, linear combinations)
 - **v0.2.0** — Seven Sketches audit published (`docs/SEVEN-SKETCHES-AUDIT.md`)
-- **v0.3.0** — Tier 1 gap closures: `decorated_cospan` module, `HypergraphCategory` impl for `PetriNet`, Circuit EdgeSet example. Four v0.3.1 follow-ups tracked in the audit's "Tier 1.1" section (pushforward wiring, braiding semantics, transition-arc dedup, quotient exposure).
+- **v0.3.0** — Tier 1 gap closures: `decorated_cospan` module, `HypergraphCategory` impl for `PetriNet`, Circuit EdgeSet example.
+- **v0.3.1** — Tier 1.1 closures: `DecoratedCospan::compose` invokes `D::pushforward` through the pushout quotient (correct series composition for apex-index-carrying decorations like Circuit EdgeSet); `PetriNet::permute_side` implements braiding directly on the transition sequence; `Transition::relabel` deduplicates arcs when the quotient collapses distinct places onto the same target. Requires catgraph v0.11.3 for `Cospan::compose_with_quotient`.
 
 ## Build
 

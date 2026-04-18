@@ -6,7 +6,7 @@ Cospans, spans, Frobenius algebras, hypergraph categories, compact closed struct
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics and implement the full F&S paper.
 
-**v0.11.2 slim baseline** (v0.11.0 + explicit spider theorem tests). Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
+**v0.11.3 slim baseline** (v0.11.2 + `Cospan::compose_with_quotient` additive API for catgraph-applied v0.3.1 pushforward wiring). Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
 
 ## Component Index
 
@@ -135,7 +135,7 @@ cargo clippy -p catgraph -- -W clippy::pedantic
 
 ```toml
 [dependencies]
-catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.11.0" }
+catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.11.3" }
 ```
 
 ## References
