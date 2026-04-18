@@ -1,4 +1,4 @@
-# catgraph (F&S 2019 crate, v0.11.0 slim baseline)
+# catgraph (F&S 2019 crate, v0.11.3 slim baseline + Tier 1.1 quotient exposure)
 
 Strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). v0.11.0 is the slim F&S baseline release — applied-CT extras now live in `catgraph-applied`, Wolfram-physics extensions in `catgraph-physics`.
 
@@ -25,7 +25,7 @@ See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for section-by-sect
 
 **Out of scope** (delegated):
 - Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis → `catgraph-physics` (workspace sibling, v0.2.0)
-- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations → `catgraph-applied` (workspace sibling, v0.1.0)
+- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations → `catgraph-applied` (workspace sibling, v0.3.1)
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 - Computational irreducibility → [irreducible](https://github.com/tsondru/irreducible)
 
