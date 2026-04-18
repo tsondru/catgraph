@@ -14,20 +14,15 @@
 //! cospan machinery in [`catgraph::cospan`] and domain-specific decorated
 //! structures (open Petri nets, open graphs, open dynamical systems, …).
 //!
-//! ## What lives here (Task 3)
-//!
-//! This module currently provides only the bare skeleton:
+//! ## What lives here
 //!
 //! - the [`Decoration`] trait (F on objects + laxator + pushforward), and
-//! - the generic [`DecoratedCospan`] struct with a simple constructor.
-//!
-//! ## Forthcoming (Tasks 4–5)
-//!
-//! The category-theoretic structure (`Composable`, `Monoidal`,
-//! `HypergraphCategory` instances for `DecoratedCospan<Lambda, D>`) is
-//! deferred to subsequent tasks. The target result is Fong–Spivak
-//! **Theorem 6.77**: decorated cospans form a hypergraph category, with
-//! special Frobenius structure inherited from the underlying `Cospan`.
+//! - the generic [`DecoratedCospan`] struct, with pushout-based
+//!   [`Composable`] composition (invoking `D::pushforward` on the
+//!   coequalizer quotient, per F&S Def 6.75), [`Monoidal`] parallel
+//!   product via the laxator, and a [`HypergraphCategory`] instance
+//!   supplying the Frobenius generators inherited from `Cospan`,
+//!   realizing F&S **Theorem 6.77**.
 //!
 //! # Examples
 //!
@@ -148,51 +143,34 @@ where
     }
 }
 
-/// Sequential composition of decorated cospans.
+/// Sequential composition of decorated cospans (Fong–Spivak Def 6.75,
+/// Thm 6.77).
 ///
-/// Delegates the underlying cospan composition to [`Cospan::compose`] (which
-/// performs the pushout on the shared interface) and combines the two
-/// decorations using [`Decoration::combine`].
+/// Delegates the underlying cospan composition to
+/// [`Cospan::compose_with_quotient`] (which performs the pushout on the
+/// shared interface and returns the coequalizer quotient
+/// `q : N_1 + N_2 -> N`), combines the two decorations via
+/// [`Decoration::combine`], and pushes the combined decoration forward
+/// through `q` via [`Decoration::pushforward`].
 ///
-/// # Known limitation (Task 4 scope)
-///
-/// Fong–Spivak Def 6.75 composes decorated cospans as
+/// Concretely:
 ///
 /// ```text
-///     (c₁ ; c₂).decoration = F(q)(combine(d₁, d₂))
+///     (c1 ; c2).decoration = F(q)(combine(d1, d2))
 /// ```
 ///
-/// where `q : N₁ + N₂ → N` is the coequalizer quotient produced by the
-/// pushout. That is, after combining the decorations over the disjoint
-/// apex `N₁ + N₂`, the decoration must be pushed forward through the
-/// quotient `q` into the pushout apex `N`.
-///
-/// This implementation omits the [`Decoration::pushforward`] step and just
-/// calls [`Decoration::combine`]. This is correct for *flat* decorations
-/// whose value is invariant under apex relabelling (counters, tallies,
-/// multisets of transitions that never reference apex indices) but loses
-/// information for decorations whose data carries apex indices — e.g. a
-/// `Circuit` decoration (edges between apex vertices) would produce
-/// edges with the wrong endpoints when two vertices get glued together
-/// in the pushout.
-///
-/// A follow-up will extend [`Cospan::compose`] to expose the pushout
-/// quotient map so that pushforward can be wired in here. Until then,
-/// use this impl only for flat decorations; for non-flat decorations,
-/// compose the underlying cospans by hand and apply pushforward
-/// explicitly.
+/// Correct for all `Decoration` impls including those whose apex data
+/// references apex indices (e.g. edge-set decorations for circuits).
 impl<Lambda, D> Composable<Vec<Lambda>> for DecoratedCospan<Lambda, D>
 where
     Lambda: Eq + Copy + Debug,
     D: Decoration,
 {
     fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
-        let composed_cospan = self.cospan.compose(&other.cospan)?;
+        let (cospan, quotient) = self.cospan.compose_with_quotient(&other.cospan)?;
         let combined = D::combine(self.decoration.clone(), other.decoration.clone());
-        Ok(Self {
-            cospan: composed_cospan,
-            decoration: combined,
-        })
+        let decoration = D::pushforward(combined, &quotient);
+        Ok(Self { cospan, decoration })
     }
 
     fn domain(&self) -> Vec<Lambda> {
