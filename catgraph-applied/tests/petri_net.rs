@@ -149,3 +149,86 @@ fn cospan_roundtrip_preserves_structure() {
     for &idx in back.left_to_middle() { *left_counts_back.entry(idx).or_insert(0) += 1; }
     assert_eq!(left_counts_orig, left_counts_back);
 }
+
+// ============================================================================
+// v0.3.1 Tier 1.1 — direct PetriNet::permute_side tests
+// ============================================================================
+
+#[cfg(test)]
+mod v0_3_1_braiding {
+    use catgraph::category::Composable;
+    use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
+    use catgraph_applied::petri_net::{PetriNet, Transition};
+    use permutations::Permutation;
+    use rust_decimal::Decimal;
+
+    fn two_transition_net() -> PetriNet<char> {
+        // Two transitions on a 2-place net, each with one pre and one post arc.
+        let places = vec!['a', 'b'];
+        let t0 = Transition::new(vec![(0, Decimal::ONE)], vec![(1, Decimal::ONE)]);
+        let t1 = Transition::new(vec![(1, Decimal::ONE)], vec![(0, Decimal::ONE)]);
+        PetriNet::new(places, vec![t0, t1])
+    }
+
+    #[test]
+    fn t3_1_identity_permutation_is_no_op() {
+        let original = two_transition_net();
+        let mut net = original.clone();
+        net.permute_side(&Permutation::identity(net.transitions().len()), false);
+        assert_eq!(net.places(), original.places());
+        assert_eq!(net.transitions(), original.transitions());
+    }
+
+    #[test]
+    fn t3_2_transposition_swaps_transition_order() {
+        let original = two_transition_net();
+        let mut net = original.clone();
+
+        let swap = Permutation::transposition(2, 0, 1);
+        net.permute_side(&swap, true);
+
+        // Transitions permuted
+        assert_eq!(net.transitions().len(), 2);
+        assert_eq!(net.transitions()[0], original.transitions()[1]);
+        assert_eq!(net.transitions()[1], original.transitions()[0]);
+        // Places unchanged
+        assert_eq!(net.places(), original.places());
+        // Codomain sequence reflects the swap
+        assert_ne!(net.codomain(), original.codomain(),
+            "codomain must observe the braiding");
+    }
+
+    #[test]
+    fn t3_3_involution() {
+        let original = two_transition_net();
+        let mut net = original.clone();
+        let swap = Permutation::transposition(2, 0, 1);
+        net.permute_side(&swap, true);
+        net.permute_side(&swap, true);
+        assert_eq!(net.places(), original.places());
+        assert_eq!(net.transitions(), original.transitions());
+    }
+
+    #[test]
+    fn t3_4_naturality_on_tensor_codomain() {
+        // net1 ⊗ net2 followed by codomain-swap yields net2 ⊗ net1 codomain.
+        let mut net1 = PetriNet::new(
+            vec!['x'],
+            vec![Transition::new(vec![], vec![(0, Decimal::ONE)])],
+        );
+        let net2 = PetriNet::new(
+            vec!['y'],
+            vec![Transition::new(vec![], vec![(0, Decimal::ONE)])],
+        );
+
+        let mut reverse = net2.clone();
+        reverse.monoidal(net1.clone());
+
+        net1.monoidal(net2);
+        let swap = Permutation::transposition(2, 0, 1);
+        net1.permute_side(&swap, true);
+
+        assert_eq!(net1.codomain(), reverse.codomain(),
+            "swap on (net1 ⊗ net2).codomain equals (net2 ⊗ net1).codomain");
+    }
+}

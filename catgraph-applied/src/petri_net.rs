@@ -37,6 +37,7 @@ use catgraph::cospan::Cospan;
 use catgraph::errors::CatgraphError;
 use catgraph::hypergraph_category::HypergraphCategory;
 use catgraph::monoidal::{Monoidal, SymmetricMonoidalMorphism};
+use catgraph::utils::in_place_permute;
 use permutations::Permutation;
 
 use crate::decorated_cospan::{DecoratedCospan, Decoration};
@@ -632,14 +633,17 @@ where
 // offset and `sequential` merges Lambda-matching sink/source boundary
 // places.
 //
-// `SymmetricMonoidalMorphism` is implemented through the decorated-cospan
-// bridge. This is semantically lossy — [`PetriNet::to_decorated_cospan`]
-// uses [`Cospan::identity`] on the places, so permuting one leg of that
-// cospan and round-tripping through [`PetriNet::from_decorated_cospan`]
-// discards the permutation. The impl exists to satisfy the
-// `HypergraphCategory` supertrait bound; users requiring true braiding
-// semantics on PetriNets should operate on the underlying
-// [`DecoratedCospan`] directly.
+// `SymmetricMonoidalMorphism::permute_side` permutes `self.transitions`
+// directly; the place set and arc contents are left untouched. Because
+// [`PetriNet::domain`] / [`PetriNet::codomain`] build their boundary
+// sequences by iterating transitions in order (concatenating each
+// transition's expanded pre/post arcs), reordering the transition vector
+// is exactly the symmetric-monoidal braiding action on those sequences.
+// `SymmetricMonoidalMorphism::from_permutation` still delegates to
+// [`DecoratedCospan::from_permutation`] — pure-braiding nets have an
+// empty [`PetriDecoration`], so no information is lost on that path.
+// Composition continues to use the decorated-cospan bridge via
+// [`PetriNet::sequential`] / [`PetriNet::parallel`].
 
 impl<Lambda> PetriNet<Lambda>
 where
@@ -730,18 +734,31 @@ impl<Lambda> SymmetricMonoidalMorphism<Lambda> for PetriNet<Lambda>
 where
     Lambda: Sized + Eq + Copy + Debug + 'static,
 {
-    /// Braiding via the decorated-cospan bridge.
+    /// Braiding on a [`PetriNet`] boundary.
     ///
-    /// Round-trips `self` through [`PetriNet::to_decorated_cospan`] +
-    /// [`DecoratedCospan::permute_side`] + [`PetriNet::from_decorated_cospan`].
-    /// Because the bridge cospan's legs are identities on the place set,
-    /// the permutation is effectively dropped on the return trip — see the
-    /// module comment above for the caveat. The impl exists to satisfy the
-    /// [`HypergraphCategory`] supertrait bound.
+    /// The domain and codomain of a `PetriNet` are sequences of arc endpoints
+    /// assembled from `self.transitions` (see [`PetriNet::domain`] /
+    /// [`PetriNet::codomain`]). A symmetric-monoidal braiding on those
+    /// sequences is a permutation of the ordering in which transitions
+    /// contribute endpoints — it does not rewrite place indices or arc
+    /// weights.
+    ///
+    /// Permutes `self.transitions` in place according to `p`. Both the
+    /// `false` (domain) and `true` (codomain) cases share the same
+    /// transition vector, so the `of_codomain` flag is accepted for
+    /// interface compatibility but has no side-specific effect. The place
+    /// set and arc contents are unchanged.
+    ///
+    /// If `p.len()` does not match `self.transitions.len()`, the call is a
+    /// no-op — this preserves the trait's panic-free contract. Callers
+    /// routing through [`SymmetricMonoidalMorphism`] should size `p` to the
+    /// transition count.
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool) {
-        let mut dec = self.to_decorated_cospan();
-        dec.permute_side(p, of_codomain);
-        *self = PetriNet::from_decorated_cospan(dec);
+        let _ = of_codomain; // both sides share self.transitions
+        if p.len() != self.transitions.len() {
+            return;
+        }
+        in_place_permute(&mut self.transitions, p);
     }
 
     /// Construct a pure-braiding `PetriNet` from a permutation on tensor factors.
