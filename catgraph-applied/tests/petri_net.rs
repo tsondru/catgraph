@@ -230,6 +230,8 @@ mod v0_3_1_braiding {
 
         assert_eq!(net1.codomain(), reverse.codomain(),
             "swap on (net1 ⊗ net2).codomain equals (net2 ⊗ net1).codomain");
+        assert_eq!(net1.domain(), reverse.domain(),
+            "swap on (net1 ⊗ net2).domain equals (net2 ⊗ net1).domain");
     }
 }
 
