@@ -85,23 +85,50 @@ impl Transition {
     /// transition referring to either must have its arc endpoints redirected
     /// to the identified representative.
     ///
+    /// When the quotient collapses two distinct places onto the same target,
+    /// arcs referring to them are merged with summed [`Decimal`] multiplicities —
+    /// pre-arcs and post-arcs are deduplicated independently so self-loops
+    /// (matching pre and post place) are preserved as two separate arcs.
+    /// After dedup, pre/post arcs are sorted ascending by place index for a
+    /// canonical representation.
+    ///
     /// # Panics
     ///
     /// Panics if any `(place, _)` pair references an index outside
     /// `quotient.len()`.
     #[must_use]
     pub fn relabel(&self, quotient: &[usize]) -> Transition {
-        let pre = self
+        let mut pre: Vec<(usize, Decimal)> = self
             .pre
             .iter()
             .map(|(p, w)| (quotient[*p], *w))
             .collect();
-        let post = self
+        let mut post: Vec<(usize, Decimal)> = self
             .post
             .iter()
             .map(|(p, w)| (quotient[*p], *w))
             .collect();
+        Self::dedup_arcs(&mut pre);
+        Self::dedup_arcs(&mut post);
         Transition { pre, post }
+    }
+
+    /// Merge arcs referencing the same place by summing their [`Decimal`]
+    /// weights, then sort ascending by place index. Called by
+    /// [`Transition::relabel`] after the quotient may have collapsed distinct
+    /// source places onto the same target.
+    fn dedup_arcs(arcs: &mut Vec<(usize, Decimal)>) {
+        arcs.sort_unstable_by_key(|&(p, _)| p);
+        let mut i = 0;
+        while i + 1 < arcs.len() {
+            if arcs[i].0 == arcs[i + 1].0 {
+                let next_weight = arcs[i + 1].1;
+                arcs[i].1 += next_weight;
+                arcs.remove(i + 1);
+            } else {
+                i += 1;
+            }
+        }
     }
 }
 

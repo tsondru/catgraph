@@ -232,3 +232,64 @@ mod v0_3_1_braiding {
             "swap on (net1 ⊗ net2).codomain equals (net2 ⊗ net1).codomain");
     }
 }
+
+// ============================================================================
+// v0.3.1 Tier 1.1 — Transition::relabel arc dedup tests
+// ============================================================================
+
+#[cfg(test)]
+mod v0_3_1_arc_dedup {
+    use catgraph_applied::petri_net::Transition;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn t4_1_quotient_collapses_pre_arcs_with_summed_weights() {
+        // Pre-arcs [(0, 1), (1, 2)]. Quotient [0, 0] maps both to place 0.
+        // After relabel+dedup, pre should be [(0, 3)].
+        let pre = vec![(0usize, Decimal::ONE), (1usize, Decimal::TWO)];
+        let t = Transition::new(pre, vec![]);
+        let relabelled = t.relabel(&[0, 0]);
+        assert_eq!(relabelled.pre(), &[(0usize, Decimal::from(3))]);
+        assert_eq!(relabelled.post(), &[] as &[(usize, Decimal)]);
+    }
+
+    #[test]
+    fn t4_2_distinct_places_not_merged() {
+        // Quotient [0, 1] is identity on a 2-place apex — no dedup happens.
+        let pre = vec![(0usize, Decimal::ONE), (1usize, Decimal::TWO)];
+        let t = Transition::new(pre.clone(), vec![]);
+        let relabelled = t.relabel(&[0, 1]);
+        assert_eq!(relabelled.pre(), &pre[..]);
+    }
+
+    #[test]
+    fn t4_3_pre_and_post_separate_self_loop_preserved() {
+        // Transition has pre = [(0, 1)] and post = [(0, 1)].
+        // Quotient is identity. Pre and post stay separate (self-loop).
+        let t = Transition::new(
+            vec![(0usize, Decimal::ONE)],
+            vec![(0usize, Decimal::ONE)],
+        );
+        let relabelled = t.relabel(&[0]);
+        assert_eq!(relabelled.pre(), &[(0usize, Decimal::ONE)]);
+        assert_eq!(relabelled.post(), &[(0usize, Decimal::ONE)]);
+    }
+
+    #[test]
+    fn t4_4_order_independence() {
+        // Two arcs collapsing to the same place, starting in different orders,
+        // produce the same canonical merged form.
+        let q = &[0, 0];
+        let a = Transition::new(
+            vec![(0usize, Decimal::ONE), (1usize, Decimal::TWO)],
+            vec![],
+        )
+        .relabel(q);
+        let b = Transition::new(
+            vec![(1usize, Decimal::TWO), (0usize, Decimal::ONE)],
+            vec![],
+        )
+        .relabel(q);
+        assert_eq!(a.pre(), b.pre());
+    }
+}
