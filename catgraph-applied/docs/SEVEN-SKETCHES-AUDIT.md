@@ -243,17 +243,7 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 
 ## Release history
 
-**catgraph-applied v0.1.0** — operadic substitution framework (§6.5 Rough Def 6.91 + Ex 6.94), Temperley-Lieb/Brauer diagrammatic algebra (§6.3 spider-adjacent), Petri net decorated cospans (§6.4 specialized), little-intervals and little-disks operads (E₁, E₂), and formal linear combinations as algebraic infrastructure.
-
-**catgraph-applied v0.2.0** — audit release. Added this document and cross-reconciliation with catgraph core's [FS19] audit.
-
-**catgraph v0.11.2** — spider theorem explicit tests (Thm 6.55).
-
-**catgraph-applied v0.3.0** — Tier 1 gap closures: generic `DecoratedCospan<Lambda, D>` (Def 6.75, Thm 6.77), `HypergraphCategory<Lambda>` impl for both `DecoratedCospan` and `PetriNet`, Circuit EdgeSet example.
-
-**catgraph v0.11.3** — additive `Cospan::compose_with_quotient` exposing the pushout quotient map. Existing `compose` unchanged (wraps the new API).
-
-**catgraph-applied v0.3.1** — Tier 1.1 closures: `DecoratedCospan::compose` invokes `D::pushforward` through the quotient; `PetriNet::permute_side` implements braiding directly on the transition sequence; `Transition::relabel` dedups arcs when quotient collapses places. Requires catgraph v0.11.3.
+See [`../CHANGELOG.md`](../CHANGELOG.md) for the per-release scope of this crate, and [`../../catgraph/CHANGELOG.md`](../../catgraph/CHANGELOG.md) for the cross-crate infrastructure (e.g. `Cospan::compose_with_quotient` shipped in catgraph v0.11.3 to unblock v0.3.1 pushforward wiring).
 
 **Next release candidates:** Tier 2 (`Prop` + `Free(G)`, `OperadAlgebra`, `OperadFunctor`) → v0.4.0. Tier 3 (SFG_R, Mat(R), Corel) → v0.5.0 (requires `Prop` from Tier 2 + nalgebra dep).
 

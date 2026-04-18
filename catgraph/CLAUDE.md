@@ -55,5 +55,4 @@ cargo bench -p catgraph --no-run
 
 @../.claude/refactor/catgraph-architecture.md
 @../.claude/refactor/fs-coverage-detail.md
-@../.claude/refactor/catgraph-session-state.md
 @../.claude/refactor/catgraph-CLAUDE.local.md

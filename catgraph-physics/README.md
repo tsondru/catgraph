@@ -27,6 +27,10 @@ cargo clippy -p catgraph-physics -- -W clippy::pedantic
 cargo bench -p catgraph-physics --bench wasserstein_bench
 ```
 
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
 ## License
 
 MIT — see [LICENSE](../LICENSE).

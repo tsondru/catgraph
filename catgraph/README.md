@@ -143,6 +143,10 @@ catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.11.3" }
 - [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304) — primary theoretical foundation
 - [Spivak, *The Operad of Wiring Diagrams* (2013)](https://arxiv.org/abs/1305.0297)
 
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
 ## License
 
 [MIT](LICENSE)

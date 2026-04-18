@@ -320,15 +320,7 @@ Every item in catgraph-applied will be built on top of catgraph's F&S 2019 primi
 
 No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 
-### v0.11.3 Tier 1.1 infrastructure (2026-04-18)
-
-catgraph v0.11.3 adds the additive method `Cospan::compose_with_quotient`,
-exposing the union-find pushout quotient map that had been computed
-internally by `perform_pushout` and discarded. No F&S-numbered item
-changes in catgraph core — the quotient is infrastructure consumed by
-catgraph-applied v0.3.1's `DecoratedCospan::compose` to realize the
-`F(q) ∘ combine(d_1, d_2)` formula of F&S 2018 Thm 6.77. The existing
-`Composable::compose` on `Cospan` is unchanged (wraps the new method).
+Release history for this crate is in [`../CHANGELOG.md`](../CHANGELOG.md); infrastructure consumed by the applied-CT crate is cross-linked there.
 
 ## Recommendation for catgraph v0.11.0 release notes
 
