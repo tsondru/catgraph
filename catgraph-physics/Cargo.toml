@@ -1,24 +1,25 @@
 [package]
 name = "catgraph-physics"
 version = "0.2.1"
-edition = "2024"
-license = "MIT"
 description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis"
-repository = "https://github.com/tsondru/catgraph"
-authors = ["tsondru", "Claude <noreply@anthropic.com>"]
 keywords = ["hypergraph", "multiway", "rewriting", "spectral", "wolfram-physics"]
 categories = ["mathematics", "science", "simulation"]
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 catgraph = { path = "../catgraph" }
+rustworkx-core.workspace = true
 nalgebra = "0.34"
 nalgebra-sparse = "0.11"
 petgraph = "0.8"
-rustworkx-core = "0.17"
 
 [dev-dependencies]
-proptest = "1"
-criterion = { version = "0.8", features = ["html_reports"] }
+criterion.workspace = true
+proptest.workspace = true
 
 [[bench]]
 name = "wasserstein_bench"

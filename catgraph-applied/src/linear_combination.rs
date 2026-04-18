@@ -472,6 +472,7 @@ mod test {
 
     /// `simplify` removes terms whose coefficient is zero.
     #[test]
+    #[allow(clippy::erasing_op)] // intentional `* 0` exercises zero-coefficient simplify
     fn zero_coefficient_cleanup() {
         use super::LinearCombination;
         // lc = 5*"a" + 0*"b" + 3*"c"

@@ -1,28 +1,29 @@
 [package]
 name = "catgraph-applied"
 version = "0.3.1"
-edition = "2024"
-license = "MIT"
 description = "Applied category theory extensions for catgraph: Petri nets, E_n operads, Temperley-Lieb, wiring diagrams, linear combinations"
-repository = "https://github.com/tsondru/catgraph"
-authors = ["tsondru", "Claude <noreply@anthropic.com>"]
 keywords = ["category-theory", "operad", "petri-net", "temperley-lieb", "wiring-diagram"]
 categories = ["mathematics", "science", "data-structures"]
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 catgraph = { path = "../catgraph" }
-either = "^1.15.0"
-itertools = "^0.14.0"
-num = "^0.4.3"
-permutations = "^0.1.1"
-rand = "^0.10.0"
-rayon = "^1.12"
-rust_decimal = "1"
-rustworkx-core = "0.17"
+either.workspace = true
+itertools.workspace = true
+num.workspace = true
+permutations.workspace = true
+rand.workspace = true
+rayon.workspace = true
+rust_decimal.workspace = true
+rustworkx-core.workspace = true
 
 [dev-dependencies]
-proptest = "1"
-criterion = { version = "0.8", features = ["html_reports"] }
+criterion.workspace = true
+proptest.workspace = true
 
 [[bench]]
 name = "rayon_thresholds"

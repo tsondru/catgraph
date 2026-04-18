@@ -31,7 +31,7 @@ cargo clippy --workspace -- -W clippy::pedantic
 - Run `cargo check` after edits, `cargo test` after logic changes
 - Prefer `cargo clippy -- -W clippy::pedantic` for lint passes
 
-@.claude/refactor/workspace-overview.md
+@.claude/docs/workspace-overview.md
 @.claude/refactor/current-plan.md
 @.claude/refactor/session-state.md
 @.claude/refactor/CLAUDE.local.md
