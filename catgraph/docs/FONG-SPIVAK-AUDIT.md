@@ -1,7 +1,7 @@
-# Fong-Spivak Coverage Audit (catgraph v0.11.0 — slim F&S baseline)
+# Fong-Spivak Coverage Audit (catgraph v0.11.3 — slim F&S baseline)
 
 > **Paper:** Fong & Spivak, *Hypergraph Categories* (arXiv:1806.08304v3, 18 Jan 2019)
-> **Library:** catgraph v0.11.0 (Phases 0.5 + 1 + 2 + 3 complete — non-F&S modules relocated to `irreducible`, `catgraph-physics`, and `catgraph-applied`)
+> **Library:** catgraph v0.11.3 (Phases 0.5 + 1 + 2 + 3 complete — non-F&S modules relocated to `irreducible`, `catgraph-physics`, and `catgraph-applied`)
 > **Date:** 2026-04-14 (Phases 0.5 + 1 + 2 + 3 verified against current workspace; originally audited 2026-04-10)
 > **Method:** read all 38 pages of the paper, cross-checked each numbered item against catgraph source
 >
@@ -319,6 +319,16 @@ Every item in catgraph-applied will be built on top of catgraph's F&S 2019 primi
 - `HypergraphFunctor` — the target for applied-CT semantic functors (e.g., Petri → Mark, wiring → StochMatrix)
 
 No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
+
+### v0.11.3 Tier 1.1 infrastructure (2026-04-18)
+
+catgraph v0.11.3 adds the additive method `Cospan::compose_with_quotient`,
+exposing the union-find pushout quotient map that had been computed
+internally by `perform_pushout` and discarded. No F&S-numbered item
+changes in catgraph core — the quotient is infrastructure consumed by
+catgraph-applied v0.3.1's `DecoratedCospan::compose` to realize the
+`F(q) ∘ combine(d_1, d_2)` formula of F&S 2018 Thm 6.77. The existing
+`Composable::compose` on `Cospan` is unchanged (wraps the new method).
 
 ## Recommendation for catgraph v0.11.0 release notes
 
