@@ -395,19 +395,33 @@ where
     }
 }
 
-impl<Lambda> Composable<Vec<Lambda>> for Cospan<Lambda>
+impl<Lambda> Cospan<Lambda>
 where
     Lambda: Eq + Sized + Copy + Debug,
 {
-    fn composable(&self, other: &Self) -> Result<(), CatgraphError> {
-        let self_interface = self.right.iter().map(|mid| self.middle[*mid]);
-        let other_interface = other.left.iter().map(|mid| other.middle[*mid]);
-
-        crate::utils::same_labels_check(self_interface, other_interface)
-            .map_err(|message| CatgraphError::Composition { message })
-    }
-
-    fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
+    /// Pushout composition returning both the composed cospan and the
+    /// `old_apex_index → new_apex_index` quotient map produced by the
+    /// union-find coequalizer.
+    ///
+    /// Indexing convention for the returned `Vec<usize>`:
+    /// - positions `0..self.middle.len()` map `self`'s middle indices;
+    /// - positions `self.middle.len()..self.middle.len()+other.middle.len()`
+    ///   map `other`'s middle indices;
+    /// - both ranges map into `0..composed.middle.len()`.
+    ///
+    /// Callers that don't need the quotient should use
+    /// [`Composable::compose`](crate::category::Composable::compose), which
+    /// wraps this and discards the map.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError::Composition`] if the right boundary of `self`
+    /// does not type-match the left boundary of `other`, or if the internal
+    /// union-find pushout fails.
+    pub fn compose_with_quotient(
+        &self,
+        other: &Self,
+    ) -> Result<(Self, Vec<usize>), CatgraphError> {
         self.composable(other)?;
         let (pushout_target, left_to_pushout, right_to_pushout, representative) =
             perform_pushout::<union_find::QuickUnionUf<union_find::UnionBySize>>(
@@ -438,7 +452,26 @@ where
             let target_in_pushout = right_to_pushout[*target_in_other_middle];
             composition.add_boundary_node(Right(Left(target_in_pushout)));
         }
-        Ok(composition)
+        let mut quotient = left_to_pushout;
+        quotient.extend(right_to_pushout);
+        Ok((composition, quotient))
+    }
+}
+
+impl<Lambda> Composable<Vec<Lambda>> for Cospan<Lambda>
+where
+    Lambda: Eq + Sized + Copy + Debug,
+{
+    fn composable(&self, other: &Self) -> Result<(), CatgraphError> {
+        let self_interface = self.right.iter().map(|mid| self.middle[*mid]);
+        let other_interface = other.left.iter().map(|mid| other.middle[*mid]);
+
+        crate::utils::same_labels_check(self_interface, other_interface)
+            .map_err(|message| CatgraphError::Composition { message })
+    }
+
+    fn compose(&self, other: &Self) -> Result<Self, CatgraphError> {
+        self.compose_with_quotient(other).map(|(c, _)| c)
     }
 
     fn domain(&self) -> Vec<Lambda> {
