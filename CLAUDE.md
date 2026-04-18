@@ -31,6 +31,15 @@ cargo clippy --workspace -- -W clippy::pedantic
 - Run `cargo check` after edits, `cargo test` after logic changes
 - Prefer `cargo clippy -- -W clippy::pedantic` for lint passes
 
+## Release procedure
+
+1. **CHANGELOG-first.** Before tagging any crate, update its `CHANGELOG.md`: promote `[Unreleased]` entries into a new `[X.Y.Z] - YYYY-MM-DD` section, add a new empty `[Unreleased]` header, and update the link references at the bottom of the file. The CHANGELOG is the source of truth for "what shipped in this version" — not commit messages, not README blurbs.
+2. **Per-crate versioning.** Each workspace crate versions independently (`catgraph`, `catgraph-applied`, `catgraph-physics`). Bump only the crate's `Cargo.toml` version when its scope changed.
+3. **Dual-tag when crates co-release.** When a catgraph change is consumed by catgraph-applied in the same logical release (e.g., v0.11.3 + catgraph-applied-v0.3.1), tag both at the same commit SHA. Tag scheme: `v<ver>` for catgraph, `<crate>-v<ver>` for sibling crates.
+4. **Verify before tagging.** `cargo test --workspace`, `cargo clippy --workspace --lib --tests`, `cargo test --workspace --examples`, `cargo doc --workspace --no-deps` — all clean, no new warnings attributable to the release.
+5. **Session-state is workspace-level only.** Track in-flight work in `.claude/refactor/session-state.md` and `.claude/refactor/current-plan.md`. Do not create per-crate `<crate>-session-state.md` files — CHANGELOGs carry shipped-work history.
+6. **Roadmap + audit separation.** Forward work lives in `.claude/docs/ROADMAP.md` + per-crate audit docs' "Tier" tables. CHANGELOGs carry release history. Audit docs stay paper-mapping only; no release-history duplication inside them.
+
 @.claude/docs/workspace-overview.md
 @.claude/refactor/current-plan.md
 @.claude/refactor/session-state.md
