@@ -6,7 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 ## [Unreleased]
 
-No in-flight work.
+### Performance candidates (bench-driven, no version target)
+
+Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
+
+- `par_array_windows::<2>()` in `multiway::branchial::branchial_parallel_step_pairs` — per-pair work is cheap; bench on long foliations
+- `par_array_windows::<2>()` in `hypergraph::evolution_cospan::to_cospan_chain` — per-pair work does a union-find pushout; benchable on long deterministic paths
+- `walk_tree_prefix` / `walk_tree_postfix` in `multiway::evolution_graph` — compare against current recursive BFS / confluence-diamond enumeration
+- rayon Producer/Consumer plumbing — reference design if `MultiwayEvolutionGraph` / `BranchialGraph` ever expose public parallel-iterator APIs
 
 ## [0.2.1] - 2026-04-17
 

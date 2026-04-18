@@ -14,6 +14,13 @@ See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) "Tier 2" for 
 - `OperadAlgebra<O>` (Def 6.99)
 - `OperadFunctor` (Rough Def 6.98)
 
+### Performance candidates (bench-driven, no version target)
+
+Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
+
+- `linear_combination::PARALLEL_MUL_THRESHOLD = 32` → adopt `rayon_cond::CondIterator` (HashMap `into_par_iter()` isn't `IndexedParallelIterator`)
+- `temperley_lieb::PARALLEL_COMBINATIONS_THRESHOLD = 8` → re-measure via `benches/rayon_thresholds.rs` and adjust (flagged as likely too low)
+
 ## [0.3.1] - 2026-04-18
 
 Tier 1.1 follow-ups flagged during v0.3.0 work.
