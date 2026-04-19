@@ -36,7 +36,7 @@ use {
         algo::{connected_components, has_path_connecting, DfsSpace},
         Graph, Undirected,
     },
-    rayon::prelude::*,
+    rayon_cond::CondIterator,
     std::{
         collections::HashSet,
         fmt::Debug,
@@ -45,15 +45,15 @@ use {
     },
 };
 
-/// Threshold for parallelizing combinations checks in `non_crossing`.
-/// Combinations grow as n*(n-1)/2, so 8 elements = 28 combinations.
-// TODO(rayon-threshold): re-measure via `benches/rayon_thresholds.rs`. The
+/// Threshold gating the parallel arm of [`CondIterator`] in
+/// [`BrauerMorphism::non_crossing`] per-side combinations check. Combinations
+/// grow as `n * (n - 1) / 2`, so a source-line count of 8 yields 28 pairs.
+// TODO(rayon-threshold): remeasure via `benches/rayon_thresholds.rs`. The
 // current value of 8 is flagged by the 2026-04-10 gleaner2 audit as likely
-// too low — the parallel path's per-worker setup cost may dominate for
-// small combinations counts. Remeasure with `cargo bench -p catgraph-applied
-// --bench rayon_thresholds` and adjust. See also
-// `~/.claude/summaries/rayon-summary-0.md` on `rayon_cond::CondIterator`
-// as an alternative to the if/else threshold pattern.
+// too low — the parallel arm's per-worker setup cost may dominate for small
+// pair counts. Run `cargo bench -p catgraph-applied --bench rayon_thresholds`
+// and adjust. See `~/.claude/summaries/rayon-summary-0.md` for the
+// rustworkx-core `CondIterator` precedent adopted in Phase W.0.
 const PARALLEL_COMBINATIONS_THRESHOLD: usize = 8;
 
 /// An ordered pair of point indices, representing a matched arc in a Brauer diagram.
@@ -175,31 +175,18 @@ impl PerfectMatching {
             .copied()
             .collect();
 
-        // Check for crossings in source lines
-        let source_has_crossing = if source_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD {
-            // Parallel path: use par_bridge for combinations iterator
-            source_lines
-                .iter()
-                .copied()
-                .combinations(2)
-                .par_bridge()
+        // Check for crossings in source lines. `combinations(2)` is a lazy
+        // itertools iterator — collect to `Vec` so `CondIterator::new` can
+        // dispatch to either `into_par_iter` (rayon) or `into_iter` (std).
+        let source_combos: Vec<Vec<Pair>> =
+            source_lines.iter().copied().combinations(2).collect();
+        let source_has_crossing =
+            CondIterator::new(source_combos, source_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD)
                 .any(|cur_item| {
                     let first_block = cur_item[0];
                     let second_block = cur_item[1];
                     first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                })
-        } else {
-            // Sequential path for small inputs
-            source_lines
-                .iter()
-                .copied()
-                .combinations(2)
-                .any(|cur_item| {
-                    let first_block = cur_item[0];
-                    let second_block = cur_item[1];
-                    first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                })
-        };
+                });
         if source_has_crossing {
             return false;
         }
@@ -219,31 +206,16 @@ impl PerfectMatching {
             .copied()
             .collect();
 
-        // Check for crossings in target lines
-        let target_has_crossing = if target_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD {
-            // Parallel path
-            target_lines
-                .iter()
-                .copied()
-                .combinations(2)
-                .par_bridge()
+        // Check for crossings in target lines (same `CondIterator` pattern).
+        let target_combos: Vec<Vec<Pair>> =
+            target_lines.iter().copied().combinations(2).collect();
+        let target_has_crossing =
+            CondIterator::new(target_combos, target_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD)
                 .any(|cur_item| {
                     let first_block = cur_item[0];
                     let second_block = cur_item[1];
                     first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                })
-        } else {
-            // Sequential path
-            target_lines
-                .iter()
-                .copied()
-                .combinations(2)
-                .any(|cur_item| {
-                    let first_block = cur_item[0];
-                    let second_block = cur_item[1];
-                    first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                })
-        };
+                });
         if target_has_crossing {
             return false;
         }

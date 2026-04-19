@@ -18,8 +18,28 @@ See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) "Tier 2" for 
 
 Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
 
-- `linear_combination::PARALLEL_MUL_THRESHOLD = 32` → adopt `rayon_cond::CondIterator` (HashMap `into_par_iter()` isn't `IndexedParallelIterator`)
-- `temperley_lieb::PARALLEL_COMBINATIONS_THRESHOLD = 8` → re-measure via `benches/rayon_thresholds.rs` and adjust (flagged as likely too low)
+- `par_array_windows::<2>()` at `catgraph-physics::branchial_parallel_step_pairs` + `evolution_cospan::to_cospan_chain` — bench-driven
+- `walk_tree_prefix` / `walk_tree_postfix` for multiway BFS / confluence-diamond enumeration
+- `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
+- rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
+
+## [0.3.2] - 2026-04-19
+
+Phase W.0 pre-WASM rayon consolidation. Internal-only — no public API change. See [`.claude/plans/i-realize-i-need-wise-stonebraker.md`](../.claude/plans/i-realize-i-need-wise-stonebraker.md) for the WASM roadmap that motivates this patch.
+
+### Changed
+
+- `linear_combination::Mul::mul` and `linear_combination::LinearCombination::linear_combine` now use `rayon_cond::CondIterator` to unify the parallel/sequential branches at the two `HashMap` `into_par_iter()` call sites. Functional behavior unchanged — `PARALLEL_MUL_THRESHOLD = 32` still gates the parallel path.
+- `temperley_lieb::BrauerMorphism::non_crossing` now uses `rayon_cond::CondIterator` to unify the parallel/sequential branches at the two `par_bridge()` call sites. Functional behavior unchanged — `PARALLEL_COMBINATIONS_THRESHOLD = 8` still gates the parallel path.
+
+### Added
+
+- `rayon-cond = "0.4"` as a direct dependency (previously pulled transitively via `rustworkx-core`).
+- `tests/rayon_equivalence.rs` extended to exercise both `CondIterator::Parallel` and `CondIterator::Serial` arms at each migrated site, asserting algebraic-law determinism across the toggle.
+
+### Why this shape
+
+The previous if/else-over-threshold pattern duplicated the iteration body. `rayon_cond::CondIterator` is the canonical rustworkx-core idiom (see [`rustworkx-core/src/centrality.rs`](https://github.com/Qiskit/rustworkx/blob/main/rustworkx-core/src/centrality.rs)) for compile/runtime parallel↔sequential toggling, and it's the right pattern for Phase W.1's `parallel` feature flag — a single `#[cfg(feature = "parallel")]` gate replaces cfg-gating two parallel branches.
 
 ## [0.3.1] - 2026-04-18
 
@@ -81,7 +101,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.3.1...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.3.2...HEAD
+[0.3.2]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.2
 [0.3.1]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.1
 [0.3.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.0
 [0.2.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.2.0

@@ -1,9 +1,18 @@
 //! Parallel-vs-sequential equivalence tests for catgraph-applied.
 //!
-//! `LinearCombination::Mul` and `BrauerMorphism::compose` branch on a size
-//! threshold (32 for linear_combination, 8 for temperley_lieb). These tests
-//! construct inputs at both sizes and assert determinism — the mathematical
-//! result must not depend on whether the parallel path was taken.
+//! `LinearCombination::Mul` and `BrauerMorphism::compose` gate a parallel arm
+//! via `rayon_cond::CondIterator` at a size threshold (32 for
+//! `linear_combination`, 8 for `temperley_lieb`). These tests construct inputs at
+//! both sizes and assert determinism — the mathematical result must not depend
+//! on whether the `CondIterator::Parallel` or `CondIterator::Serial` arm was
+//! taken.
+//!
+//! Two kinds of coverage here:
+//! 1. **Domain-level** — algebraic laws (commutativity, associativity, identity)
+//!    verified at sizes straddling each threshold, so both arms run through
+//!    the domain code.
+//! 2. **`CondIterator`-level** — direct `parallel=true` vs `parallel=false`
+//!    equivalence on map+collect and `.any()`, isolating the toggle itself.
 //!
 //! Pattern borrowed from the rayon crate's own test suite (see
 //! `~/.claude/summaries/rayon-summary-0.md` — "Deterministic parallel-vs-sequential
@@ -94,4 +103,74 @@ fn temperley_lieb_identity_law_small_and_large() {
     let h = &gens_large[7];
     assert_eq!(&id_large.compose(h).unwrap(), h);
     assert_eq!(&h.compose(&id_large).unwrap(), h);
+}
+
+// ---------------------------------------------------------------------------
+// Direct CondIterator arm-equivalence tests. These exercise the `Parallel`
+// vs `Serial` arms of `rayon_cond::CondIterator` on the same input and
+// assert bit-identical output — isolating the toggle from domain logic.
+// ---------------------------------------------------------------------------
+
+/// `CondIterator::map(..).collect()` must produce identical output regardless
+/// of whether the parallel or serial arm was taken.
+#[test]
+fn cond_iterator_arms_agree_on_map_collect() {
+    use rayon_cond::CondIterator;
+
+    let data: Vec<i64> = (0..256).collect();
+    let par: Vec<i64> = CondIterator::new(data.clone(), true)
+        .map(|x| x * x + 3)
+        .collect();
+    let ser: Vec<i64> = CondIterator::new(data, false)
+        .map(|x| x * x + 3)
+        .collect();
+    assert_eq!(
+        par, ser,
+        "CondIterator::Parallel and CondIterator::Serial must agree on map+collect"
+    );
+}
+
+/// `CondIterator::any(..)` must produce identical output for both arms, for
+/// both matching and non-matching predicates.
+#[test]
+fn cond_iterator_arms_agree_on_any() {
+    use rayon_cond::CondIterator;
+
+    let data: Vec<i64> = (0..256).collect();
+
+    // Predicate matches (128 ∈ range).
+    let par_hit = CondIterator::new(data.clone(), true).any(|x| x == 128);
+    let ser_hit = CondIterator::new(data.clone(), false).any(|x| x == 128);
+    assert_eq!(par_hit, ser_hit, "any() must agree on matching predicate");
+    assert!(par_hit, "expected 128 to be found");
+
+    // Predicate never matches.
+    let par_miss = CondIterator::new(data.clone(), true).any(|x| x < 0);
+    let ser_miss = CondIterator::new(data, false).any(|x| x < 0);
+    assert_eq!(par_miss, ser_miss, "any() must agree on non-matching predicate");
+    assert!(!par_miss, "expected no negative value");
+}
+
+/// Direct arm coverage for the `combinations(2)` pattern used in
+/// `BrauerMorphism::non_crossing`: verify both arms agree on the crossing-check
+/// predicate over a synthesized pair list.
+#[test]
+fn cond_iterator_agrees_on_combinations_pattern() {
+    use itertools::Itertools;
+    use rayon_cond::CondIterator;
+
+    // Build 16 non-overlapping integer intervals — no "crossings" by construction.
+    let items: Vec<(i64, i64)> = (0..16).map(|i| (i * 10, i * 10 + 5)).collect();
+    let combos: Vec<Vec<(i64, i64)>> = items.iter().copied().combinations(2).collect();
+
+    let par = CondIterator::new(combos.clone(), true).any(|pair| {
+        let (a, b) = (pair[0], pair[1]);
+        (a.0 < b.0 && a.1 > b.0 && a.1 < b.1) || (b.0 < a.0 && b.1 > a.0 && b.1 < a.1)
+    });
+    let ser = CondIterator::new(combos, false).any(|pair| {
+        let (a, b) = (pair[0], pair[1]);
+        (a.0 < b.0 && a.1 > b.0 && a.1 < b.1) || (b.0 < a.0 && b.1 > a.0 && b.1 < a.1)
+    });
+    assert_eq!(par, ser, "combinations-pattern any() must agree across arms");
+    assert!(!par, "non-overlapping intervals should report no crossing");
 }
