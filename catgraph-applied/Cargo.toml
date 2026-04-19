@@ -1,6 +1,6 @@
 [package]
 name = "catgraph-applied"
-version = "0.3.2"
+version = "0.3.3"
 description = "Applied category theory extensions for catgraph: Petri nets, E_n operads, Temperley-Lieb, wiring diagrams, linear combinations"
 keywords = ["category-theory", "operad", "petri-net", "temperley-lieb", "wiring-diagram"]
 categories = ["mathematics", "science", "data-structures"]
@@ -10,15 +10,23 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+default = ["parallel"]
+# `parallel` enables rayon + rayon_cond::CondIterator at the two HashMap
+# `into_par_iter` sites in linear_combination and the two `par_bridge` sites
+# in temperley_lieb::non_crossing. With the feature off, those sites fall
+# back to plain `.into_iter()`. Phase W.1.
+parallel = ["dep:rayon", "dep:rayon-cond", "catgraph/parallel"]
+
 [dependencies]
-catgraph = { path = "../catgraph" }
+catgraph = { path = "../catgraph", default-features = false }
 either.workspace = true
 itertools.workspace = true
 num.workspace = true
 permutations.workspace = true
 rand.workspace = true
-rayon.workspace = true
-rayon-cond = "0.4"
+rayon = { workspace = true, optional = true }
+rayon-cond = { version = "0.4", optional = true }
 rust_decimal.workspace = true
 rustworkx-core.workspace = true
 

@@ -1,6 +1,6 @@
 [package]
 name = "catgraph"
-version = "0.11.3"
+version = "0.11.4"
 description = "Category-theoretic graph structures: cospans, spans, Frobenius algebras, and morphisms in symmetric monoidal categories — strict Fong-Spivak 2019"
 keywords = ["category-theory", "cospan", "monoidal", "frobenius", "operad"]
 categories = ["mathematics", "science", "data-structures"]
@@ -10,13 +10,22 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+default = ["parallel"]
+# `parallel` enables rayon-based data parallelism at a few hot call sites
+# (see named_cospan::find_nodes_by_name_predicate, frobenius::hflip). Disable
+# for `wasm32-wasip1` single-threaded hosts; keep on for `wasm32-wasip1-threads`
+# and all native targets. Phase W.1 — see
+# .claude/plans/i-realize-i-need-wise-stonebraker.md.
+parallel = ["dep:rayon"]
+
 [dependencies]
 either.workspace = true
 itertools.workspace = true
 num.workspace = true
 permutations.workspace = true
 rand.workspace = true
-rayon.workspace = true
+rayon = { workspace = true, optional = true }
 rust_decimal.workspace = true
 rustworkx-core.workspace = true
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }

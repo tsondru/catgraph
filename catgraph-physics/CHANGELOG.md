@@ -15,6 +15,24 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `walk_tree_prefix` / `walk_tree_postfix` in `multiway::evolution_graph` — compare against current recursive BFS / confluence-diamond enumeration
 - rayon Producer/Consumer plumbing — reference design if `MultiwayEvolutionGraph` / `BranchialGraph` ever expose public parallel-iterator APIs
 
+## [0.2.2] - 2026-04-19
+
+Phase W.1 — WASM + edge-device support. Pass-through `parallel` feature
+(this crate has no direct rayon call sites yet; the feature wires the
+upstream `catgraph/parallel` toggle through so downstream builds with
+`--no-default-features` see a single-threaded catgraph transitively).
+
+### Added
+
+- `[features] default = ["parallel"]` — `parallel = ["catgraph/parallel"]`.
+- `examples/wasi_smoke_physics.rs` — small hypergraph construction smoke
+  example.
+
+### Changed
+
+- `catgraph` dep now `default-features = false` so the `parallel` toggle
+  propagates cleanly through this crate.
+
 ## [0.2.1] - 2026-04-17
 
 ### Changed
@@ -46,7 +64,8 @@ Branchial analysis toolkit — additive capabilities for `BranchialGraph`.
 - Gauge Wilson-loop fix: `record_transition(from, to, holonomy)` for explicit inter-site gauge links (was erroneously recording self-loops).
 - Multiway APIs exposed for Phase 2.5 consumers in `irreducible`: `ConfluenceDiamond`, `confluence_diamonds()`, `parallel_independent_events(node_id)`, `events_commute(a, b)`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-physics-v0.2.1...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-physics-v0.2.2...HEAD
+[0.2.2]: https://github.com/tsondru/catgraph/releases/tag/catgraph-physics-v0.2.2
 [0.2.1]: https://github.com/tsondru/catgraph/releases/tag/catgraph-physics-v0.2.1
 [0.2.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-physics-v0.2.0
 [0.1.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-physics-v0.1.0

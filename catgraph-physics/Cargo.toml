@@ -1,6 +1,6 @@
 [package]
 name = "catgraph-physics"
-version = "0.2.1"
+version = "0.2.2"
 description = "Wolfram-physics extensions for catgraph: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis"
 keywords = ["hypergraph", "multiway", "rewriting", "spectral", "wolfram-physics"]
 categories = ["mathematics", "science", "simulation"]
@@ -10,8 +10,17 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+default = ["parallel"]
+# Pass-through of `catgraph/parallel` — this crate has no direct rayon sites
+# yet (see TODO comments in `hypergraph/evolution_cospan.rs` and
+# `multiway/branchial.rs` for deferred par_array_windows adoption), but
+# downstream users that compile with `--no-default-features` expect the
+# transitive catgraph build to be single-threaded too. Phase W.1.
+parallel = ["catgraph/parallel"]
+
 [dependencies]
-catgraph = { path = "../catgraph" }
+catgraph = { path = "../catgraph", default-features = false }
 rustworkx-core.workspace = true
 nalgebra = "0.34"
 nalgebra-sparse = "0.11"

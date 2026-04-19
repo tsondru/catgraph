@@ -17,12 +17,16 @@ use {
     log::warn,
     permutations::Permutation,
     rustworkx_core::petgraph::{matrix_graph::NodeIndex, prelude::Graph, stable_graph::DefaultIx},
-    rayon::prelude::*,
     std::fmt::Debug,
 };
 
-/// Threshold for parallelizing predicate filtering on named cospan boundaries.
-/// Predicate checks are cheap, so require larger collections.
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+/// Threshold for parallelizing predicate filtering on named cospan boundaries
+/// when the `parallel` feature is enabled. Predicate checks are cheap, so we
+/// require larger collections before fanning work across workers.
+#[cfg(feature = "parallel")]
 const PARALLEL_PREDICATE_THRESHOLD: usize = 256;
 
 type LeftIndex = usize;
@@ -323,9 +327,12 @@ where
                 }
             }
         } else {
-            // Always parallel; `with_min_len` tells rayon's LengthSplitter not
-            // to subdivide below the threshold, so small inputs run as a single
-            // sequential task and large inputs fan out across workers.
+            // With the `parallel` feature on, `with_min_len` tells rayon's
+            // LengthSplitter not to subdivide below the threshold, so small
+            // inputs run as a single sequential task and large inputs fan out
+            // across workers. Without the feature (e.g. `wasm32-wasip1`
+            // single-threaded), fall back to a plain sequential iterator.
+            #[cfg(feature = "parallel")]
             let mut matched_indices: Vec<Either<LeftIndex, RightIndex>> = self
                 .left_names
                 .par_iter()
@@ -333,6 +340,15 @@ where
                 .enumerate()
                 .filter_map(|(index, &r)| left_pred(r).then_some(Left(index)))
                 .collect();
+            #[cfg(not(feature = "parallel"))]
+            let mut matched_indices: Vec<Either<LeftIndex, RightIndex>> = self
+                .left_names
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &r)| left_pred(r).then_some(Left(index)))
+                .collect();
+
+            #[cfg(feature = "parallel")]
             let right_indices: Vec<_> = self
                 .right_names
                 .par_iter()
@@ -340,6 +356,14 @@ where
                 .enumerate()
                 .filter_map(|(index, &r)| right_pred(r).then_some(Right(index)))
                 .collect();
+            #[cfg(not(feature = "parallel"))]
+            let right_indices: Vec<_> = self
+                .right_names
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &r)| right_pred(r).then_some(Right(index)))
+                .collect();
+
             matched_indices.extend(right_indices);
             matched_indices
         }

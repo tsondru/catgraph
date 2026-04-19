@@ -13,13 +13,17 @@ use {
         utils::in_place_permute,
     },
     permutations::Permutation,
-    rayon::prelude::*,
     std::{collections::HashMap, convert::identity, fmt::Debug},
 };
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use super::morphism_system::Contains;
 
-/// Threshold for parallelizing block mutations in Frobenius layers.
+/// Threshold for parallelizing block mutations in Frobenius layers when the
+/// `parallel` feature is enabled.
+#[cfg(feature = "parallel")]
 const PARALLEL_BLOCK_THRESHOLD: usize = 64;
 
 /// A single generator of a Frobenius algebra, typed by `Lambda`.
@@ -239,12 +243,19 @@ where
         horizontal flip where the diagram is drawn left to right
         sources and targets switched
         */
-        // Always parallel; `with_min_len` tells rayon's LengthSplitter not to
-        // subdivide below the threshold, so small layer blocks run as a single
-        // sequential task and large ones fan out across workers.
+        // With the `parallel` feature on, `with_min_len` tells rayon's
+        // LengthSplitter not to subdivide below the threshold, so small layer
+        // blocks run as a single sequential task and large ones fan out across
+        // workers. Without the feature (e.g. `wasm32-wasip1` single-threaded),
+        // fall back to plain `iter_mut()`.
+        #[cfg(feature = "parallel")]
         self.blocks
             .par_iter_mut()
             .with_min_len(PARALLEL_BLOCK_THRESHOLD)
+            .for_each(|block| block.hflip(black_box_changer));
+        #[cfg(not(feature = "parallel"))]
+        self.blocks
+            .iter_mut()
             .for_each(|block| block.hflip(black_box_changer));
         let temp = self.left_type.clone();
         self.left_type = self.right_type.clone();

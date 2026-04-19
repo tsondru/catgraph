@@ -23,6 +23,44 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
 
+## [0.3.3] - 2026-04-19
+
+Phase W.1 — WASM + edge-device support. Wires the `parallel` feature
+through all four `CondIterator` call sites; compiles clean against
+`wasm32-wasip1-threads` and `wasm32-wasip1 --no-default-features`.
+
+### Added
+
+- `[features] default = ["parallel"]` — `parallel = ["dep:rayon",
+  "dep:rayon-cond", "catgraph/parallel"]`.
+- `examples/wasi_smoke_applied.rs` — representative `LinearCombination`
+  multiplication example.
+
+### Changed
+
+- `rayon` and `rayon-cond` are now optional dependencies gated by the
+  `parallel` feature.
+- `catgraph` dep is `default-features = false` so the `parallel` toggle
+  propagates.
+- `src/linear_combination.rs::Mul::mul` and `::linear_combine`:
+  `CondIterator::new(...).map(...).collect()` gated with
+  `#[cfg(feature = "parallel")]`; plain `into_iter().map(...).collect()`
+  fallback when off. Shared closure extracted so both arms use identical
+  per-term logic.
+- `src/temperley_lieb.rs::BrauerMorphism::non_crossing`: both `source`
+  and `target` crossing checks use `CondIterator::new(...).any(...)`
+  under `#[cfg(feature = "parallel")]`; plain `.into_iter().any(...)`
+  fallback when off. Shared `has_crossing` predicate extracted once.
+- `tests/rayon_equivalence.rs`: the three direct `CondIterator`
+  arm-equivalence tests are gated behind `#[cfg(feature = "parallel")]`
+  (they test the rayon_cond dep, which is only in the graph when the
+  feature is on).
+
+### Notes
+
+- Native test count: 900 with default features, 897 with
+  `--no-default-features` (the 3 gated tests).
+
 ## [0.3.2] - 2026-04-19
 
 Phase W.0 pre-WASM rayon consolidation. Internal-only — no public API change. See [`.claude/plans/i-realize-i-need-wise-stonebraker.md`](../.claude/plans/i-realize-i-need-wise-stonebraker.md) for the WASM roadmap that motivates this patch.
@@ -101,7 +139,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.3.2...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.3.3...HEAD
+[0.3.3]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.3
 [0.3.2]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.2
 [0.3.1]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.1
 [0.3.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.0

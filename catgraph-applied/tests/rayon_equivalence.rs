@@ -109,10 +109,15 @@ fn temperley_lieb_identity_law_small_and_large() {
 // Direct CondIterator arm-equivalence tests. These exercise the `Parallel`
 // vs `Serial` arms of `rayon_cond::CondIterator` on the same input and
 // assert bit-identical output — isolating the toggle from domain logic.
+//
+// Gated on the `parallel` feature: `rayon_cond` is only in the dep graph
+// when `parallel` is active. `wasm32-wasip1 --no-default-features` builds
+// skip these tests since there's no parallel arm to exercise.
 // ---------------------------------------------------------------------------
 
 /// `CondIterator::map(..).collect()` must produce identical output regardless
 /// of whether the parallel or serial arm was taken.
+#[cfg(feature = "parallel")]
 #[test]
 fn cond_iterator_arms_agree_on_map_collect() {
     use rayon_cond::CondIterator;
@@ -132,6 +137,7 @@ fn cond_iterator_arms_agree_on_map_collect() {
 
 /// `CondIterator::any(..)` must produce identical output for both arms, for
 /// both matching and non-matching predicates.
+#[cfg(feature = "parallel")]
 #[test]
 fn cond_iterator_arms_agree_on_any() {
     use rayon_cond::CondIterator;
@@ -154,6 +160,7 @@ fn cond_iterator_arms_agree_on_any() {
 /// Direct arm coverage for the `combinations(2)` pattern used in
 /// `BrauerMorphism::non_crossing`: verify both arms agree on the crossing-check
 /// predicate over a synthesized pair list.
+#[cfg(feature = "parallel")]
 #[test]
 fn cond_iterator_agrees_on_combinations_pattern() {
     use itertools::Itertools;

@@ -21,7 +21,6 @@
 
 use {
     num::{One, Zero},
-    rayon_cond::CondIterator,
     std::{
         collections::HashMap,
         fmt::Debug,
@@ -30,14 +29,19 @@ use {
     },
 };
 
+#[cfg(feature = "parallel")]
+use rayon_cond::CondIterator;
+
 /// Threshold gating the parallel arm of [`CondIterator`] in `Mul::mul` and
-/// [`LinearCombination::linear_combine`]. Below this size the serial iterator
-/// is faster due to rayon worker-setup overhead.
+/// [`LinearCombination::linear_combine`] when the `parallel` feature is
+/// enabled. Below this size the serial iterator is faster due to rayon
+/// worker-setup overhead.
 // HashMap `into_par_iter()` is not `IndexedParallelIterator`, so the adaptive
 // `with_min_len` pattern (used in catgraph core) doesn't apply here —
 // `rayon_cond::CondIterator` provides the compile/runtime parallel↔serial
 // toggle instead. See `~/.claude/summaries/rayon-summary-0.md` for the
 // rustworkx-core precedent; pattern established in Phase W.0 (2026-04-19).
+#[cfg(feature = "parallel")]
 const PARALLEL_MUL_THRESHOLD: usize = 32;
 
 /// A formal linear combination: a sparse map from basis elements to coefficients.
@@ -144,18 +148,26 @@ where
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        let enable_parallel =
-            self.0.len() >= PARALLEL_MUL_THRESHOLD && rhs.0.len() >= PARALLEL_MUL_THRESHOLD;
         let rhs_vec: Vec<_> = rhs.0.iter().collect();
-        let partial_results: Vec<Self> = CondIterator::new(self.0, enable_parallel)
-            .map(|(k1, c_k1)| {
-                let mut partial = Self(HashMap::new());
-                for (k2, c_k2) in &rhs_vec {
-                    partial += Self::singleton(k1.clone() * (*k2).clone()) * (c_k1 * (**c_k2));
-                }
-                partial
-            })
-            .collect();
+        let process = |(k1, c_k1): (Target, Coeffs)| -> Self {
+            let mut partial = Self(HashMap::new());
+            for (k2, c_k2) in &rhs_vec {
+                partial += Self::singleton(k1.clone() * (*k2).clone()) * (c_k1 * (**c_k2));
+            }
+            partial
+        };
+
+        #[cfg(feature = "parallel")]
+        let partial_results: Vec<Self> = {
+            let enable_parallel =
+                self.0.len() >= PARALLEL_MUL_THRESHOLD && rhs.0.len() >= PARALLEL_MUL_THRESHOLD;
+            CondIterator::new(self.0, enable_parallel)
+                .map(process)
+                .collect()
+        };
+        #[cfg(not(feature = "parallel"))]
+        let partial_results: Vec<Self> = self.0.into_iter().map(process).collect();
+
         partial_results
             .into_iter()
             .fold(Self(HashMap::new()), |acc, x| acc + x)
@@ -224,21 +236,29 @@ impl<Coeffs, Target: Eq + Hash> LinearCombination<Coeffs, Target> {
         V: Eq + Hash + Send,
         F: Fn(Target, U) -> V + Sync,
     {
-        let enable_parallel =
-            self.0.len() >= PARALLEL_MUL_THRESHOLD && rhs.0.len() >= PARALLEL_MUL_THRESHOLD;
         let self_vec: Vec<_> = self.0.iter().collect();
         let rhs_vec: Vec<_> = rhs.0.iter().collect();
-        let partial_results: Vec<LinearCombination<Coeffs, V>> =
+        let process = |(k1, c_k1): (&Target, &Coeffs)| -> LinearCombination<Coeffs, V> {
+            let mut partial = LinearCombination(HashMap::new());
+            for (k2, c_k2) in &rhs_vec {
+                partial += LinearCombination::singleton(combiner(k1.clone(), (*k2).clone()))
+                    * (*c_k1 * (**c_k2));
+            }
+            partial
+        };
+
+        #[cfg(feature = "parallel")]
+        let partial_results: Vec<LinearCombination<Coeffs, V>> = {
+            let enable_parallel =
+                self.0.len() >= PARALLEL_MUL_THRESHOLD && rhs.0.len() >= PARALLEL_MUL_THRESHOLD;
             CondIterator::new(self_vec, enable_parallel)
-                .map(|(k1, c_k1)| {
-                    let mut partial = LinearCombination(HashMap::new());
-                    for (k2, c_k2) in &rhs_vec {
-                        partial += LinearCombination::singleton(combiner(k1.clone(), (*k2).clone()))
-                            * (*c_k1 * (**c_k2));
-                    }
-                    partial
-                })
-                .collect();
+                .map(process)
+                .collect()
+        };
+        #[cfg(not(feature = "parallel"))]
+        let partial_results: Vec<LinearCombination<Coeffs, V>> =
+            self_vec.into_iter().map(process).collect();
+
         partial_results
             .into_iter()
             .fold(LinearCombination(HashMap::new()), |acc, x| acc + x)

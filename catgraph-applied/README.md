@@ -43,6 +43,22 @@ cargo test -p catgraph-applied
 cargo clippy -p catgraph-applied -- -W clippy::pedantic
 ```
 
+## WASM support (v0.3.3+)
+
+`[features] parallel` (default-on) gates the `rayon` + `rayon-cond`
+dependencies and the four `CondIterator` call sites in
+`linear_combination::Mul::mul`, `linear_combination::linear_combine`, and
+`temperley_lieb::BrauerMorphism::non_crossing` (source + target sides).
+Disable with `--no-default-features` for single-threaded WASI hosts.
+
+```sh
+cargo build --lib -p catgraph-applied --target wasm32-wasip1-threads
+cargo build --lib -p catgraph-applied --target wasm32-wasip1 --no-default-features
+```
+
+See `examples/wasi_smoke_applied.rs` for a minimal `LinearCombination`
+multiplication smoke test exercising the `CondIterator` parallel arm.
+
 ## License
 
 MIT.

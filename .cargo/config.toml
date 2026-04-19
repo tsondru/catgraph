@@ -1,0 +1,24 @@
+# WASI build configuration for the catgraph workspace.
+#
+# Usage:
+#   cargo build --workspace --target wasm32-wasip1-threads
+#   cargo build --workspace --target wasm32-wasip1 --no-default-features
+#
+# The `-threads` target depends on the `wasi-threads` runtime proposal,
+# supported by Wasmtime, Wasmer, and WasmEdge. Single-threaded WASI p1 is
+# the fallback for runtimes without thread support and requires
+# `--no-default-features` to drop rayon.
+#
+# Phase W.1 (2026-04-19) — see .claude/plans/i-realize-i-need-wise-stonebraker.md.
+#
+# The `-threads` target ships with atomics + bulk-memory + mutable-globals
+# enabled by default, so no extra rustflags are needed. The `-threads` target
+# name is retained here only to document that the workspace is built + tested
+# against both sub-targets; add flags here if a host-specific tweak is ever
+# required.
+
+[target.wasm32-wasip1-threads]
+rustflags = []
+
+[target.wasm32-wasip1]
+rustflags = []

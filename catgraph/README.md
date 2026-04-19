@@ -116,6 +116,30 @@ cargo test -p catgraph --examples
 cargo clippy -p catgraph -- -W clippy::pedantic
 ```
 
+## WASM support (v0.11.4+)
+
+catgraph compiles to both `wasm32-wasip1-threads` (preferred, rayon-backed
+parallelism via the `wasi-threads` runtime proposal) and `wasm32-wasip1`
+(single-threaded, `--no-default-features`). Browsers
+(`wasm32-unknown-unknown`) are explicitly out of scope — the target audience
+is edge devices running Wasmtime / Wasmer / WasmEdge / Fermyon Spin.
+
+The `parallel` feature (default-on) gates the `rayon` dependency and the
+two internal `par_iter` call sites in `find_nodes_by_name_predicate` and
+`FrobeniusLayer::hflip`. Disable it with `--no-default-features` for
+single-threaded WASI hosts.
+
+```sh
+# Threaded (rayon on)
+cargo build --lib -p catgraph --target wasm32-wasip1-threads
+
+# Single-threaded (rayon off)
+cargo build --lib -p catgraph --target wasm32-wasip1 --no-default-features
+```
+
+See `examples/wasi_smoke_core.rs` for a minimal cospan-composition smoke
+test suitable for `wasmtime run`.
+
 ## Dependencies
 
 - `rustworkx-core` — graph algorithms
@@ -124,7 +148,7 @@ cargo clippy -p catgraph -- -W clippy::pedantic
 - `num` — numeric traits (One, Zero)
 - `permutations` — permutation type for symmetric monoidal
 - `union-find` — QuickUnionUf for pushout composition
-- `rayon` — data parallelism with adaptive thresholds (rayon 1.12 `with_min_len`)
+- `rayon` (optional, `parallel` feature) — data parallelism with adaptive thresholds (rayon 1.12 `with_min_len`)
 - `log` — warning messages
 - `rand` — random number generation
 - `rust_decimal` — exact decimal arithmetic

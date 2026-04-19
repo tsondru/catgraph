@@ -27,6 +27,22 @@ cargo clippy -p catgraph-physics -- -W clippy::pedantic
 cargo bench -p catgraph-physics --bench wasserstein_bench
 ```
 
+## WASM support (v0.2.2+)
+
+`[features] parallel` (default-on) is a pass-through of `catgraph/parallel`.
+This crate has no direct rayon call sites yet; the feature wires the
+upstream toggle through so `--no-default-features` produces a
+single-threaded catgraph dep transitively. Both WASI sub-targets build
+clean:
+
+```sh
+cargo build --lib -p catgraph-physics --target wasm32-wasip1-threads
+cargo build --lib -p catgraph-physics --target wasm32-wasip1 --no-default-features
+```
+
+See `examples/wasi_smoke_physics.rs` for a minimal hypergraph-construction
+smoke test.
+
 ## Changelog
 
 See [`CHANGELOG.md`](CHANGELOG.md) for release history.

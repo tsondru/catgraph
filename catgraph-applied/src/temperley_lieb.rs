@@ -36,7 +36,6 @@ use {
         algo::{connected_components, has_path_connecting, DfsSpace},
         Graph, Undirected,
     },
-    rayon_cond::CondIterator,
     std::{
         collections::HashSet,
         fmt::Debug,
@@ -45,15 +44,20 @@ use {
     },
 };
 
+#[cfg(feature = "parallel")]
+use rayon_cond::CondIterator;
+
 /// Threshold gating the parallel arm of [`CondIterator`] in
-/// [`BrauerMorphism::non_crossing`] per-side combinations check. Combinations
-/// grow as `n * (n - 1) / 2`, so a source-line count of 8 yields 28 pairs.
+/// [`BrauerMorphism::non_crossing`] per-side combinations check when the
+/// `parallel` feature is enabled. Combinations grow as `n * (n - 1) / 2`, so
+/// a source-line count of 8 yields 28 pairs.
 // TODO(rayon-threshold): remeasure via `benches/rayon_thresholds.rs`. The
 // current value of 8 is flagged by the 2026-04-10 gleaner2 audit as likely
 // too low — the parallel arm's per-worker setup cost may dominate for small
 // pair counts. Run `cargo bench -p catgraph-applied --bench rayon_thresholds`
 // and adjust. See `~/.claude/summaries/rayon-summary-0.md` for the
 // rustworkx-core `CondIterator` precedent adopted in Phase W.0.
+#[cfg(feature = "parallel")]
 const PARALLEL_COMBINATIONS_THRESHOLD: usize = 8;
 
 /// An ordered pair of point indices, representing a matched arc in a Brauer diagram.
@@ -180,13 +184,19 @@ impl PerfectMatching {
         // dispatch to either `into_par_iter` (rayon) or `into_iter` (std).
         let source_combos: Vec<Vec<Pair>> =
             source_lines.iter().copied().combinations(2).collect();
-        let source_has_crossing =
-            CondIterator::new(source_combos, source_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD)
-                .any(|cur_item| {
-                    let first_block = cur_item[0];
-                    let second_block = cur_item[1];
-                    first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                });
+        let has_crossing = |cur_item: Vec<Pair>| -> bool {
+            let first_block = cur_item[0];
+            let second_block = cur_item[1];
+            first_block.contains(second_block.0) != first_block.contains(second_block.1)
+        };
+        #[cfg(feature = "parallel")]
+        let source_has_crossing = CondIterator::new(
+            source_combos,
+            source_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD,
+        )
+        .any(has_crossing);
+        #[cfg(not(feature = "parallel"))]
+        let source_has_crossing = source_combos.into_iter().any(has_crossing);
         if source_has_crossing {
             return false;
         }
@@ -206,16 +216,18 @@ impl PerfectMatching {
             .copied()
             .collect();
 
-        // Check for crossings in target lines (same `CondIterator` pattern).
+        // Check for crossings in target lines (same `CondIterator` pattern,
+        // reusing the `has_crossing` predicate defined above).
         let target_combos: Vec<Vec<Pair>> =
             target_lines.iter().copied().combinations(2).collect();
-        let target_has_crossing =
-            CondIterator::new(target_combos, target_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD)
-                .any(|cur_item| {
-                    let first_block = cur_item[0];
-                    let second_block = cur_item[1];
-                    first_block.contains(second_block.0) != first_block.contains(second_block.1)
-                });
+        #[cfg(feature = "parallel")]
+        let target_has_crossing = CondIterator::new(
+            target_combos,
+            target_lines.len() >= PARALLEL_COMBINATIONS_THRESHOLD,
+        )
+        .any(has_crossing);
+        #[cfg(not(feature = "parallel"))]
+        let target_has_crossing = target_combos.into_iter().any(has_crossing);
         if target_has_crossing {
             return false;
         }

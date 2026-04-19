@@ -8,6 +8,48 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 No in-flight work.
 
+## [0.11.4] - 2026-04-19
+
+Phase W.1 — WASM + edge-device support. Internal-only: adds a `parallel`
+feature flag (default-on) and gates the two rayon call sites so the crate
+compiles clean against `wasm32-wasip1-threads` and `wasm32-wasip1`
+(single-threaded) with `--no-default-features`. See
+[`.claude/plans/i-realize-i-need-wise-stonebraker.md`](../.claude/plans/i-realize-i-need-wise-stonebraker.md).
+
+### Added
+
+- `[features] default = ["parallel"]` — `parallel = ["dep:rayon"]`.
+  Native default-on (no behavior change for native users); disable with
+  `--no-default-features` on single-threaded WASM hosts.
+- `examples/wasi_smoke_core.rs` — representative cospan composition
+  example, verifies the core API round-trips under WASI (build: `cargo
+  build --lib --target wasm32-wasip1-threads -p catgraph`).
+
+### Changed
+
+- `rayon` is now an optional dependency gated by the `parallel` feature.
+- `src/named_cospan.rs::find_nodes_by_name_predicate` parallel branch
+  (lines 329-343) gated with `#[cfg(feature = "parallel")]`; plain
+  `iter()` fallback when the feature is off.
+- `src/frobenius/operations.rs::FrobeniusLayer::hflip` parallel branch
+  gated with `#[cfg(feature = "parallel")]`; plain `iter_mut()` fallback
+  when off.
+- Top-level `rust-toolchain.toml` added, pinning stable + targets
+  `wasm32-wasip1` + `wasm32-wasip1-threads`.
+- Top-level `.cargo/config.toml` added with placeholder `rustflags = []`
+  entries for both WASI sub-targets (documentation point for host-specific
+  tweaks).
+
+### Known cargo quirks
+
+- `cargo build --example ... --target wasm32-wasip1-threads` fails on the
+  transitive `proptest → rusty-fork → wait-timeout` dev-dep because
+  `wait-timeout` doesn't support `wasm32-*`. Cargo resolves dev-deps for
+  any `-p catgraph` build even when you only ask for an example.
+  Workaround: use `cargo build --lib --target ...` for WASM library
+  verification, or temporarily comment out `proptest` in
+  `[dev-dependencies]` when you need to build the example artifact.
+
 ## [0.11.3] - 2026-04-18
 
 ### Added
@@ -88,7 +130,8 @@ No in-flight work.
 
 Tags v0.3.0 through v0.9.0 (2026-04-01 through 2026-04-07) predate the workspace restructuring. See `git tag --sort=-creatordate` and individual commit messages for scope of those releases.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/v0.11.3...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/v0.11.4...HEAD
+[0.11.4]: https://github.com/tsondru/catgraph/releases/tag/v0.11.4
 [0.11.3]: https://github.com/tsondru/catgraph/releases/tag/v0.11.3
 [0.11.2]: https://github.com/tsondru/catgraph/releases/tag/v0.11.2
 [0.11.1]: https://github.com/tsondru/catgraph/releases/tag/v0.11.1
