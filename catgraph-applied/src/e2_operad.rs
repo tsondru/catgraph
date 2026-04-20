@@ -51,10 +51,24 @@ fn disk_overlaps(a: PointCenter, b: Radius, c: PointCenter, d: Radius) -> bool {
 }
 
 /// An n-ary operation in the E2 operad: a configuration of `n` named disjoint disks in the unit disk.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct E2<Name> {
     arity: usize,
     sub_circles: Vec<(Name, PointCenter, Radius)>,
+}
+
+impl<Name> E2<Name> {
+    /// Arity of this configuration (number of sub-disks).
+    #[must_use]
+    pub const fn arity_of(&self) -> usize {
+        self.arity
+    }
+
+    /// Immutable view of the sub-disks.
+    #[must_use]
+    pub fn sub_circles(&self) -> &[(Name, PointCenter, Radius)] {
+        &self.sub_circles
+    }
 }
 
 impl<Name> E2<Name>

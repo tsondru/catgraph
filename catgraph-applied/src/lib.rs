@@ -40,3 +40,4 @@ pub mod petri_net;
 pub mod decorated_cospan;
 pub mod prop;
 pub mod operad_algebra;
+pub mod operad_functor;

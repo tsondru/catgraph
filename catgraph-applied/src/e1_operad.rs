@@ -19,13 +19,25 @@ use crate::F32_EPSILON;
 type IntervalCoord = f32;
 
 /// An n-ary operation in the E1 operad: a configuration of `n` disjoint subintervals of \[0, 1\].
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct E1 {
     arity: usize,
     sub_intervals: Vec<(IntervalCoord, IntervalCoord)>,
 }
 
 impl E1 {
+    /// Arity of this configuration (number of sub-intervals).
+    #[must_use]
+    pub const fn arity(&self) -> usize {
+        self.arity
+    }
+
+    /// Immutable view of the sub-intervals.
+    #[must_use]
+    pub fn sub_intervals(&self) -> &[(IntervalCoord, IntervalCoord)] {
+        &self.sub_intervals
+    }
+
     /// Create an n-ary E1 configuration from subintervals of \[0, 1\].
     ///
     /// When `overlap_check` is true, validates disjointness and sorts by left endpoint.
