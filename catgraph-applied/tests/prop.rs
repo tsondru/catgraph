@@ -43,3 +43,29 @@ fn braid_has_sum_arity() {
     assert_eq!(b.source(), 5);
     assert_eq!(b.target(), 5);
 }
+
+#[test]
+fn compose_rejects_arity_mismatch() {
+    let f: PropExpr<Sig> = Free::generator(Sig::Mul); // 2 -> 1
+    let g: PropExpr<Sig> = Free::generator(Sig::Mul); // 2 -> 1
+    // f.target() == 1 but g.source() == 2 -> must fail
+    assert!(Free::compose(f, g).is_err());
+}
+
+#[test]
+fn compose_accepts_matching_arities() {
+    let f: PropExpr<Sig> = Free::generator(Sig::Mul); // 2 -> 1
+    let id: PropExpr<Sig> = Free::identity(1); // 1 -> 1
+    let r = Free::compose(f, id).expect("arities match");
+    assert_eq!(r.source(), 2);
+    assert_eq!(r.target(), 1);
+}
+
+#[test]
+fn tensor_sums_arities() {
+    let f: PropExpr<Sig> = Free::generator(Sig::Mul); // 2 -> 1
+    let u: PropExpr<Sig> = Free::generator(Sig::Unit); // 0 -> 1
+    let r = Free::tensor(f, u);
+    assert_eq!(r.source(), 2);
+    assert_eq!(r.target(), 2);
+}

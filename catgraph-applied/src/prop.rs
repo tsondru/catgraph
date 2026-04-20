@@ -123,6 +123,31 @@ impl<G: PropSignature> Free<G> {
     pub fn generator(g: G) -> PropExpr<G> {
         PropExpr::Generator(g)
     }
+
+    /// Sequential composition `f ; g` with arity check.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatgraphError::CompositionSizeMismatch`] if
+    /// `f.target() != g.source()`.
+    pub fn compose(
+        f: PropExpr<G>,
+        g: PropExpr<G>,
+    ) -> Result<PropExpr<G>, CatgraphError> {
+        if f.target() != g.source() {
+            return Err(CatgraphError::CompositionSizeMismatch {
+                expected: f.target(),
+                actual: g.source(),
+            });
+        }
+        Ok(PropExpr::Compose(Box::new(f), Box::new(g)))
+    }
+
+    /// Parallel tensor `f ⊗ g`. Arity sums trivially; no failure case.
+    #[must_use]
+    pub fn tensor(f: PropExpr<G>, g: PropExpr<G>) -> PropExpr<G> {
+        PropExpr::Tensor(Box::new(f), Box::new(g))
+    }
 }
 
 // ---- Integration with catgraph trait hierarchy -------------------------------
