@@ -26,8 +26,9 @@ impl OperadAlgebra<E1, usize> for IdAlgebra {
 #[test]
 fn identity_algebra_evaluates() {
     let op = E1::identity(&());
-    let r = IdAlgebra.evaluate(&op, &[()]).unwrap();
-    assert_eq!(r, ());
+    IdAlgebra
+        .evaluate(&op, &[()])
+        .expect("identity algebra evaluates without error");
 }
 
 /// Borrowed verbatim from `wiring_diagram::tests::operadic` (inner sub-box

@@ -17,6 +17,9 @@ This crate packages applied-CT modules that build on catgraph's strict Fong-Spiv
 | `linear_combination` | Formal linear combinations over a coefficient ring |
 | `e1_operad` | Little-intervals operad (E₁) |
 | `e2_operad` | Little-disks operad (E₂) |
+| `prop` | Symmetric strict monoidal categories with `Ob = ℕ` and the free prop `Free(G)` on a signature (F&S Def 5.2, Def 5.25; v0.4.0) |
+| `operad_algebra` | Single-sorted operad algebras `F : O → Set` with concrete `CircAlgebra` for `WiringDiagram` (F&S Def 6.99, Ex 6.100; v0.4.0) |
+| `operad_functor` | Functors between operads with the canonical `E₁ ↪ E₂` inclusion (F&S Rough Def 6.98; v0.4.0) |
 
 ## Dependency on catgraph
 

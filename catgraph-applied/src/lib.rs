@@ -15,7 +15,13 @@
 //! - [`e1_operad`] — little-intervals operad (E₁)
 //! - [`e2_operad`] — little-disks operad (E₂)
 //! - [`decorated_cospan`] — generic `DecoratedCospan<F>` over a `Decoration` functor
-//!   (Fong–Spivak Def 6.75; Thm 6.77 forthcoming)
+//!   (Fong–Spivak Def 6.75 + Thm 6.77; v0.3.0/v0.3.1)
+//! - [`prop`] — symmetric strict monoidal categories with `Ob = ℕ` and the
+//!   free prop `Free(G)` on a signature (F&S Def 5.2, Def 5.25; v0.4.0)
+//! - [`operad_algebra`] — operad algebras `F : O → Set` with `CircAlgebra`
+//!   (F&S Def 6.99, Ex 6.100; v0.4.0)
+//! - [`operad_functor`] — functors between operads with the canonical
+//!   `E₁ ↪ E₂` inclusion (F&S Rough Def 6.98; v0.4.0)
 //!
 //! ## Relationship to catgraph
 //!
@@ -26,7 +32,9 @@
 //! - `Operadic` trait — abstract interface for substitution
 //! - `compact_closed` cup/cap — string-diagram rewriting (TL, wiring)
 //!
-//! See `docs/` for alignment with the F&S applied CT paper (TBD).
+//! See [`docs/SEVEN-SKETCHES-AUDIT.md`](https://github.com/tsondru/catgraph/blob/main/catgraph-applied/docs/SEVEN-SKETCHES-AUDIT.md)
+//! for alignment with Fong & Spivak, *Seven Sketches in Compositionality*
+//! (arXiv:1803.05316v3, 2018), Chapters 4–6.
 
 /// Numerical epsilon for f32 geometric comparisons in operads.
 pub(crate) const F32_EPSILON: f32 = 1e-6;

@@ -1,8 +1,8 @@
-# Seven Sketches Coverage Audit (catgraph-applied v0.1.0)
+# Seven Sketches Coverage Audit (catgraph-applied v0.4.0)
 
 > **Paper:** Fong & Spivak, *Seven Sketches in Compositionality: An Invitation to Applied Category Theory* (arXiv:1803.05316v3, 12 Oct 2018)
-> **Library:** catgraph-applied v0.1.0 (workspace member of catgraph v0.11.0)
-> **Date:** 2026-04-16 (Phase 5 initial audit)
+> **Library:** catgraph-applied v0.4.0 (workspace member of catgraph v0.11.4)
+> **Date:** 2026-04-16 (Phase 5 initial audit); updated 2026-04-20 for v0.4.0 Tier 2
 > **Method:** read all 334 pages of the textbook, cross-checked each numbered definition/theorem/example against catgraph-applied source and catgraph core
 >
 > **Note on scope:** *Seven Sketches* is a 334-page textbook covering seven topics in applied CT. Only **Chapters 4, 5, and 6** contain formal content relevant to catgraph-applied's modules. Chapters 1–3 (orders, enrichment, databases) and Chapter 7 (toposes) establish foundational CT that catgraph core already provides or that is outside catgraph's scope entirely.
@@ -22,20 +22,20 @@
 |---|---|---|---|---|---|---|
 | §4.4 Categorification + monoidal cats | 1 | 0 | 0 | 3 | 2 | 6 |
 | §4.5 Compact closed categories | 0 | 0 | 0 | 2 | 3 | 5 |
-| §5.2 Props and presentations | 0 | 1 | 3 | 3 | 0 | 7 |
+| §5.2 Props and presentations | 2 | 1 | 1 | 3 | 0 | 7 |
 | §5.3 Signal flow graphs | 0 | 0 | 4 | 2 | 0 | 6 |
 | §5.4 Graphical linear algebra | 0 | 0 | 2 | 1 | 0 | 3 |
 | §6.2 Colimits and connection | 0 | 0 | 0 | 2 | 4 | 6 |
 | §6.3 Hypergraph categories | 1 | 0 | 0 | 2 | 6 | 9 |
 | §6.4 Decorated cospans | 4 | 0 | 1 | 1 | 0 | 6 |
-| §6.5 Operads and their algebras | 3 | 2 | 2 | 1 | 0 | 8 |
-| **TOTAL** | **9** | **3** | **12** | **17** | **15** | **56** |
+| §6.5 Operads and their algebras | 5 | 2 | 0 | 1 | 0 | 8 |
+| **TOTAL** | **13** | **3** | **8** | **17** | **15** | **56** |
 
-**Headline numbers (as of catgraph-applied v0.3.1):**
-- **16% DONE / 5% PARTIAL / 21% MISSING / 30% N/A / 27% IN CORE**
-- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **9 are DONE, 3 PARTIAL, 12 MISSING**.
-- Of implementable items: **38% DONE / 13% PARTIAL / 50% MISSING**
-- The 12 missing items cluster in: props/presentations (§5.2–5.4, 9 items) and decorated cospans / operad algebras (§6.4–6.5, 3 items).
+**Headline numbers (as of catgraph-applied v0.4.0):**
+- **23% DONE / 5% PARTIAL / 14% MISSING / 30% N/A / 27% IN CORE**
+- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **13 are DONE, 3 PARTIAL, 8 MISSING**.
+- Of implementable items: **54% DONE / 13% PARTIAL / 33% MISSING**
+- Tier 2 (`Prop` + `Free(G)`, `OperadAlgebra`, `OperadFunctor`) landed in v0.4.0 — §6.5 is now zero-MISSING at the level of the textbook's numbered definitions; the remaining Tier 3 gaps cluster in signal flow graphs / graphical linear algebra (§5.3–5.4, 6 items) and presentations (§5.2, 1 item).
 
 ---
 
@@ -66,11 +66,11 @@
 
 | Item | Status | Location | Notes |
 |---|---|---|---|
-| Def 5.2: prop (symmetric strict monoidal category, Ob = ℕ) | ❌ | — | no explicit `Prop` type; catgraph uses general SMC traits |
-| Def 5.11: prop functor | ➖ | — | definition only |
+| Def 5.2: prop (symmetric strict monoidal category, Ob = ℕ) | ✅ | catgraph-applied::prop | `PropExpr<G>` arity-tracked expression tree with `Composable<Vec<()>>`, `Monoidal`, `HasIdentity`, `SymmetricMonoidalMorphism<()>` impls. Shipped in catgraph-applied v0.4.0. |
+| Def 5.11: prop functor | ➖ | — | definition only (operadic analogue available as `OperadFunctor` for Rough Def 6.98) |
 | Def 5.13: (m,n)-port graph | ⚠️ | catgraph-applied::petri_net | `PetriNet` is a bipartite graph with typed ports; not literally a port graph but structurally adjacent. `WiringDiagram` inner/outer circles are closer. |
-| Def 5.25: free prop on a signature Free(G) | ❌ | — | no free prop construction; catgraph uses Frobenius generators directly |
-| Def 5.30: G-generated prop expressions | ❌ | — | no syntactic prop expression type |
+| Def 5.25: free prop on a signature Free(G) | ✅ | catgraph-applied::prop::Free | `Free<G>::{identity, braid, generator, compose, tensor}` smart constructors on `PropExpr<G>`, arity-checked at construction time. Shipped in catgraph-applied v0.4.0. Structural equality only — the SMC-axiom quotient (interchange, unitors, braiding naturality) is deferred to v0.5.0 alongside Def 5.33. |
+| Def 5.30: G-generated prop expressions | ⚠️ | catgraph-applied::prop::PropExpr | The expression-tree layer of Def 5.30 is realised by `PropExpr<G>` with `Identity`/`Braid`/`Generator`/`Compose`/`Tensor` constructors. The syntactic quotient by SMC axioms is v0.5.0 work. |
 | Rough Def 5.33: presentation (G, s, t, E) for a prop | ❌ | — | no presentation type |
 | Remark 5.34: universal property of presentations | ➖ | — | theoretical |
 | Prop 5.29: universal property of Free(G) | ➖ | — | theoretical |
@@ -139,9 +139,9 @@
 | Ex 6.94: Cospan operad (cospans as operations, substitution by pushout) | ✅ | catgraph-applied::wiring_diagram | `WiringDiagram` implements `Operadic` with cospan-pushout substitution. This IS the Cospan operad specialized to named cospans with inner/outer circles. |
 | Eq 6.95: wiring diagram as cospan operation | ✅ | catgraph-applied::wiring_diagram | the `Operadic::substitute` implementation literally performs this: replace an inner circle with a sub-diagram, connecting ports by name |
 | Def 6.97: operad O_C underlying any SMC C | ⚠️ | catgraph::operadic (trait) | the `Operadic` trait captures the abstract interface, but there is no generic construction that takes an arbitrary SMC and produces its underlying operad |
-| Rough Def 6.98: operad functor | ❌ | — | no operad functor type; `HypergraphFunctor` covers the categorical (non-operadic) case |
-| Def 6.99: operad algebra (F: O → Set) | ❌ | — | no operad algebra type; the textbook's Circ: Cospan → Set example (Ex 6.100) is not implemented |
-| Prop 6.101: Cospan-algebras ≅ hypergraph props | ⚠️ | catgraph::cospan_algebra + equivalence | the per-Λ version (Thm 4.13 in the research paper) is verified in catgraph core. The operadic reformulation (Cospan-*algebras* in the operad sense ≅ hypergraph *props*) is not explicitly tested as such. |
+| Rough Def 6.98: operad functor | ✅ | catgraph-applied::operad_functor | `OperadFunctor<O1, O2, Input>` trait plus concrete `E1ToE2` packaging the canonical little-intervals-into-little-disks inclusion. Literal geometric functoriality is verified by `E1ToE2::check_substitution_preserved` (comparing disks by centre/radius within f32 tolerance, modulo naming); a generic arity-level shadow helper covers any functor. Shipped in catgraph-applied v0.4.0. |
+| Def 6.99: operad algebra (F: O → Set) | ✅ | catgraph-applied::operad_algebra | Single-sorted `OperadAlgebra<O, Input>` trait generic over any `Operadic<Input>` operad; concrete `CircAlgebra` implementing F&S Ex 6.100 for `WiringDiagram` (carrier = outer-port count, verifying Ex 6.100's invariance under substitution). Shipped in catgraph-applied v0.4.0. |
+| Prop 6.101: Cospan-algebras ≅ hypergraph props | ⚠️ | catgraph::cospan_algebra + equivalence + catgraph-applied::operad_algebra | the per-Λ version (Thm 4.13 in the research paper) is verified in catgraph core. With v0.4.0, the operadic side of the equivalence (Cospan-*algebras* in the operad sense) is now expressible as `OperadAlgebra<WiringDiagram, _>` instances; the `≅` itself remains a test-only consolidation task. |
 
 ---
 
@@ -159,13 +159,15 @@
 
 ### Major gaps
 
-1. **Props and presentations (§5.2)** — catgraph has no `Prop` type, no free prop construction `Free(G)`, no prop expressions, and no presentation machinery. This is the textbook's primary formalism for describing compositional theories. **Impact:** catgraph can compose morphisms in specific SMCs (Cospan, Frobenius, Brauer) but cannot express or reason about *theories* of composition abstractly.
+1. ~~**Props and presentations (§5.2)**~~ — ✅ **Partly closed in catgraph-applied v0.4.0.** `Prop` type and `Free(G)` construction shipped in `catgraph-applied::prop`; `PropExpr<G>` expression trees realise the Def 5.30 syntactic layer. The remaining gap is the *presentation* machinery — equations quotienting `PropExpr<G>` by SMC axioms (Def 5.33) plus user-supplied generator equations. Deferred to v0.5.0 alongside the SFG_R / Mat(R) semantics, which needs the same equation infrastructure.
 
 2. **Signal flow graphs and Mat(R) (§5.3–5.4)** — No signal flow graph type, no matrix prop, no functorial semantics S: SFG_R → Mat(R). **Impact:** catgraph cannot demonstrate the textbook's main Ch 5 result — that signal flow diagrams have functorial matrix semantics. This is a significant missing application domain (linear systems, control theory).
 
-3. ~~**General decorated cospans (§6.4)**~~ — ✅ **CLOSED in catgraph-applied v0.3.0.** `Decoration` trait + `DecoratedCospan<Lambda, D>` in `catgraph-applied::decorated_cospan`. `PetriDecoration` specializes to Petri nets; `Circuit` EdgeSet example specializes to resistor circuits. `HypergraphCategory<Lambda>` realized generically (Thm 6.77). Known limitations flagged for v0.3.1: `D::pushforward` not yet invoked in `Composable::compose` (needs upstream `Cospan::compose_with_quotient`), and `SymmetricMonoidalMorphism` for `PetriNet` currently uses the decoration-bridge strategy which loses braiding semantics on the legs.
+3. ~~**General decorated cospans (§6.4)**~~ — ✅ **CLOSED in catgraph-applied v0.3.0/v0.3.1.** `Decoration` trait + `DecoratedCospan<Lambda, D>` in `catgraph-applied::decorated_cospan`. `PetriDecoration` specializes to Petri nets; `Circuit` EdgeSet example specializes to resistor circuits. `HypergraphCategory<Lambda>` realized generically (Thm 6.77). `D::pushforward` wired through `Composable::compose` via `Cospan::compose_with_quotient` in v0.3.1; direct `PetriNet::permute_side` added.
 
-4. **Operad algebras (§6.5 Def 6.99)** — No `OperadAlgebra` type (functor O → Set). The textbook shows that operad algebras unify decorated cospans and hypergraph props (Prop 6.101). **Impact:** the operadic perspective on compositional theories is missing.
+4. ~~**Operad algebras (§6.5 Def 6.99)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0.** Single-sorted `OperadAlgebra<O, Input>` trait in `catgraph-applied::operad_algebra`; `CircAlgebra` implementing F&S Ex 6.100 for `WiringDiagram`. Prop 6.101 (Cospan-algebras ≅ hypergraph props) — the operadic side of the equivalence is now expressible; a test-only consolidation of the `≅` remains.
+
+5. ~~**Operad functors (§6.5 Rough Def 6.98)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0.** `OperadFunctor<O1, O2, Input>` trait with concrete `E1ToE2` packaging the canonical little-intervals-into-little-disks inclusion; literal geometric functoriality verified by comparing E₂ disk positions modulo naming.
 
 ### Items intentionally deferred
 
@@ -221,13 +223,13 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 | ~~`PetriNet::SymmetricMonoidalMorphism` braiding semantics~~ | Task 8 | ✅ v0.3.1 | `catgraph-applied/src/petri_net.rs` |
 | ~~`Transition::relabel` arc deduplication~~ | Task 7 | ✅ v0.3.1 | `catgraph-applied/src/petri_net.rs` |
 
-### Tier 2 — medium value, enables new application domains
+### Tier 2 — ✅ shipped in catgraph-applied v0.4.0
 
-| Gap | Textbook ref | Effort | Notes |
+| Gap | Textbook ref | Status | Location |
 |---|---|---|---|
-| `Prop` type + `Free(G)` construction | Def 5.2, 5.25 | 1–2 days | Props are SMCs with Ob = ℕ. Free(G) from a signature (G, s, t). |
-| `OperadAlgebra` type (F: O → Set) | Def 6.99 | 1 day | Functor from an operad to Set. Enables Circ example (Ex 6.100). |
-| `OperadFunctor` type | Rough Def 6.98 | 0.5 day | Maps between operads preserving substitution + identities. |
+| ~~`Prop` type + `Free(G)` construction~~ | Def 5.2, Def 5.25 | ✅ v0.4.0 | `catgraph-applied/src/prop.rs` |
+| ~~`OperadAlgebra` type (F: O → Set) + Ex 6.100 Circ~~ | Def 6.99, Ex 6.100 | ✅ v0.4.0 | `catgraph-applied/src/operad_algebra.rs` |
+| ~~`OperadFunctor` type + canonical `E₁ ↪ E₂`~~ | Rough Def 6.98 | ✅ v0.4.0 | `catgraph-applied/src/operad_functor.rs` |
 
 ### Tier 3 — lower priority, deferred unless needed
 
@@ -245,7 +247,7 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 
 See [`../CHANGELOG.md`](../CHANGELOG.md) for the per-release scope of this crate, and [`../../catgraph/CHANGELOG.md`](../../catgraph/CHANGELOG.md) for the cross-crate infrastructure (e.g. `Cospan::compose_with_quotient` shipped in catgraph v0.11.3 to unblock v0.3.1 pushforward wiring).
 
-**Next release candidates:** Tier 2 (`Prop` + `Free(G)`, `OperadAlgebra`, `OperadFunctor`) → v0.4.0. Tier 3 (SFG_R, Mat(R), Corel) → v0.5.0 (requires `Prop` from Tier 2 + nalgebra dep).
+**Next release candidates:** Tier 3 (SFG_R, Mat(R), Corel, presentation equations) → v0.5.0 (requires `Prop` from Tier 2 ✅ plus an nalgebra dep for Mat(R)).
 
 ---
 

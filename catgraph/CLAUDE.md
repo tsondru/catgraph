@@ -25,7 +25,7 @@ See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for section-by-sect
 
 **Out of scope** (delegated):
 - Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis → `catgraph-physics` (workspace sibling, v0.2.0)
-- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations → `catgraph-applied` (workspace sibling, v0.3.1)
+- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations, props + Free(G), operad algebras/functors → `catgraph-applied` (workspace sibling, v0.4.0)
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 - Computational irreducibility → [irreducible](https://github.com/tsondru/irreducible)
 

@@ -6,14 +6,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 ## [Unreleased]
 
-### Planned (v0.4.0 — Tier 2 gap closures)
-
-See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) "Tier 2" for scope.
-
-- `Prop` type + `Free(G)` construction (Def 5.2, 5.25)
-- `OperadAlgebra<O>` (Def 6.99)
-- `OperadFunctor` (Rough Def 6.98)
-
 ### Performance candidates (bench-driven, no version target)
 
 Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
@@ -22,6 +14,49 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `walk_tree_prefix` / `walk_tree_postfix` for multiway BFS / confluence-diamond enumeration
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
+
+## [0.4.0] - 2026-04-20
+
+Tier 2 applied-CT gap closures from `docs/SEVEN-SKETCHES-AUDIT.md`. Three
+new modules anchored to F&S *Seven Sketches in Compositionality*
+§5.2 and §6.5; no changes to existing public APIs.
+
+### Added
+
+- `prop` module (Def 5.2, Def 5.25). `PropSignature` trait for generator
+  arities; arity-tracked `PropExpr<G>` expression tree; smart constructors
+  `Free::{identity, braid, generator, compose, tensor}` with
+  composition-arity validation. Implements `Composable<Vec<()>>`,
+  `HasIdentity<Vec<()>>`, `Monoidal`, and `SymmetricMonoidalMorphism<()>`.
+  Equality is structural — the SMC quotient (interchange law, unitors,
+  braiding naturality) is deferred to v0.5.0 alongside the Tier 3
+  presentation / equations type (Def 5.33).
+- `operad_algebra` module (Def 6.99). Single-sorted `OperadAlgebra<O, Input>`
+  trait `F : O → Set` generic over any `Operadic<Input>` type. Concrete
+  `CircAlgebra` implementing F&S Ex 6.100 for `WiringDiagram` via
+  outer-port counts; `check_substitution_preserved` helper witnessing
+  `evaluate(op ∘_i inner, inputs) == evaluate(op, inputs)` for algebras
+  whose evaluator discards inputs.
+- `operad_functor` module (Rough Def 6.98). Generic `OperadFunctor<O1, O2, Input>`
+  trait. Concrete `E1ToE2` packaging the canonical little-intervals-into-
+  little-disks inclusion (via upstream `E2::from_e1_config`) with a
+  `start_name` offset so the two branches of `F(o ∘_i q) = F(o) ∘_i F(q)`
+  can share a substitution without colliding on E2's unique-name
+  invariant. Literal geometric functoriality is verified by
+  `E1ToE2::check_substitution_preserved` (canonicalising each side's disks
+  by centre-x and comparing within `f32` tolerance); a generic arity-level
+  shadow `check_substitution_preserved` covers any `OperadFunctor`.
+- Public accessors `E1::arity`, `E1::sub_intervals`, `E2::arity_of`,
+  `E2::sub_circles`; `#[derive(Clone)]` on `E1` and `E2<Name: Clone>`.
+  Additive and non-breaking.
+- Examples: `examples/free_prop.rs`, `examples/operad_algebra_circ.rs`,
+  `examples/operad_functor_e1_to_e2.rs`.
+- Tests: `tests/prop.rs` (11 tests), `tests/operad_algebra.rs` (3 tests),
+  `tests/operad_functor.rs` (4 tests).
+
+### Requires
+
+- catgraph v0.11.4 (unchanged from v0.3.3).
 
 ## [0.3.3] - 2026-04-19
 
@@ -139,7 +174,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.3.3...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...HEAD
+[0.4.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.4.0
 [0.3.3]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.3
 [0.3.2]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.2
 [0.3.1]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.1

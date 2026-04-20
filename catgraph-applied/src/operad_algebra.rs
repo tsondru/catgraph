@@ -17,15 +17,14 @@
 //!
 //! The trait is parameterised over the operad type `O` and the input-label
 //! type `Input` so that the same algebra notion applies to all concrete
-//! operads defined in this crate ([`E1`](crate::e1_operad::E1),
-//! [`E2`](crate::e2_operad::E2),
-//! [`WiringDiagram`](crate::wiring_diagram::WiringDiagram)).
+//! operads defined in this crate ([`crate::e1_operad::E1`],
+//! [`crate::e2_operad::E2`], [`crate::wiring_diagram::WiringDiagram`]).
 //!
 //! # Ex 6.100 worked example
 //!
 //! [`CircAlgebra`] implements the textbook's named example
 //! `Circ : Cospan → Set` specialised to
-//! [`WiringDiagram`](crate::wiring_diagram::WiringDiagram). See the example
+//! [`crate::wiring_diagram::WiringDiagram`]. See the example
 //! `examples/operad_algebra_circ.rs` for a substitution-preservation demo.
 
 use std::fmt::Debug;

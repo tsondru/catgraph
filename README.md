@@ -1,14 +1,14 @@
 # catgraph workspace
 
-Category-theoretic graph structures in Rust. The **catgraph** crate (v0.11.3, slim baseline) is a strict Rust implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). Applied-CT extensions (catgraph-applied v0.3.1) track [Fong & Spivak, *Seven Sketches in Compositionality* (2018)](https://arxiv.org/abs/1803.05316). Wolfram-physics extensions live in a third sibling workspace crate.
+Category-theoretic graph structures in Rust. The **catgraph** crate (v0.11.4, slim baseline) is a strict Rust implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). Applied-CT extensions (catgraph-applied v0.4.0) track [Fong & Spivak, *Seven Sketches in Compositionality* (2018)](https://arxiv.org/abs/1803.05316). Wolfram-physics extensions live in a third sibling workspace crate.
 
 ## Members
 
 | Crate | Path | Purpose |
 |---|---|---|
-| [`catgraph`](catgraph/) v0.11.3 | `catgraph/` | Strict Fong-Spivak 2019 paper implementation: cospans, spans, Frobenius algebras, hypergraph categories, Theorem 1.2 equivalence, spider theorem (Thm 6.55), Cospan::compose_with_quotient additive API |
-| [`catgraph-physics`](catgraph-physics/) v0.2.1 | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
-| [`catgraph-applied`](catgraph-applied/) v0.3.1 | `catgraph-applied/` | Applied CT extensions: generic `DecoratedCospan<F>` (Def 6.75, Thm 6.77), Petri nets as hypergraph category, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations |
+| [`catgraph`](catgraph/) v0.11.4 | `catgraph/` | Strict Fong-Spivak 2019 paper implementation: cospans, spans, Frobenius algebras, hypergraph categories, Theorem 1.2 equivalence, spider theorem (Thm 6.55), Cospan::compose_with_quotient additive API, `parallel` feature (WASM + native, W.1) |
+| [`catgraph-physics`](catgraph-physics/) v0.2.2 | `catgraph-physics/` | Wolfram-physics extensions: hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
+| [`catgraph-applied`](catgraph-applied/) v0.4.0 | `catgraph-applied/` | Applied CT extensions: generic `DecoratedCospan<F>` (Def 6.75, Thm 6.77), Petri nets as hypergraph category, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations, **props + `Free(G)`** (Def 5.2, 5.25), **`OperadAlgebra`** with Circ (Def 6.99, Ex 6.100), **`OperadFunctor`** with canonical E₁↪E₂ (Rough Def 6.98) |
 
 ## Sibling repositories
 
