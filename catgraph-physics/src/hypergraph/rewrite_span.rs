@@ -283,7 +283,7 @@ mod tests {
             // to_span() calls Span::new() which calls assert_valid()
             let span = rule.to_span();
             assert!(!span.left().is_empty() || !span.right().is_empty(),
-                "rule '{}' should produce non-trivial span", rule);
+                "rule '{rule}' should produce non-trivial span");
 
             // to_rewrite_span() + to_span() should also be valid
             let rspan = rule.to_rewrite_span();

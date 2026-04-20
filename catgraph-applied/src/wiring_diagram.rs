@@ -652,7 +652,7 @@ mod test {
             .map_to_same(Left(inner_label(('q', 4))), Right(outer_label('e'))));
     }
 
-    /// Helper: build a simple WiringDiagram with no inner circles,
+    /// Helper: build a simple `WiringDiagram` with no inner circles,
     /// 3 middle nodes (labels true/true/false), and 3 right-side boundary nodes.
     fn simple_diagram() -> super::WiringDiagram<bool, (), usize> {
         use super::{Dir, WiringDiagram};

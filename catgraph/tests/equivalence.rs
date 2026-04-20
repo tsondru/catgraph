@@ -306,7 +306,7 @@ fn lemma_4_9_identity_functor_preserves_composition() {
 
 /// Lemma 4.9 — functoriality of the construction: `F_{α;β} = F_α ; F_β`.
 ///
-/// Using `α = id` and `β = id` (both on PartitionAlgebra → PartitionAlgebra)
+/// Using `α = id` and `β = id` (both on `PartitionAlgebra` → `PartitionAlgebra`)
 /// gives `F_{id;id}(f) = F_id(F_id(f)) = f`.
 #[test]
 fn lemma_4_9_functor_composition_of_morphisms() {
@@ -330,11 +330,11 @@ fn lemma_4_9_functor_composition_of_morphisms() {
     assert_eq!(combined.element().middle(), two_step.element().middle());
 }
 
-/// Lemma 4.9 — non-trivial α: PartitionAlgebra → NameAlgebra via
+/// Lemma 4.9 — non-trivial α: `PartitionAlgebra` → `NameAlgebra` via
 /// `cospan_to_frobenius`. This is the natural transformation whose existence
 /// follows from `CospanToFrobeniusFunctor` being a hypergraph functor.
 ///
-/// Verifies F_α(id_x) sits in `H_{NameAlgebra}` with the expected domain/codomain.
+/// Verifies `F_α(id_x)` sits in `H_{NameAlgebra}` with the expected domain/codomain.
 #[test]
 fn lemma_4_9_cospan_to_name_functor_preserves_identity() {
     let part = alg();

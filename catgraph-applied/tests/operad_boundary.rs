@@ -411,7 +411,7 @@ fn e1_go_to_monoid_reduces_to_single() {
 
     let product: f64 = e1.go_to_monoid(|(a, b)| f64::from(b - a));
 
-    let expected = f64::from(0.2) * f64::from(0.3) * f64::from(0.2);
+    let expected = 0.2 * 0.3 * 0.2;
     assert!(
         (product - expected).abs() < 1e-6,
         "Expected product ~{expected}, got {product}"
@@ -424,7 +424,7 @@ fn e1_go_to_monoid_single_interval() {
     let mut e1 = E1::new(vec![(0.1, 0.9)], true).unwrap();
     let result: f64 = e1.go_to_monoid(|(a, b)| f64::from(b - a));
 
-    let expected = f64::from(0.8);
+    let expected = 0.8;
     assert!(
         (result - expected).abs() < 1e-6,
         "Single interval monoid should be ~{expected}, got {result}"

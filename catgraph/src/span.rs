@@ -549,7 +549,7 @@ impl<Lambda: Eq + Sized + Debug + Copy> Rel<Lambda> {
     /// True if no diagonal pair `(x,x)` is present. Returns false on label mismatch.
     #[must_use] 
     pub fn is_irreflexive(&self) -> bool {
-        self.complement().map(|x| x.is_reflexive()).unwrap_or(false)
+        self.complement().is_ok_and(|x| x.is_reflexive())
     }
 
     /// # Panics
@@ -888,8 +888,7 @@ mod test {
         );
 
         // Verify specific pairs: complement should contain exactly the 4 pairs NOT in the original
-        let comp_pairs: HashSet<(usize, usize)> =
-            HashSet::from_iter(comp.0.middle.iter().copied());
+        let comp_pairs: HashSet<(usize, usize)> = comp.0.middle.iter().copied().collect();
         assert!(!comp_pairs.contains(&(0, 0)), "(0,0) was in original");
         assert!(!comp_pairs.contains(&(2, 1)), "(2,1) was in original");
         assert!(comp_pairs.contains(&(0, 1)));
@@ -899,10 +898,9 @@ mod test {
 
         // Involution property: complement(complement(r)) == r
         let double_comp = comp.complement().expect("double complement should succeed");
-        let original_pairs: HashSet<(usize, usize)> =
-            HashSet::from_iter(rel.0.middle.iter().copied());
+        let original_pairs: HashSet<(usize, usize)> = rel.0.middle.iter().copied().collect();
         let roundtrip_pairs: HashSet<(usize, usize)> =
-            HashSet::from_iter(double_comp.0.middle.iter().copied());
+            double_comp.0.middle.iter().copied().collect();
         assert_eq!(
             original_pairs, roundtrip_pairs,
             "complement(complement(r)) should equal r"

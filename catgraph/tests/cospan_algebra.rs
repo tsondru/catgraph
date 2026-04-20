@@ -1,7 +1,7 @@
 //! Integration tests for cospan-algebras (Fong-Spivak §2.1).
 //!
-//! Tests the CospanAlgebra trait, PartitionAlgebra (Example 2.3),
-//! and NameAlgebra (§4.1) via the public API.
+//! Tests the `CospanAlgebra` trait, `PartitionAlgebra` (Example 2.3),
+//! and `NameAlgebra` (§4.1) via the public API.
 
 use catgraph::{
     category::{Composable, ComposableMutating, HasIdentity},
@@ -163,7 +163,7 @@ fn name_split_cospan() {
     assert_eq!(mapped.codomain(), vec!['a', 'a']);
 }
 
-/// Verify that NameAlgebra is Send + Sync (important for async usage).
+/// Verify that `NameAlgebra` is Send + Sync (important for async usage).
 #[test]
 fn name_algebra_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
@@ -209,7 +209,7 @@ where
 /// Generate a Part-element: a cospan [] → x with small codomain of char labels.
 fn arb_part_element() -> impl Strategy<Value = Cospan<char>> {
     (1usize..=3, prop::sample::select(vec!['a', 'b', 'c'])).prop_map(|(n, c)| {
-        let cod: Vec<char> = std::iter::repeat(c).take(n).collect();
+        let cod: Vec<char> = std::iter::repeat_n(c, n).collect();
         let right_to_mid: Vec<usize> = (0..n).collect();
         Cospan::new(vec![], right_to_mid, cod)
     })
@@ -295,7 +295,7 @@ proptest! {
     }
 }
 
-/// Sanity: on concrete identity input, the initial map for PartitionAlgebra
+/// Sanity: on concrete identity input, the initial map for `PartitionAlgebra`
 /// reproduces the input cospan — the identity is the unique witness for the
 /// self-map `Part → Part`.
 #[test]

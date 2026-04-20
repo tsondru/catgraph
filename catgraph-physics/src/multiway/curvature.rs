@@ -92,6 +92,33 @@ impl<C: DiscreteCurvature> CurvatureFoliation<C> {
     }
 }
 
+impl<C: DiscreteCurvature> Display for CurvatureFoliation<C> {
+    #[allow(clippy::cast_precision_loss)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total_scalar: f64 = self
+            .curvatures
+            .iter()
+            .map(DiscreteCurvature::scalar_curvature)
+            .sum();
+        let average_scalar = if self.curvatures.is_empty() {
+            0.0
+        } else {
+            total_scalar / self.curvatures.len() as f64
+        };
+
+        writeln!(f, "Curvature Foliation:")?;
+        writeln!(f, "  Steps analyzed: {}", self.curvatures.len())?;
+        writeln!(f, "  Total scalar curvature: {total_scalar:.6}")?;
+        writeln!(f, "  Average scalar curvature: {average_scalar:.6}")?;
+        writeln!(f, "  Globally flat: {}", self.is_globally_flat())?;
+        write!(
+            f,
+            "  Average irreducibility: {:.6}",
+            self.average_irreducibility()
+        )
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use super::DiscreteCurvature;
@@ -117,32 +144,5 @@ pub(crate) mod test_helpers {
                 curv.scalar_curvature()
             );
         }
-    }
-}
-
-impl<C: DiscreteCurvature> Display for CurvatureFoliation<C> {
-    #[allow(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let total_scalar: f64 = self
-            .curvatures
-            .iter()
-            .map(DiscreteCurvature::scalar_curvature)
-            .sum();
-        let average_scalar = if self.curvatures.is_empty() {
-            0.0
-        } else {
-            total_scalar / self.curvatures.len() as f64
-        };
-
-        writeln!(f, "Curvature Foliation:")?;
-        writeln!(f, "  Steps analyzed: {}", self.curvatures.len())?;
-        writeln!(f, "  Total scalar curvature: {total_scalar:.6}")?;
-        writeln!(f, "  Average scalar curvature: {average_scalar:.6}")?;
-        writeln!(f, "  Globally flat: {}", self.is_globally_flat())?;
-        write!(
-            f,
-            "  Average irreducibility: {:.6}",
-            self.average_irreducibility()
-        )
     }
 }

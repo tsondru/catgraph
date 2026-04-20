@@ -86,7 +86,7 @@ mod test {
     #[test]
     fn catgraph_error_composition_debug() {
         let error = CatgraphError::Composition { message: "debug test".to_string() };
-        let debug_str = format!("{:?}", error);
+        let debug_str = format!("{error:?}");
         assert!(debug_str.contains("debug test"));
     }
 

@@ -471,6 +471,7 @@ mod tests {
 
     /// Triangle inequality: W₁(μ, ρ) <= W₁(μ, ν) + W₁(ν, ρ).
     #[test]
+    #[allow(clippy::similar_names)] // w_mu_nu / w_nu_rho / w_mu_rho form a standard triangle
     fn w1_triangle_inequality() {
         let mu = vec![0.5, 0.3, 0.2];
         let nu = vec![0.2, 0.5, 0.3];
@@ -501,7 +502,7 @@ mod tests {
         let dist: Vec<Vec<f64>> = (0..n)
             .map(|i| {
                 (0..n)
-                    .map(|j| (i as f64 - j as f64).abs())
+                    .map(|j| (f64::from(i) - f64::from(j)).abs())
                     .collect()
             })
             .collect();

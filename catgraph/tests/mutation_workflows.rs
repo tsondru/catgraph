@@ -1,3 +1,5 @@
+#![allow(clippy::doc_link_with_quotes)] // single-quoted chars in docs are char literals, not intra-doc links
+
 //! Integration tests for Cospan and Span mutation methods.
 //!
 //! Verifies that mutating a morphism (adding/deleting boundary nodes, connecting

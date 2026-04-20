@@ -1,4 +1,9 @@
-//! Integration tests for catgraph_physics::multiway module.
+#![allow(
+    clippy::cast_possible_wrap,        // test fixture sizes fit in i32 by construction
+    clippy::similar_names,             // algebraic pairings produce near-identical binding names
+)]
+
+//! Integration tests for `catgraph_physics::multiway` module.
 //!
 //! Tests the generic multiway evolution infrastructure: graph construction,
 //! branchial foliation, discrete curvature, and Ollivier-Ricci analysis.

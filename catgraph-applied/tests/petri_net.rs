@@ -1,4 +1,4 @@
-//! Integration tests for PetriNet: chemical reactions, reachability, composition, cospan roundtrip.
+//! Integration tests for `PetriNet`: chemical reactions, reachability, composition, cospan roundtrip.
 
 use std::collections::HashMap;
 use catgraph::cospan::Cospan;

@@ -1,7 +1,7 @@
-//! Integration tests for HypergraphFunctor trait (Fong-Spivak §2.3).
+//! Integration tests for `HypergraphFunctor` trait (Fong-Spivak §2.3).
 //!
 //! Verifies Frobenius preservation (Eq. 12), functoriality, identity,
-//! monoidal preservation, and derived cup/cap for RelabelingFunctor.
+//! monoidal preservation, and derived cup/cap for `RelabelingFunctor`.
 
 mod common;
 

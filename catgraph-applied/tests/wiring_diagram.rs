@@ -80,9 +80,9 @@ fn one_hole_outer() -> WiringDiagram<bool, CircleName, WireName> {
 /// Circle 2 has 1 port.
 /// Right (outer) has 2 ports.
 ///
-/// IMPORTANT: wire names (IntraCircle) must be globally unique across all inner
-/// circles because `operadic_substitution` drops the InterCircle when building
-/// the permutation target — see line 213 of wiring_diagram.rs.
+/// IMPORTANT: wire names (`IntraCircle`) must be globally unique across all inner
+/// circles because `operadic_substitution` drops the `InterCircle` when building
+/// the permutation target — see line 213 of `wiring_diagram.rs`.
 fn two_hole_outer() -> WiringDiagram<(), CircleName, WireName> {
     WiringDiagram::new(NamedCospan::new(
         // left → middle
@@ -296,7 +296,7 @@ fn map_preserves_substitutability() {
     let inner_bool = leaf_diagram();
 
     // Map bool -> u8: true -> 1, false -> 0
-    let to_u8 = |b: bool| if b { 1u8 } else { 0u8 };
+    let to_u8 = |b: bool| u8::from(b);
     let mut outer_u8 = outer_bool.map(to_u8);
     let inner_u8 = inner_bool.map(to_u8);
 

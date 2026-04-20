@@ -105,6 +105,12 @@ pub fn in_place_permute<T>(me: &mut [T], p: &Permutation) {
     }
 }
 
+/// Build a random permutation on `n` points by composing `max_depth`
+/// random transpositions.
+///
+/// # Panics
+///
+/// Panics if `n == 0` (empty uniform distribution).
 #[cfg(test)]
 pub fn rand_perm(n: usize, max_depth: usize, rng: &mut impl rand::Rng) -> Permutation {
     use rand::{distr::Uniform, prelude::Distribution};

@@ -1,3 +1,9 @@
+#![allow(
+    clippy::similar_names,             // seq_result / par_result pairs are intentional
+    clippy::cast_possible_truncation,  // usize fixture sizes fit in i32 by construction
+    clippy::cast_possible_wrap,
+)]
+
 //! Parallel-vs-sequential equivalence tests.
 //!
 //! Runs the same operation at inputs straddling the parallelism threshold

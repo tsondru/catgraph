@@ -651,6 +651,10 @@ impl<const D: usize> Default for HypergraphLattice<D> {
 // ============================================================================
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,              // gauge-holonomy tests compare exact trivial values (0.0, 1.0)
+    clippy::assertions_on_constants, // asserting compile-time associated constants documents the axiom
+)]
 mod tests {
     use super::*;
 

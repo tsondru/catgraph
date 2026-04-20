@@ -16,7 +16,7 @@ fn generator_identity_composition() {
     }
 }
 
-/// Composing a chain e_0 * e_1 * e_2 * e_3 in n=5 succeeds with correct domain/codomain.
+/// Composing a chain `e_0` * `e_1` * `e_2` * `e_3` in n=5 succeeds with correct domain/codomain.
 #[test]
 fn long_chain() {
     let n = 5;
@@ -30,7 +30,7 @@ fn long_chain() {
     assert_eq!(chain.codomain(), n);
 }
 
-/// e_i * e_i produces a result (loop absorption), and it differs from e_i itself
+/// `e_i` * `e_i` produces a result (loop absorption), and it differs from `e_i` itself
 /// because the composition introduces a delta factor (delta power increments by 1).
 #[test]
 fn tl_idempotent_absorbs_loop() {
@@ -46,7 +46,7 @@ fn tl_idempotent_absorbs_loop() {
     }
 }
 
-/// s_i * s_i = identity for all symmetric group generators.
+/// `s_i` * `s_i` = identity for all symmetric group generators.
 #[test]
 fn symmetric_involution() {
     let n = 4;
@@ -58,7 +58,7 @@ fn symmetric_involution() {
     }
 }
 
-/// e_i * s_i = e_i and s_i * e_i = e_i (mixed absorption).
+/// `e_i` * `s_i` = `e_i` and `s_i` * `e_i` = `e_i` (mixed absorption).
 #[test]
 fn mixed_absorption() {
     let n = 4;
@@ -76,7 +76,7 @@ fn mixed_absorption() {
     }
 }
 
-/// Tensor product of e_0 (n=3) with identity (size 2) has domain=5, codomain=5.
+/// Tensor product of `e_0` (n=3) with identity (size 2) has domain=5, codomain=5.
 #[test]
 fn monoidal_tensor() {
     let e_i = BrauerMorphism::<i64>::temperley_lieb_gens(3);
@@ -87,7 +87,7 @@ fn monoidal_tensor() {
     assert_eq!(tensored.codomain(), 5, "tensor codomain should be 3+2=5");
 }
 
-/// TL generators are self-adjoint: e_i^dagger = e_i (with identity as the conjugate for i64).
+/// TL generators are self-adjoint: `e_i^dagger` = `e_i` (with identity as the conjugate for i64).
 #[test]
 fn dagger_self_adjoint() {
     let n = 4;
@@ -124,7 +124,7 @@ fn identity_self_compose() {
     assert_eq!(id_squared, id, "identity composed with itself should be identity");
 }
 
-/// Braid relation: s_i * s_{i+1} * s_i = s_{i+1} * s_i * s_{i+1} (Yang-Baxter).
+/// Braid relation: `s_i` * s_{i+1} * `s_i` = s_{i+1} * `s_i` * s_{i+1} (Yang-Baxter).
 #[test]
 fn braid_relation() {
     let n = 5;

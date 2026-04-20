@@ -69,6 +69,7 @@ fn zigzag_left_snake_char() {
 
 #[test]
 fn zigzag_right_snake_unit_type() {
+    #[allow(clippy::upper_case_acronyms)] // local test alias
     type UFM = FrobeniusMorphism<(), String>;
     let z = ();
     let mut first: UFM = cup_single(z);
@@ -122,6 +123,7 @@ fn cup_then_cap_is_dimension() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[allow(clippy::similar_names)] // mathematical pairings (unit/comult, mult/counit) are intentional
 fn cup_cap_frobenius_interpret() {
     let z = 'f';
     let unit = FM::interpret_unit(z);
@@ -313,7 +315,7 @@ fn unname_rejects_x_len_overflow() {
 // §3.1 Props 3.3-3.4: Composition via names
 // ---------------------------------------------------------------------------
 
-/// compose_names(name(id), name(id)) = name(id;id) = name(id)
+/// `compose_names(name(id)`, name(id)) = name(id;id) = name(id)
 #[test]
 fn compose_names_identities() {
     let id: FM = FM::identity(&vec!['a']);
@@ -324,7 +326,7 @@ fn compose_names_identities() {
     assert_eq!(result.codomain(), vec!['a', 'a']);
 }
 
-/// compose_names matches name(f;g) in domain/codomain.
+/// `compose_names` matches name(f;g) in domain/codomain.
 #[test]
 fn compose_names_matches_direct_composition() {
     let f: FM = FrobeniusOperation::Comultiplication('a').into(); // [a] → [a,a]
@@ -344,7 +346,7 @@ fn compose_names_matches_direct_composition() {
     assert_eq!(via_names.codomain(), direct.codomain());
 }
 
-/// Prop 3.4: (id_X ⊕ f̂) ; comp = f — recovery of f from its name.
+/// Prop 3.4: (`id_X` ⊕ f̂) ; comp = f — recovery of f from its name.
 #[test]
 fn recovery_from_name() {
     let f: FM = FrobeniusOperation::Comultiplication('a').into(); // [a] → [a,a]
@@ -431,7 +433,7 @@ fn prop_3_4_unit_to_mult() {
     prop_3_4_recover_via_explicit_comp(&f, &[], &['a', 'a']);
 }
 
-/// compose_names rejects non-empty domain inputs.
+/// `compose_names` rejects non-empty domain inputs.
 #[test]
 fn compose_names_rejects_nonempty_domain() {
     let id: FM = FM::identity(&vec!['a']);

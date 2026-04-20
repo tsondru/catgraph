@@ -107,7 +107,7 @@ fn change_coeffs_doubles_values() {
 #[test]
 fn change_coeffs_absolute_value() {
     let mut combo = lc(&[(-5, "neg"), (3, "pos"), (0, "zero")]);
-    combo.change_coeffs(|c| c.abs());
+    combo.change_coeffs(i64::abs);
 
     let expected = lc(&[(5, "neg"), (3, "pos"), (0, "zero")]);
     assert_eq!(combo, expected);

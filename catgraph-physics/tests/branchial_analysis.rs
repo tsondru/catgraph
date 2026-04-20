@@ -1,3 +1,8 @@
+#![allow(
+    clippy::cast_possible_truncation,  // test fixture sizes are small and fit in i32
+    clippy::cast_possible_wrap,
+)]
+
 //! Integration tests for branchial analysis on real multiway evolutions.
 
 use catgraph_physics::multiway::{
@@ -115,7 +120,7 @@ mod proptests {
     use catgraph_physics::multiway::BranchialGraph;
     use proptest::prelude::*;
 
-    /// Generate a multiway graph with n_forks children from a single root.
+    /// Generate a multiway graph with `n_forks` children from a single root.
     fn arb_branched_graph(
         max_forks: usize,
     ) -> impl Strategy<Value = MultiwayEvolutionGraph<i32, ()>> {

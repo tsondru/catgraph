@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn test_hyperedge_display() {
         let edge = Hyperedge::new(vec![0, 1, 2]);
-        assert_eq!(format!("{}", edge), "{0, 1, 2}");
+        assert_eq!(format!("{edge}"), "{0, 1, 2}");
     }
 
     #[test]

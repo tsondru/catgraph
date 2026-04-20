@@ -400,6 +400,7 @@ mod tests {
         MultiwayNodeId::new(BranchId(branch), step)
     }
 
+    #[allow(clippy::needless_pass_by_value)] // callers pass literal vec![] repeatedly
     fn make_branchial(
         step: usize,
         branch_ids: Vec<usize>,
@@ -416,7 +417,7 @@ mod tests {
         BranchialGraph { step, nodes, edges }
     }
 
-    /// K_4 (complete graph on 4 vertices): every edge should have positive
+    /// `K_4` (complete graph on 4 vertices): every edge should have positive
     /// Ollivier-Ricci curvature because neighbors overlap heavily.
     #[test]
     fn complete_graph_k4_has_positive_curvature() {
@@ -479,7 +480,7 @@ mod tests {
         assert_eq!(curv.step(), 3);
     }
 
-    /// K_2: two nodes connected by one edge.
+    /// `K_2`: two nodes connected by one edge.
     /// Each node has exactly one neighbor (the other node). The neighbor
     /// distributions are Dirac masses at opposite endpoints, so
     /// W₁ = d(0,1) = 1, giving κ = 1 - 1/1 = 0.
@@ -515,7 +516,7 @@ mod tests {
         assert_trait_conformance(&curv, 1, 3);
     }
 
-    /// Generic trait conformance: nontrivial K_4 complete graph.
+    /// Generic trait conformance: nontrivial `K_4` complete graph.
     #[test]
     fn trait_conformance_nontrivial() {
         use super::super::curvature::test_helpers::assert_trait_conformance;
@@ -532,16 +533,14 @@ mod tests {
     #[test]
     fn irreducibility_indicator_is_non_negative() {
         // Test across several graph shapes
-        let graphs = vec![
-            make_branchial(0, vec![0], vec![]),
+        let graphs = [make_branchial(0, vec![0], vec![]),
             make_branchial(0, vec![0, 1], vec![(0, 1)]),
             make_branchial(0, vec![0, 1, 2], vec![(0, 1), (1, 2)]),
             make_branchial(
                 0,
                 vec![0, 1, 2, 3],
                 vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-            ),
-        ];
+            )];
 
         for (i, g) in graphs.iter().enumerate() {
             let curv = OllivierRicciCurvature::from_branchial(g);

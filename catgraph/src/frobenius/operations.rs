@@ -1266,7 +1266,7 @@ mod test {
     /// Algebraic verification of `FrobeniusMorphism::permute_side`.
     ///
     /// Reference: `Cospan::permute_side` uses `in_place_permute` directly
-    /// on the leg arrays, which is known correct (tested in wiring_diagram).
+    /// on the leg arrays, which is known correct (tested in `wiring_diagram`).
     /// Here we verify that `FrobeniusMorphism` matches the same contract:
     ///   - `permute_side(p, true)` → codomain becomes `p.permute(old_codomain)`
     ///   - `permute_side(p, false)` → domain becomes `p.permute(old_domain)`
@@ -1300,7 +1300,7 @@ mod test {
         assert_eq!(morph.codomain(), vec!['a', 'b']);
     }
 
-    /// Non-involution (3-cycle) catches p vs p.inv() confusion.
+    /// Non-involution (3-cycle) catches p vs `p.inv()` confusion.
     #[test]
     fn frobenius_permute_side_codomain_rotation() {
         use crate::category::HasIdentity;
@@ -1371,8 +1371,8 @@ mod test {
     }
 
     /// Composing two morphisms around a permutation: verify type-correctness.
-    /// f : [a,b,c] → [a,b,c], then permute_side(p, true) gives f' : [a,b,c] → p.permute([a,b,c]).
-    /// g = from_permutation(p.inv(), p.permute(types), true) should compose with f'.
+    /// f : [a,b,c] → [a,b,c], then `permute_side(p`, true) gives f' : [a,b,c] → p.permute([a,b,c]).
+    /// g = `from_permutation(p.inv()`, p.permute(types), true) should compose with f'.
     #[test]
     fn frobenius_permute_side_compose_roundtrip() {
         use crate::category::HasIdentity;
@@ -1396,7 +1396,7 @@ mod test {
         assert!(compose_result.is_ok(), "composition after permute_side should type-check");
     }
 
-    /// Verify that permute_side on a non-identity morphism (spider) works correctly.
+    /// Verify that `permute_side` on a non-identity morphism (spider) works correctly.
     #[test]
     fn frobenius_permute_side_on_spider() {
         use crate::monoidal::SymmetricMonoidalMorphism;

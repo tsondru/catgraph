@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)] // algebraic identities pair up `foo` / `foo_bar` bindings by design
+
 //! Integration tests for the `Span` and `Rel` relation algebra.
 //!
 //! Tests exercise the public API of `catgraph::span`:

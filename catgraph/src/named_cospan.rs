@@ -846,8 +846,8 @@ mod test {
             |c| (c.to_string(), "edge".to_string()),
             |weight, name| {
                 match name {
-                    Left(n) => *weight = format!("L{}", n),
-                    Right(n) => *weight = format!("R{}", n),
+                    Left(n) => *weight = format!("L{n}"),
+                    Right(n) => *weight = format!("R{n}"),
                 }
             },
         );

@@ -293,6 +293,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)] // identity constructor produces exact 0.0/1.0 by construction
 mod test {
     use super::*;
     use catgraph::category::HasIdentity;
@@ -425,7 +426,7 @@ mod test {
         let circles = vec![(0, (0.0, 0.0), 0.5), (1, (0.5, 0.0), 0.2)];
         let mut e2 = E2::new(circles, false).unwrap();
         e2.change_name((0, 10));
-        assert_eq!(e2.sub_circles.iter().find(|c| c.0 == 10).is_some(), true);
+        assert!(e2.sub_circles.iter().find(|c| c.0 == 10).is_some());
     }
 
     #[test]

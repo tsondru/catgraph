@@ -10,7 +10,7 @@ use catgraph_applied::{
 };
 use std::collections::HashMap;
 
-/// LinearCombination Mul with 64 terms (threshold = 32).
+/// `LinearCombination` Mul with 64 terms (threshold = 32).
 #[test]
 fn linear_combination_above_threshold() {
     let terms_a: HashMap<i32, i64> = (0..64).map(|i| (i, (i + 1).into())).collect();
@@ -32,7 +32,7 @@ fn linear_combination_above_threshold() {
     assert_ne!(simplified, LinearCombination::default());
 }
 
-/// BrauerMorphism compose at n=16 (threshold = 8 for non_crossing checks).
+/// `BrauerMorphism` compose at n=16 (threshold = 8 for `non_crossing` checks).
 #[test]
 fn temperley_lieb_above_threshold() {
     let gens: Vec<BrauerMorphism<i64>> = BrauerMorphism::temperley_lieb_gens(16);

@@ -1,3 +1,8 @@
+#![allow(
+    clippy::cast_possible_truncation,  // usize fixture sizes fit in i32 by construction
+    clippy::cast_possible_wrap,
+)]
+
 //! Rayon threshold correctness validation.
 //!
 //! Verifies that operations produce correct results at sizes above
@@ -11,7 +16,7 @@ use catgraph::{
 };
 use either::Either::{Left, Right};
 
-/// NamedCospan find_nodes_by_name_predicate with 512 boundary nodes (threshold = 256).
+/// `NamedCospan` `find_nodes_by_name_predicate` with 512 boundary nodes (threshold = 256).
 #[test]
 fn named_cospan_predicate_above_threshold() {
     // Build a NamedCospan with 300 left nodes and 300 right nodes (total 600 >= 256)
@@ -39,7 +44,7 @@ fn named_cospan_predicate_above_threshold() {
     assert_eq!(right_count, 150);
 }
 
-/// FrobeniusMorphism with 128+ blocks via monoidal product (threshold = 64).
+/// `FrobeniusMorphism` with 128+ blocks via monoidal product (threshold = 64).
 ///
 /// `special_frobenius_morphism(m, 1, wire_type)` for large m builds layers via
 /// recursive monoidal product. Calling `hflip` (through `from_permutation` or

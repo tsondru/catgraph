@@ -411,10 +411,10 @@ mod test {
         let result = lhs.linear_combine(rhs, |s1, s2| format!("{s1}{s2}"));
         // Expected terms:
         //   "xa" => 2*1=2, "xb" => 2*4=8, "ya" => 3*1=3, "yb" => 3*4=12
-        assert_eq!(result.0.get(&"xa".to_string()), Some(&2));
-        assert_eq!(result.0.get(&"xb".to_string()), Some(&8));
-        assert_eq!(result.0.get(&"ya".to_string()), Some(&3));
-        assert_eq!(result.0.get(&"yb".to_string()), Some(&12));
+        assert_eq!(result.0.get("xa"), Some(&2));
+        assert_eq!(result.0.get("xb"), Some(&8));
+        assert_eq!(result.0.get("ya"), Some(&3));
+        assert_eq!(result.0.get("yb"), Some(&12));
         assert_eq!(result.0.len(), 4);
     }
 
@@ -449,8 +449,8 @@ mod test {
                 + LinearCombination::singleton("b".into()) * 5;
         // Injective map: prefix with "prefix_"
         let result = lc.inj_linearly_extend(|s| format!("prefix_{s}"));
-        assert_eq!(result.0.get(&"prefix_a".to_string()), Some(&2));
-        assert_eq!(result.0.get(&"prefix_b".to_string()), Some(&5));
+        assert_eq!(result.0.get("prefix_a"), Some(&2));
+        assert_eq!(result.0.get("prefix_b"), Some(&5));
         assert_eq!(result.0.len(), 2);
     }
 
@@ -482,8 +482,8 @@ mod test {
         lc.simplify();
         // After simplify, "b" is gone
         assert!(!lc.0.contains_key("b"));
-        assert_eq!(lc.0.get(&"a".to_string()), Some(&5));
-        assert_eq!(lc.0.get(&"c".to_string()), Some(&3));
+        assert_eq!(lc.0.get("a"), Some(&5));
+        assert_eq!(lc.0.get("c"), Some(&3));
         assert_eq!(lc.0.len(), 2);
     }
 
@@ -499,10 +499,10 @@ mod test {
                 + LinearCombination::singleton("y".into()) * 1;
         let mut diff = lc1 - lc2;
         // "x" coefficient should be 0, "y" should be 2
-        assert_eq!(diff.0.get(&"x".to_string()), Some(&0));
+        assert_eq!(diff.0.get("x"), Some(&0));
         diff.simplify();
         assert!(!diff.0.contains_key("x"));
-        assert_eq!(diff.0.get(&"y".to_string()), Some(&2));
+        assert_eq!(diff.0.get("y"), Some(&2));
         assert_eq!(diff.0.len(), 1);
     }
 
@@ -514,8 +514,8 @@ mod test {
             LinearCombination::singleton("a".into()) * 3
                 + LinearCombination::singleton("b".into()) * 5;
         lc.change_coeffs(|c| c * c);
-        assert_eq!(lc.0.get(&"a".to_string()), Some(&9));
-        assert_eq!(lc.0.get(&"b".to_string()), Some(&25));
+        assert_eq!(lc.0.get("a"), Some(&9));
+        assert_eq!(lc.0.get("b"), Some(&25));
     }
 
     /// `all_terms_satisfy` checks a predicate on all target keys.
@@ -538,8 +538,8 @@ mod test {
             LinearCombination::singleton("a".into()) * 3
                 + LinearCombination::singleton("b".into()) * -2;
         let neg = -lc;
-        assert_eq!(neg.0.get(&"a".to_string()), Some(&-3));
-        assert_eq!(neg.0.get(&"b".to_string()), Some(&2));
+        assert_eq!(neg.0.get("a"), Some(&-3));
+        assert_eq!(neg.0.get("b"), Some(&2));
     }
 
     /// `MulAssign` scales all coefficients in place.
@@ -550,8 +550,8 @@ mod test {
             LinearCombination::singleton("a".into()) * 3
                 + LinearCombination::singleton("b".into()) * 5;
         lc *= 4;
-        assert_eq!(lc.0.get(&"a".to_string()), Some(&12));
-        assert_eq!(lc.0.get(&"b".to_string()), Some(&20));
+        assert_eq!(lc.0.get("a"), Some(&12));
+        assert_eq!(lc.0.get("b"), Some(&20));
     }
 
     /// `AddAssign` merges terms from another linear combination.
@@ -562,11 +562,11 @@ mod test {
             LinearCombination::singleton("a".into()) * 2;
         lc += LinearCombination::singleton("a".into()) * 3
             + LinearCombination::singleton("b".into()) * 7;
-        assert_eq!(lc.0.get(&"a".to_string()), Some(&5));
-        assert_eq!(lc.0.get(&"b".to_string()), Some(&7));
+        assert_eq!(lc.0.get("a"), Some(&5));
+        assert_eq!(lc.0.get("b"), Some(&7));
     }
 
-    /// `FromIterator` collects (Target, Coeffs) pairs into a LinearCombination.
+    /// `FromIterator` collects (Target, Coeffs) pairs into a `LinearCombination`.
     #[test]
     fn from_iterator() {
         use super::LinearCombination;
@@ -574,8 +574,8 @@ mod test {
             vec![("a".to_string(), 2), ("b".to_string(), 5)]
                 .into_iter()
                 .collect();
-        assert_eq!(lc.0.get(&"a".to_string()), Some(&2));
-        assert_eq!(lc.0.get(&"b".to_string()), Some(&5));
+        assert_eq!(lc.0.get("a"), Some(&2));
+        assert_eq!(lc.0.get("b"), Some(&5));
         assert_eq!(lc.0.len(), 2);
     }
 }

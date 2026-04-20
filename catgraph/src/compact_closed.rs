@@ -524,6 +524,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::similar_names)] // cap/cup naming is intrinsic to compact-closed structure
     fn cap_cup_composition_types() {
         let z = 'q';
         let cap_z: FM = cap_single(z);

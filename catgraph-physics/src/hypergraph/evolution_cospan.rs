@@ -227,7 +227,7 @@ mod tests {
             assert_eq!(
                 cospans[i].right_to_middle().len(),
                 cospans[i + 1].left_to_middle().len(),
-                "cospan chain boundary mismatch at step {}", i
+                "cospan chain boundary mismatch at step {i}"
             );
         }
     }

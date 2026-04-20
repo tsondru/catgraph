@@ -93,8 +93,8 @@ pub fn spans_eq_unordered<L: Eq + Copy + std::fmt::Debug + Ord>(
     }
     let mut a_mid: Vec<_> = a.middle_pairs().to_vec();
     let mut b_mid: Vec<_> = b.middle_pairs().to_vec();
-    a_mid.sort();
-    b_mid.sort();
+    a_mid.sort_unstable();
+    b_mid.sort_unstable();
     a_mid == b_mid
 }
 

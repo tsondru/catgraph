@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)] // `seq_*`/`par_*` binding pairs are the point of these tests
+
 //! Parallel-vs-sequential equivalence tests for catgraph-applied.
 //!
 //! `LinearCombination::Mul` and `BrauerMorphism::compose` gate a parallel arm
@@ -24,7 +26,7 @@ use catgraph_applied::{
     temperley_lieb::BrauerMorphism,
 };
 
-/// LinearCombination::Mul is commutative over a commutative Target ring.
+/// `LinearCombination::Mul` is commutative over a commutative Target ring.
 /// Run at sizes below (16) and above (64) the threshold; assert commutativity
 /// holds in both cases.
 #[test]
@@ -44,7 +46,7 @@ fn linear_combination_mul_commutative_small_and_large() {
     assert_eq!(ab_large, ba_large, "Mul should be commutative at large size");
 }
 
-/// LinearCombination::Mul — verify the parallel and sequential paths produce
+/// `LinearCombination::Mul` — verify the parallel and sequential paths produce
 /// identical output on the same input by pinning the input size at a level
 /// that would exercise each path.
 #[test]
@@ -64,7 +66,7 @@ fn make_lc(n: usize, offset: i64) -> LinearCombination<i64, i64> {
         .collect()
 }
 
-/// BrauerMorphism compose is associative. Check at sizes straddling
+/// `BrauerMorphism` compose is associative. Check at sizes straddling
 /// `PARALLEL_COMBINATIONS_THRESHOLD = 8`.
 #[test]
 fn temperley_lieb_compose_associative_small_and_large() {

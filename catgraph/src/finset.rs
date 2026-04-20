@@ -1028,7 +1028,7 @@ mod test {
                 .map(|_| rng.random_range(0..fin_set_size))
                 .collect();
             let max_first = *first_int_map.iter().max().unwrap();
-            let leftover_needed = (fin_set_size - max_first - 1).max(0);
+            let leftover_needed = fin_set_size - max_first - 1;
             let decomp_1 =
                 Decomposition::try_from((first_int_map.clone(), leftover_needed)).unwrap();
             assert_eq!(decomp_1.domain(), fin_set_size);
@@ -1137,7 +1137,7 @@ mod test {
         assert_eq!(decomp.codomain(), 3);
     }
 
-    /// Non-involution 3-cycle on a non-identity function catches p vs p.inv() confusion.
+    /// Non-involution 3-cycle on a non-identity function catches p vs `p.inv()` confusion.
     #[test]
     fn decomposition_permute_side_codomain_nonidentity() {
         use crate::category::Composable;
@@ -1163,7 +1163,7 @@ mod test {
         assert_eq!(decomp.apply(2), 0);
     }
 
-    /// Verify with random permutations that permute_side matches the algebraic contract.
+    /// Verify with random permutations that `permute_side` matches the algebraic contract.
     #[test]
     fn decomposition_permute_side_random() {
         use crate::category::Composable;
@@ -1203,13 +1203,12 @@ mod test {
             let p_cod = rand_perm(cod_size, cod_size * 2, &mut rng);
             let p_cod_inv = p_cod.inv();
             decomp_cod.permute_side(&p_cod, true);
-            for i in 0..n {
+            for (i, &expected) in surj_map.iter().enumerate().take(n) {
                 assert_eq!(
                     decomp_cod.apply(i),
-                    p_cod_inv.apply(surj_map[i]),
-                    "codomain permute: g({i}) should be p_inv(f({i})) = p_inv({}) = {}",
-                    surj_map[i],
-                    p_cod_inv.apply(surj_map[i])
+                    p_cod_inv.apply(expected),
+                    "codomain permute: g({i}) should be p_inv(f({i})) = p_inv({expected}) = {}",
+                    p_cod_inv.apply(expected),
                 );
             }
         }

@@ -1,3 +1,5 @@
+#![allow(clippy::doc_link_with_quotes)] // single-quoted chars in docs are char literals
+
 //! Integration tests for algebraic composition laws across all composable types.
 //!
 //! Verifies associativity, left/right identity neutrality, empty-boundary edge cases,
@@ -186,8 +188,8 @@ fn span_associativity() {
     // Middle pairs encode the same relation (possibly reordered).
     let mut pairs_lhs: Vec<_> = fg_h.middle_pairs().to_vec();
     let mut pairs_rhs: Vec<_> = f_gh.middle_pairs().to_vec();
-    pairs_lhs.sort();
-    pairs_rhs.sort();
+    pairs_lhs.sort_unstable();
+    pairs_rhs.sort_unstable();
     assert_eq!(pairs_lhs, pairs_rhs, "middle pair sets differ");
 }
 
@@ -203,8 +205,8 @@ fn span_left_identity() {
     assert_eq!(id_f.right(), f.right());
     let mut id_f_pairs: Vec<_> = id_f.middle_pairs().to_vec();
     let mut f_pairs: Vec<_> = f.middle_pairs().to_vec();
-    id_f_pairs.sort();
-    f_pairs.sort();
+    id_f_pairs.sort_unstable();
+    f_pairs.sort_unstable();
     assert_eq!(id_f_pairs, f_pairs);
 }
 
@@ -220,8 +222,8 @@ fn span_right_identity() {
     assert_eq!(f_id.right(), f.right());
     let mut f_id_pairs: Vec<_> = f_id.middle_pairs().to_vec();
     let mut f_pairs: Vec<_> = f.middle_pairs().to_vec();
-    f_id_pairs.sort();
-    f_pairs.sort();
+    f_id_pairs.sort_unstable();
+    f_pairs.sort_unstable();
     assert_eq!(f_id_pairs, f_pairs);
 }
 

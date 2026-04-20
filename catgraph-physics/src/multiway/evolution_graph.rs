@@ -1033,13 +1033,13 @@ mod tests {
     #[test]
     fn test_branch_id_display() {
         let id = BranchId(42);
-        assert_eq!(format!("{}", id), "B42");
+        assert_eq!(format!("{id}"), "B42");
     }
 
     #[test]
     fn test_node_id_display() {
         let id = MultiwayNodeId::new(BranchId(3), 7);
-        assert_eq!(format!("{}", id), "B3@7");
+        assert_eq!(format!("{id}"), "B3@7");
     }
 
     // --- confluence_diamonds tests ---

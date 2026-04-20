@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn test_rule_display() {
         let rule = RewriteRule::wolfram_a_to_bb();
-        let display = format!("{}", rule);
+        let display = format!("{rule}");
         assert!(display.contains("A→BB"));
         assert!(display.contains("→"));
     }
