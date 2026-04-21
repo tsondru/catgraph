@@ -124,9 +124,29 @@ where
         self.is_left_id
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_right_identity(&self) -> bool {
         self.is_right_id
+    }
+
+    /// True if every middle (apex) vertex is in the image of the left or right leg.
+    ///
+    /// Corelations (dual of relations in `Rel`) require this property —
+    /// see [`crate::corel::Corel`] (F&S 2018 Ex 6.64).
+    #[must_use]
+    pub fn is_jointly_surjective(&self) -> bool {
+        let middle_size = self.middle.len();
+        if middle_size == 0 {
+            return true;
+        }
+        let mut covered = vec![false; middle_size];
+        for &i in &self.left {
+            covered[i] = true;
+        }
+        for &i in &self.right {
+            covered[i] = true;
+        }
+        covered.iter().all(|c| *c)
     }
 
     /// Add a boundary node targeting an existing middle index. `Left` adds to domain, `Right` to codomain.
@@ -1086,5 +1106,25 @@ mod test {
                 panic!("Could not compose simple example\n{e:?}")
             }
         }
+    }
+
+    #[test]
+    fn cospan_is_jointly_surjective() {
+        use super::Cospan;
+        // Surjective: every middle index appears in left or right leg
+        let c1 = Cospan::new(vec![0], vec![1], vec!['a', 'b']);
+        assert!(c1.is_jointly_surjective());
+
+        // Not surjective: middle index 2 appears in neither leg
+        let c2 = Cospan::new(vec![0], vec![1], vec!['a', 'b', 'c']);
+        assert!(!c2.is_jointly_surjective());
+
+        // Empty middle is vacuously surjective
+        let c3 = Cospan::<char>::new(vec![], vec![], vec![]);
+        assert!(c3.is_jointly_surjective());
+
+        // Middle index appears in both legs — still surjective
+        let c4 = Cospan::new(vec![0], vec![0], vec!['a']);
+        assert!(c4.is_jointly_surjective());
     }
 }
