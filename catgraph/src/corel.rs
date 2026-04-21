@@ -46,6 +46,47 @@ impl<Lambda: Eq + Sized + Debug + Copy> Corel<Lambda> {
     pub fn as_cospan(&self) -> &Cospan<Lambda> {
         &self.0
     }
+
+    /// Return the equivalence classes on `domain ⊔ middle ⊔ codomain` induced
+    /// by the cospan: two elements are equivalent iff they map to the same middle vertex.
+    ///
+    /// Flat index layout: `0..domain_len` for left-leg entries,
+    /// `domain_len..(domain_len + middle_len)` for middle vertices,
+    /// and `(domain_len + middle_len)..total` for right-leg entries.
+    #[must_use]
+    pub fn equivalence_classes(&self) -> Vec<std::collections::HashSet<usize>> {
+        let dom_len = self.0.left_to_middle().len();
+        let mid_len = self.0.middle().len();
+        let cod_len = self.0.right_to_middle().len();
+
+        let mut buckets: Vec<std::collections::HashSet<usize>> =
+            vec![std::collections::HashSet::new(); mid_len];
+
+        // Left leg: flat index i belongs to class left_to_middle[i].
+        for (i, &m) in self.0.left_to_middle().iter().enumerate() {
+            buckets[m].insert(i);
+        }
+        // Middle vertices: flat index dom_len + j belongs to class j.
+        for j in 0..mid_len {
+            buckets[j].insert(dom_len + j);
+        }
+        // Right leg: flat index dom_len + mid_len + k belongs to class right_to_middle[k].
+        for (k, &m) in self.0.right_to_middle().iter().enumerate() {
+            buckets[m].insert(dom_len + mid_len + k);
+        }
+
+        // Joint surjectivity guarantees no empty bucket, but guard anyway.
+        buckets.retain(|b| !b.is_empty());
+        let _ = cod_len;
+        buckets
+    }
+
+    /// True iff flat-indexed elements `a` and `b` are in the same equivalence class.
+    #[must_use]
+    pub fn merges(&self, a: usize, b: usize) -> bool {
+        let classes = self.equivalence_classes();
+        classes.iter().any(|c| c.contains(&a) && c.contains(&b))
+    }
 }
 
 // Trait impls — all delegate to the underlying Cospan.
@@ -251,5 +292,40 @@ mod tests {
         assert_eq!(cup.codomain().len(), 2);
         assert_eq!(cap.domain().len(), 2);
         assert_eq!(cap.codomain().len(), 0);
+    }
+
+    #[test]
+    fn corel_equivalence_classes_split() {
+        // Cospan [0] → [1] with middle ['a', 'b']: two separate classes.
+        let c = Cospan::new(vec![0], vec![1], vec!['a', 'b']);
+        let corel = Corel::new(c).unwrap();
+        let classes = corel.equivalence_classes();
+        assert_eq!(classes.len(), 2);
+    }
+
+    #[test]
+    fn corel_equivalence_classes_merged() {
+        // Cospan [0] → [0] with middle ['a']: one class.
+        let c = Cospan::new(vec![0], vec![0], vec!['a']);
+        let corel = Corel::new(c).unwrap();
+        let classes = corel.equivalence_classes();
+        assert_eq!(classes.len(), 1);
+    }
+
+    #[test]
+    fn corel_merges_true_when_same_class() {
+        use crate::hypergraph_category::HypergraphCategory;
+        let mu = Corel::<char>::multiplication('a');
+        // μ: [a, a] → [a] — both domain entries merge with each other.
+        // Flat indices: [0, 1] = domain entries, [2] = middle vertex, [3] = codomain.
+        assert!(mu.merges(0, 1));
+    }
+
+    #[test]
+    fn corel_merges_false_when_different_classes() {
+        let c = Cospan::new(vec![0], vec![1], vec!['a', 'b']);
+        let corel = Corel::new(c).unwrap();
+        // Flat: [0] = dom, [1, 2] = middle, [3] = cod. dom(0) is in class 0; cod(3) is in class 1.
+        assert!(!corel.merges(0, 3));
     }
 }
