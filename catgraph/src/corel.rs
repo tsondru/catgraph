@@ -1,6 +1,6 @@
 //! Corelation: jointly-surjective cospan, composed by pushout.
 //!
-//! Dual of [`Rel`](crate::span::Rel); wraps [`Cospan`](crate::cospan::Cospan)
+//! Dual of [`Rel`](crate::span::Rel); wraps [`Cospan`]
 //! the way `Rel` wraps [`Span`](crate::span::Span).
 //!
 //! Realizes F&S 2018 (Seven Sketches) Example 6.64: Corel as a hypergraph category.
