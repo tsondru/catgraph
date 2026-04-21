@@ -43,7 +43,7 @@ use permutations::Permutation;
 /// A signature `(G, s, t)` for a free prop: every generator has a declared
 /// source arity [`PropSignature::source`] and target arity
 /// [`PropSignature::target`], both natural numbers.
-pub trait PropSignature: Clone + Eq + std::fmt::Debug {
+pub trait PropSignature: Clone + PartialEq + std::fmt::Debug {
     /// Source arity `s(g) ∈ ℕ`.
     fn source(&self) -> usize;
     /// Target arity `t(g) ∈ ℕ`.
@@ -57,7 +57,7 @@ pub trait PropSignature: Clone + Eq + std::fmt::Debug {
 /// in O(height). Smart constructors on [`Free`] produce only well-formed
 /// expressions; raw variant construction is available but callers must
 /// uphold the composition-arity invariant themselves.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PropExpr<G: PropSignature> {
     /// `id_n : n → n`.
     Identity(usize),
