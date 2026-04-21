@@ -52,3 +52,4 @@ pub mod prop;
 pub mod operad_algebra;
 pub mod operad_functor;
 pub mod sfg;
+pub mod sfg_to_mat;
