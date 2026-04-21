@@ -17,11 +17,17 @@ default = ["parallel"]
 # in temperley_lieb::non_crossing. With the feature off, those sites fall
 # back to plain `.into_iter()`. Phase W.1.
 parallel = ["dep:rayon", "dep:rayon-cond", "catgraph/parallel"]
+# `f64-rig` exposes the mat_f64 module: nalgebra bridge for MatR<F64Rig>
+# (determinant, try_inverse, DMatrix roundtrip). Opt-in; off by default to
+# keep the nalgebra compile cost out of the way for Tropical / Bool / user
+# rigs that can't use field-specific operations anyway.
+f64-rig = ["dep:nalgebra"]
 
 [dependencies]
 catgraph = { path = "../catgraph", default-features = false }
 either.workspace = true
 itertools.workspace = true
+nalgebra = { version = "0.34", optional = true }
 num.workspace = true
 permutations.workspace = true
 rand.workspace = true

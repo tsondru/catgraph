@@ -41,6 +41,8 @@ pub(crate) const F32_EPSILON: f32 = 1e-6;
 
 pub mod linear_combination;
 pub mod mat;
+#[cfg(feature = "f64-rig")]
+pub mod mat_f64;
 pub mod rig;
 pub mod wiring_diagram;
 pub mod temperley_lieb;
