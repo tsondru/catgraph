@@ -167,6 +167,15 @@ impl<Lambda: Eq + Sized + Debug + Copy> Corel<Lambda> {
     /// Implementation: union-find over domain ⊔ self-middle ⊔ other-middle ⊔ codomain,
     /// seeded by both cospans' leg maps.
     ///
+    // TODO(perf): parallelize the per-root class-extraction loops (dom + cod) via
+    // `rayon_cond::CondIterator` once hot-path workload warrants it. Union-find
+    // itself stays sequential (path compression mutates during `.find`), but the
+    // extraction is embarrassingly parallel once the UF is built. Tracked in
+    // `.claude/docs/ROADMAP.md` "Performance TODOs" table; re-evaluate when
+    // Phase 6.3 multiway-magnitude bridge brings thousand-node CCR workloads.
+    // `tests/rayon_equivalence.rs::ccr_deterministic_across_runs` upgrades to
+    // a full parallel-vs-sequential equivalence test at that point.
+    ///
     /// # Lambda witness selection
     ///
     /// When a class in the resulting refinement has middle-vertex representatives
