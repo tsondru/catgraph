@@ -44,6 +44,10 @@ pub enum CatgraphError {
     #[error("relation error: {message}")]
     Relation { message: String },
 
+    /// Corelation operation failed (not jointly surjective, incompatible domains, etc.).
+    #[error("corelation error: {message}")]
+    Corel { message: String },
+
     /// Petri net operation failed (out-of-bounds transition, not enabled, etc.).
     #[error("petri net error: {message}")]
     PetriNet { message: String },
