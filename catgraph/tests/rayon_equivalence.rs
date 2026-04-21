@@ -90,3 +90,27 @@ fn frobenius_hflip_determinism() {
     assert_eq!(small_composed.depth(), small.depth());
     assert_eq!(large_composed.depth(), large.depth());
 }
+
+// --- Corel ------------------------------------------------------------------
+
+#[test]
+fn ccr_deterministic_across_runs() {
+    use catgraph::{corel::Corel, cospan::Cospan};
+
+    let a =
+        Corel::<char>::new(Cospan::new(vec![0, 1], vec![0, 1], vec!['a', 'a'])).unwrap();
+    let b = Corel::<char>::new(Cospan::new(vec![0, 0], vec![0, 0], vec!['a'])).unwrap();
+
+    let r1 = a.coarsest_common_refinement(&b).unwrap();
+    let r2 = a.coarsest_common_refinement(&b).unwrap();
+
+    assert_eq!(
+        r1.as_cospan().left_to_middle(),
+        r2.as_cospan().left_to_middle()
+    );
+    assert_eq!(
+        r1.as_cospan().right_to_middle(),
+        r2.as_cospan().right_to_middle()
+    );
+    assert_eq!(r1.as_cospan().middle(), r2.as_cospan().middle());
+}
