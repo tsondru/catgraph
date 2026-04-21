@@ -88,3 +88,29 @@ fn symmetric_braiding_preserves_surjectivity() {
     .unwrap();
     assert!(braid.as_cospan().is_jointly_surjective());
 }
+
+#[test]
+fn ccr_merges_non_trivial_partition_pair() {
+    // fine: [a, a] → [a, a] with each entry in its own class (2 classes total).
+    // coarse: [a, a] → [a, a] with everything merged into one class.
+    // CCR(fine, coarse) should merge: one class covering all boundary entries.
+    let fine = Corel::<char>::new(Cospan::new(vec![0, 1], vec![0, 1], vec!['a', 'a'])).unwrap();
+    let coarse = Corel::<char>::new(Cospan::new(vec![0, 0], vec![0, 0], vec!['a'])).unwrap();
+
+    let ccr = fine.coarsest_common_refinement(&coarse).unwrap();
+    // The result should have exactly one class (the coarse merger propagates
+    // through the fine partition).
+    assert_eq!(ccr.equivalence_classes().len(), 1);
+    // And every boundary entry is in that single class — both fine and coarse
+    // are refinements of the result.
+    assert!(fine.refines(&ccr).unwrap());
+    assert!(coarse.refines(&ccr).unwrap());
+}
+
+#[test]
+fn is_identity_partition_false_for_same_length_non_identity_map() {
+    // Same domain/codomain length (2) but legs are [0, 0] → [0, 0] with middle ['a']:
+    // everything collapses to one class. Not the identity partition.
+    let non_id = Corel::<char>::new(Cospan::new(vec![0, 0], vec![0, 0], vec!['a'])).unwrap();
+    assert!(!non_id.is_identity_partition());
+}

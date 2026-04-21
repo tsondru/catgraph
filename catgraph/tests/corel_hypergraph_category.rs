@@ -76,7 +76,7 @@ fn cap_is_2_to_0() {
 
 #[test]
 fn zigzag_identity_cup_cap() {
-    // (cup ⊗ id_z) ; (id_z ⊗ cap) produces [a] → [a] with joint surjectivity preserved.
+    // (cup ⊗ id_z) ; (id_z ⊗ cap) = id_z  (zigzag / snake identity).
     let cup = Corel::<char>::cup('a').unwrap();
     let cap = Corel::<char>::cap('a').unwrap();
     let id_z = Corel::<char>::identity(&vec!['a']);
@@ -91,4 +91,16 @@ fn zigzag_identity_cup_cap() {
     assert_eq!(result.domain(), vec!['a']);
     assert_eq!(result.codomain(), vec!['a']);
     assert!(result.as_cospan().is_jointly_surjective());
+
+    // Zigzag law: the composite is the identity on [a] up to cospan isomorphism.
+    // The canonical identity has middle == [a], both legs identity. Check shape
+    // matches; structural equality would require simplification that catgraph
+    // core doesn't perform on Cospan::compose output, so assert equivalence-class
+    // count matches the identity's (one class per wire).
+    let identity = Corel::<char>::identity(&vec!['a']);
+    assert_eq!(
+        result.equivalence_classes().len(),
+        identity.equivalence_classes().len(),
+        "zigzag law: composite must have same partition as identity on [a]"
+    );
 }

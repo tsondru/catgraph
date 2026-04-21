@@ -53,6 +53,12 @@ impl<Lambda: Eq + Sized + Debug + Copy> Corel<Lambda> {
     /// Flat index layout: `0..domain_len` for left-leg entries,
     /// `domain_len..(domain_len + middle_len)` for middle vertices,
     /// and `(domain_len + middle_len)..total` for right-leg entries.
+    ///
+    /// Middle-vertex indices (flat indices in `dom_len..(dom_len + mid_len)`)
+    /// are unconditionally inserted into their own class: joint surjectivity
+    /// guarantees each middle vertex appears in at least one boundary leg, but
+    /// the returned sets always include the middle-vertex index itself alongside
+    /// the boundary indices that map to it.
     #[must_use]
     pub fn equivalence_classes(&self) -> Vec<std::collections::HashSet<usize>> {
         let dom_len = self.0.left_to_middle().len();
@@ -110,6 +116,17 @@ impl<Lambda: Eq + Sized + Debug + Copy> Corel<Lambda> {
     /// "Refines" = self's partition is at least as fine as other's. Both corelations
     /// must agree on domain and codomain.
     ///
+    /// # Middle-index semantics
+    ///
+    /// The flat-index scheme of [`equivalence_classes`] includes middle-vertex
+    /// indices alongside domain and codomain indices. Because `self` and `other`
+    /// can have middle vertices at different flat offsets, middle-vertex elements
+    /// of `self` do not in general appear in `other`'s equivalence classes and
+    /// are silently skipped during the refinement check. The predicate is
+    /// therefore evaluated only over the shared boundary (domain ⊔ codomain),
+    /// which is the mathematically meaningful notion of partition refinement
+    /// on the cospan interface.
+    ///
     /// # Errors
     ///
     /// Returns [`CatgraphError::Corel`] if domain or codomain disagree.
@@ -149,6 +166,14 @@ impl<Lambda: Eq + Sized + Debug + Copy> Corel<Lambda> {
     ///
     /// Implementation: union-find over domain ⊔ self-middle ⊔ other-middle ⊔ codomain,
     /// seeded by both cospans' leg maps.
+    ///
+    /// # Lambda witness selection
+    ///
+    /// When a class in the resulting refinement has middle-vertex representatives
+    /// in both `self` and `other` (necessarily with potentially different `Lambda`
+    /// values), this implementation selects the `self`-cospan label. The choice
+    /// is deterministic but biased: callers that need a symmetric or
+    /// caller-supplied merge rule should post-process the result.
     ///
     /// # Errors
     ///
