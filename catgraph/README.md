@@ -6,7 +6,7 @@ Cospans, spans, Frobenius algebras, hypergraph categories, compact closed struct
 
 Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hypergraph), substantially rewritten to use source/target (cospan) semantics and implement the full F&S paper.
 
-**v0.11.3 slim baseline** (v0.11.2 + `Cospan::compose_with_quotient` additive API for catgraph-applied v0.3.1 pushforward wiring). Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
+**v0.12.0** adds `Corel<Λ>` (F&S 2018 Ex 6.64). Built on the **v0.11.x slim baseline** — strict F&S 2019 core only, applied-CT extras in sibling crates. Rust 2024 edition, zero clippy pedantic warnings on lib, zero unsafe, criterion benchmarks.
 
 ## Component Index
 
@@ -87,6 +87,7 @@ An edge `[a,b] → [c,d]` means a→c, a→d, b→c, b→d (bipartite complete s
 | `NamedCospan<Lambda, L, R>` | Port-labeled cospans for wiring-style composition with named boundary nodes. |
 | `Span<Lambda>` | Dual of cospan — composition via pullback. |
 | `Rel<Lambda>` | Relations as jointly-injective spans. Full relation algebra. |
+| `Corel<Lambda>` | Corelations as jointly-surjective cospans. Dual of `Rel`. Implements `HypergraphCategory` (F&S 2018 Ex 6.64, v0.12.0). |
 
 `Lambda` types the middle vertices — use `()` for untyped graphs.
 
@@ -104,6 +105,7 @@ cargo run -p catgraph --example compact_closed
 cargo run -p catgraph --example cospan_algebra
 cargo run -p catgraph --example hypergraph_functor
 cargo run -p catgraph --example equivalence
+cargo run -p catgraph --example corel
 ```
 
 Applied-CT examples (Petri net, wiring diagrams, operads, Temperley-Lieb) now live in `catgraph-applied/examples/`.
@@ -159,7 +161,7 @@ test suitable for `wasmtime run`.
 
 ```toml
 [dependencies]
-catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.11.3" }
+catgraph = { git = "https://github.com/tsondru/catgraph", tag = "v0.12.0" }
 ```
 
 ## References

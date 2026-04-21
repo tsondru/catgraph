@@ -8,6 +8,43 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 No in-flight work.
 
+## [0.12.0] - 2026-04-21
+
+Adds `Corel<Lambda>` — the dual of `Rel<Lambda>`, realizing F&S 2018 (Seven
+Sketches) Example 6.64: Corel as a hypergraph category. Unblocks the Phase 6
+catgraph-magnitude roadmap, which uses `WeightedCorel<Λ, Q>` as the enriched
+counterpart for LM-enriched categories (BV 2025).
+
+### Added
+
+- `src/corel.rs` — `Corel<Lambda>` newtype over `Cospan<Lambda>`:
+  - Constructors `new` (validates joint surjectivity) + `new_unchecked`.
+  - Accessors `as_cospan`, `equivalence_classes`.
+  - Predicates `merges`, `refines`, `coarsest_common_refinement`,
+    `is_identity_partition`.
+  - Trait impls: `HasIdentity`, `Composable<Vec<Lambda>>`, `Monoidal`,
+    `MonoidalMorphism`, `SymmetricMonoidalMorphism`, and
+    `HypergraphCategory<Lambda>` (F&S 2018 Ex 6.64).
+- `Cospan::is_jointly_surjective()` — inherent helper used by `Corel::new`.
+- `CatgraphError::Corel { message: String }` — new error variant.
+- `tests/corel.rs` — 9 integration tests for constructors, predicates,
+  composition.
+- `tests/corel_hypergraph_category.rs` — 8 tests verifying F&S 2018 Ex 6.64.
+- `tests/common/mod.rs` — `corel_eq` and `assert_corel_eq` helpers.
+- `tests/rayon_equivalence.rs` — determinism test for
+  `coarsest_common_refinement`.
+- `examples/corel.rs` — runnable example.
+
+### Scope notes
+
+- `Corel` lives in catgraph core because it is a §2/§3 F&S 2019 item (dual
+  of `Rel`) and reuses the core's compact-closed / Frobenius machinery
+  directly. No separate crate.
+- This release is **additive**: no API changes on `Cospan`, `Span`, `Rel`,
+  `Frobenius`, `CospanAlgebra`, or `HypergraphFunctor`. Downstream crates
+  (`catgraph-physics`, `catgraph-applied`, `catgraph-surreal`, `irreducible`)
+  can bump to `v0.12.0` opportunistically without code changes.
+
 ## [0.11.4] - 2026-04-19
 
 Phase W.1 — WASM + edge-device support. Internal-only: adds a `parallel`
@@ -130,7 +167,8 @@ compiles clean against `wasm32-wasip1-threads` and `wasm32-wasip1`
 
 Tags v0.3.0 through v0.9.0 (2026-04-01 through 2026-04-07) predate the workspace restructuring. See `git tag --sort=-creatordate` and individual commit messages for scope of those releases.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/tsondru/catgraph/compare/v0.11.4...v0.12.0
 [0.11.4]: https://github.com/tsondru/catgraph/releases/tag/v0.11.4
 [0.11.3]: https://github.com/tsondru/catgraph/releases/tag/v0.11.3
 [0.11.2]: https://github.com/tsondru/catgraph/releases/tag/v0.11.2
