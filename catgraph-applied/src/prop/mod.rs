@@ -239,3 +239,5 @@ impl<G: PropSignature> SymmetricMonoidalMorphism<()> for PropExpr<G> {
         };
     }
 }
+
+pub mod presentation;
