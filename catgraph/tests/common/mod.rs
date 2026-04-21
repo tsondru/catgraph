@@ -141,3 +141,24 @@ where
         b.cospan().middle(),
     );
 }
+
+// ---------------------------------------------------------------------------
+// Corel helpers
+// ---------------------------------------------------------------------------
+
+use catgraph::corel::Corel;
+
+#[allow(dead_code)]
+pub fn corel_eq<L: Eq + Copy + std::fmt::Debug>(a: &Corel<L>, b: &Corel<L>) -> bool {
+    cospan_eq(a.as_cospan(), b.as_cospan())
+}
+
+#[allow(dead_code)]
+pub fn assert_corel_eq<L: Eq + Copy + std::fmt::Debug>(a: &Corel<L>, b: &Corel<L>) {
+    assert!(
+        corel_eq(a, b),
+        "Corels differ — underlying cospans:\n  {:?}\n  vs\n  {:?}",
+        a.as_cospan().middle(),
+        b.as_cospan().middle(),
+    );
+}
