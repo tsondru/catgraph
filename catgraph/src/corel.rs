@@ -117,6 +117,39 @@ where
     }
 }
 
+impl<Lambda> crate::hypergraph_category::HypergraphCategory<Lambda> for Corel<Lambda>
+where
+    Lambda: Sized + Eq + Copy + Debug,
+{
+    fn unit(z: Lambda) -> Self {
+        // η: [] → [z]. Right leg hits the single middle vertex.
+        Self::new_unchecked(Cospan::<Lambda>::unit(z))
+    }
+
+    fn counit(z: Lambda) -> Self {
+        // ε: [z] → []. Left leg hits the single middle vertex.
+        Self::new_unchecked(Cospan::<Lambda>::counit(z))
+    }
+
+    fn multiplication(z: Lambda) -> Self {
+        // μ: [z, z] → [z].
+        Self::new_unchecked(Cospan::<Lambda>::multiplication(z))
+    }
+
+    fn comultiplication(z: Lambda) -> Self {
+        // δ: [z] → [z, z].
+        Self::new_unchecked(Cospan::<Lambda>::comultiplication(z))
+    }
+
+    fn cup(z: Lambda) -> Result<Self, CatgraphError> {
+        Cospan::<Lambda>::cup(z).map(Self::new_unchecked)
+    }
+
+    fn cap(z: Lambda) -> Result<Self, CatgraphError> {
+        Cospan::<Lambda>::cap(z).map(Self::new_unchecked)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,5 +219,37 @@ mod tests {
         let corel2 = Corel::new(c2).unwrap();
         corel1.monoidal(corel2);
         assert!(corel1.as_cospan().is_jointly_surjective());
+    }
+
+    #[test]
+    fn corel_unit_counit_jointly_surjective() {
+        use crate::hypergraph_category::HypergraphCategory;
+        let eta = Corel::<char>::unit('a');
+        let epsilon = Corel::<char>::counit('a');
+        assert!(eta.as_cospan().is_jointly_surjective());
+        assert!(epsilon.as_cospan().is_jointly_surjective());
+    }
+
+    #[test]
+    fn corel_mu_delta_jointly_surjective() {
+        use crate::hypergraph_category::HypergraphCategory;
+        let mu = Corel::<char>::multiplication('a');
+        let delta = Corel::<char>::comultiplication('a');
+        assert!(mu.as_cospan().is_jointly_surjective());
+        assert!(delta.as_cospan().is_jointly_surjective());
+    }
+
+    #[test]
+    fn corel_cup_cap_well_formed() {
+        use crate::hypergraph_category::HypergraphCategory;
+        use crate::category::Composable;
+        let cup = Corel::<char>::cup('a').unwrap();
+        let cap = Corel::<char>::cap('a').unwrap();
+        assert!(cup.as_cospan().is_jointly_surjective());
+        assert!(cap.as_cospan().is_jointly_surjective());
+        assert_eq!(cup.domain().len(), 0);
+        assert_eq!(cup.codomain().len(), 2);
+        assert_eq!(cap.domain().len(), 2);
+        assert_eq!(cap.codomain().len(), 0);
     }
 }
