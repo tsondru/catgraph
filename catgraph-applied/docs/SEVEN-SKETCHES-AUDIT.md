@@ -1,8 +1,8 @@
-# Seven Sketches Coverage Audit (catgraph-applied v0.4.0)
+# Seven Sketches Coverage Audit (catgraph-applied v0.5.0)
 
 > **Paper:** Fong & Spivak, *Seven Sketches in Compositionality: An Invitation to Applied Category Theory* (arXiv:1803.05316v3, 12 Oct 2018)
-> **Library:** catgraph-applied v0.4.0 (workspace member of catgraph v0.11.4)
-> **Date:** 2026-04-16 (Phase 5 initial audit); updated 2026-04-20 for v0.4.0 Tier 2
+> **Library:** catgraph-applied v0.5.0 (workspace member of catgraph v0.12.0)
+> **Date:** 2026-04-16 (Phase 5 initial audit); updated 2026-04-20 for v0.4.0 Tier 2; updated 2026-04-21 for v0.5.0 Tier 3
 > **Method:** read all 334 pages of the textbook, cross-checked each numbered definition/theorem/example against catgraph-applied source and catgraph core
 >
 > **Note on scope:** *Seven Sketches* is a 334-page textbook covering seven topics in applied CT. Only **Chapters 4, 5, and 6** contain formal content relevant to catgraph-applied's modules. Chapters 1–3 (orders, enrichment, databases) and Chapter 7 (toposes) establish foundational CT that catgraph core already provides or that is outside catgraph's scope entirely.
@@ -22,20 +22,20 @@
 |---|---|---|---|---|---|---|
 | §4.4 Categorification + monoidal cats | 1 | 0 | 0 | 3 | 2 | 6 |
 | §4.5 Compact closed categories | 0 | 0 | 0 | 2 | 3 | 5 |
-| §5.2 Props and presentations | 2 | 1 | 1 | 3 | 0 | 7 |
-| §5.3 Signal flow graphs | 0 | 0 | 4 | 2 | 0 | 6 |
-| §5.4 Graphical linear algebra | 0 | 0 | 2 | 1 | 0 | 3 |
+| §5.2 Props and presentations | 4 | 0 | 0 | 3 | 0 | 7 |
+| §5.3 Signal flow graphs | 5 | 0 | 0 | 1 | 0 | 6 |
+| §5.4 Graphical linear algebra | 0 | 1 | 1 | 1 | 0 | 3 |
 | §6.2 Colimits and connection | 0 | 0 | 0 | 2 | 4 | 6 |
-| §6.3 Hypergraph categories | 1 | 0 | 0 | 2 | 6 | 9 |
+| §6.3 Hypergraph categories | 2 | 0 | 0 | 2 | 6 | 10 |
 | §6.4 Decorated cospans | 4 | 0 | 1 | 1 | 0 | 6 |
 | §6.5 Operads and their algebras | 5 | 2 | 0 | 1 | 0 | 8 |
-| **TOTAL** | **13** | **3** | **8** | **17** | **15** | **56** |
+| **TOTAL** | **21** | **3** | **2** | **16** | **15** | **57** |
 
-**Headline numbers (as of catgraph-applied v0.4.0):**
-- **23% DONE / 5% PARTIAL / 14% MISSING / 30% N/A / 27% IN CORE**
-- Of the 56 audited items, 15 are already in catgraph core (the research paper's content), 17 are N/A (pedagogical), leaving **24 implementable items** of which **13 are DONE, 3 PARTIAL, 8 MISSING**.
-- Of implementable items: **54% DONE / 13% PARTIAL / 33% MISSING**
-- Tier 2 (`Prop` + `Free(G)`, `OperadAlgebra`, `OperadFunctor`) landed in v0.4.0 — §6.5 is now zero-MISSING at the level of the textbook's numbered definitions; the remaining Tier 3 gaps cluster in signal flow graphs / graphical linear algebra (§5.3–5.4, 6 items) and presentations (§5.2, 1 item).
+**Headline numbers (as of catgraph-applied v0.5.0):**
+- **37% DONE / 5% PARTIAL / 4% MISSING / 28% N/A / 26% IN CORE**
+- Of the 57 audited items, 15 are already in catgraph core (the research paper's content), 16 are N/A (pedagogical), leaving **26 implementable items** of which **21 are DONE, 3 PARTIAL, 2 MISSING**.
+- Of implementable items: **81% DONE / 12% PARTIAL / 8% MISSING**
+- Tier 3 (SFG_R, Mat(R), functor, presentation, Thm 5.60, Corel) landed in v0.5.0 — §5.2 and §5.3 are now zero-MISSING; §5.4 Thm 5.60 is PARTIAL (equations complete, faithfulness enumeration deferred to v0.5.1 KB upgrade); §6.3 Ex 6.64 Corel closed via catgraph v0.12.0 core.
 
 ---
 
@@ -69,9 +69,9 @@
 | Def 5.2: prop (symmetric strict monoidal category, Ob = ℕ) | ✅ | catgraph-applied::prop | `PropExpr<G>` arity-tracked expression tree with `Composable<Vec<()>>`, `Monoidal`, `HasIdentity`, `SymmetricMonoidalMorphism<()>` impls. Shipped in catgraph-applied v0.4.0. |
 | Def 5.11: prop functor | ➖ | — | definition only (operadic analogue available as `OperadFunctor` for Rough Def 6.98) |
 | Def 5.13: (m,n)-port graph | ⚠️ | catgraph-applied::petri_net | `PetriNet` is a bipartite graph with typed ports; not literally a port graph but structurally adjacent. `WiringDiagram` inner/outer circles are closer. |
-| Def 5.25: free prop on a signature Free(G) | ✅ | catgraph-applied::prop::Free | `Free<G>::{identity, braid, generator, compose, tensor}` smart constructors on `PropExpr<G>`, arity-checked at construction time. Shipped in catgraph-applied v0.4.0. Structural equality only — the SMC-axiom quotient (interchange, unitors, braiding naturality) is deferred to v0.5.0 alongside Def 5.33. |
-| Def 5.30: G-generated prop expressions | ⚠️ | catgraph-applied::prop::PropExpr | The expression-tree layer of Def 5.30 is realised by `PropExpr<G>` with `Identity`/`Braid`/`Generator`/`Compose`/`Tensor` constructors. The syntactic quotient by SMC axioms is v0.5.0 work. |
-| Rough Def 5.33: presentation (G, s, t, E) for a prop | ❌ | — | no presentation type |
+| Def 5.25: free prop on a signature Free(G) | ✅ | catgraph-applied::prop::Free | `Free<G>::{identity, braid, generator, compose, tensor}` smart constructors on `PropExpr<G>`, arity-checked at construction time. Shipped in catgraph-applied v0.4.0. SMC-axiom quotient (`Presentation::normalize` with 8-rule canonical form) added in v0.5.0. |
+| Def 5.30: G-generated prop expressions | ✅ | catgraph-applied::prop::PropExpr + prop::presentation | `PropExpr<G>` realises the syntactic layer (Identity/Braid/Generator/Compose/Tensor); `Presentation::normalize` applies the 8-rule SMC canonical form (interchange, unitors, braiding naturality). Shipped in catgraph-applied v0.5.0. Note: the quotient uses bounded structural rewriting; Knuth-Bendix completion is v0.5.1 work. |
+| Rough Def 5.33: presentation (G, s, t, E) for a prop | ✅ | catgraph-applied::prop::presentation::Presentation | `Presentation<G>` with `add_equation`, `normalize`, `eq_mod`, `with_depth`. 8-rule SMC canonical form applied first; user-supplied equations then applied left-to-right. Shipped in catgraph-applied v0.5.0. |
 | Remark 5.34: universal property of presentations | ➖ | — | theoretical |
 | Prop 5.29: universal property of Free(G) | ➖ | — | theoretical |
 
@@ -79,19 +79,19 @@
 
 | Item | Status | Location | Notes |
 |---|---|---|---|
-| Def 5.36: rig (semiring) | ➖ | — | catgraph uses `num` traits (Ring, Zero, One) but doesn't define a standalone rig type |
-| Def 5.45: SFG_R = Free(G_R) (signal flow graphs as free prop) | ❌ | — | no signal flow graph implementation |
-| Def 5.50: Mat(R) prop of R-matrices | ❌ | — | no matrix-prop type |
-| Thm 5.53: prop functor S: SFG_R → Mat(R) | ❌ | — | functorial semantics not implemented |
-| Prop 5.54: matrix S(g) describes input→output amplification | ➖ | — | theoretical consequence |
-| Eq 5.52: generator → matrix table (copy, discard, add, zero, scalar) | ❌ | — | Frobenius generators exist in catgraph core but no matrix interpretation functor |
+| Def 5.36: rig (semiring) | ✅ | catgraph-applied::rig | `Rig` trait (blanket impl over `num_traits::{Zero,One}` + Add + Mul) + 4 concrete instances: `BoolRig` (∨,∧), `UnitInterval` ([0,1] Viterbi), `Tropical` ([0,∞], min, +), `F64Rig`. `verify_rig_axioms` + `BaseChange<UnitInterval>` for `Tropical`. Shipped in catgraph-applied v0.5.0. |
+| Def 5.45: SFG_R = Free(G_R) (signal flow graphs as free prop) | ✅ | catgraph-applied::sfg | `SignalFlowGraph<R>` with 5 primitive generators from Eq 5.52 (Copy 1→2, Discard 1→0, Add 2→1, Zero 0→1, Scalar(r) 1→1) plus derived `copy_n`/`discard_n`. Shipped in catgraph-applied v0.5.0. |
+| Def 5.50: Mat(R) prop of R-matrices | ✅ | catgraph-applied::mat | `MatR<R>` pure-rig matrix prop. F&S convention: morphism m→n is m×n matrix. Composable/Monoidal/SymmetricMonoidalMorphism over any `Rig`; block_diagonal tensor. `mat_f64` nalgebra bridge behind opt-in `f64-rig` feature. Shipped in catgraph-applied v0.5.0. |
+| Thm 5.53: prop functor S: SFG_R → Mat(R) | ✅ | catgraph-applied::sfg_to_mat | `sfg_to_mat` structural recursion over `PropExpr<SfgGenerator<R>>`; generator table matches Eq 5.52 exactly. Functoriality (S(f∘g) = S(f)·S(g), S(f⊗g) = S(f)⊕S(g)) verified on all 4 rigs via 13 integration tests. Shipped in catgraph-applied v0.5.0. |
+| Prop 5.54: matrix S(g) describes input→output amplification | ✅ | catgraph-applied::sfg_to_mat (implicit) | Implicitly verified by Thm 5.53 functoriality tests; the generator matrices are exact per Eq 5.52. No standalone test. |
+| Eq 5.52: generator → matrix table (copy, discard, add, zero, scalar) | ✅ | catgraph-applied::sfg_to_mat + tests/sfg_to_mat.rs | All 5 generator matrices verified in integration tests across BoolRig, UnitInterval, Tropical, F64Rig. Shipped in catgraph-applied v0.5.0. |
 
 ### §5.4 Graphical linear algebra (pp. 168–178)
 
 | Item | Status | Location | Notes |
 |---|---|---|---|
-| Thm 5.60: presentation of Mat(R) from Frobenius + rig equations | ❌ | — | no presentation-based Mat(R) |
-| Def 5.65: monoid object in SMC (commutative monoid axioms) | ❌ | — | catgraph has `FrobeniusOperation` (monoid + comonoid) but no standalone `MonoidObject` in general SMC |
+| Thm 5.60: presentation of Mat(R) from Frobenius + rig equations | ⚠️ | catgraph-applied::graphical_linalg | `matr_presentation<R>` builds all 16 equations from F&S p.170 (Groups A cocomonoid, B monoid, C bialgebra, D scalar — D1/D3/D4/D5/D6 instantiated for `rig_samples`). **PARTIAL in v0.5.0**: the 12 faithfulness enumeration tests (4 rigs × 3 depths) are `#[ignore]`'d because `Presentation::normalize` uses bounded structural rewriting without Knuth-Bendix completion, producing false-negative equivalence classes on overlapping D-group scalar equations. The equation set itself is correct and complete; soundness-flavor smoke tests pass. **v0.5.1 will add KB completion and re-enable the faithfulness tests.** |
+| Def 5.65: monoid object in SMC (commutative monoid axioms) | ❌ | — | catgraph has `FrobeniusOperation` (monoid + comonoid) but no standalone `MonoidObject` in general SMC; deferred to v0.6.0+ |
 | Thm 5.87: hypergraph category from linear relations | ➖ | — | LinRel deferred (same as core audit) |
 
 ### §6.2 Colimits and connection (pp. 184–196)
@@ -115,7 +115,7 @@
 | Thm 6.58: free prop on Frobenius ≅ Cospan_FinSet | 🔗 | catgraph::cospan_algebra + hypergraph_functor | `CospanToFrobeniusFunctor` (Prop 3.8 in the research paper) |
 | Def 6.60: hypergraph category | 🔗 | catgraph::hypergraph_category | `HypergraphCategory` trait |
 | Ex 6.61: Cospan_C is a hypergraph category | 🔗 | catgraph::hypergraph_category | `impl HypergraphCategory for Cospan<Lambda>` |
-| Ex 6.64: Corel is a hypergraph category | ❌ | — | `Rel` exists in catgraph::span but `HypergraphCategory` impl for Corel is missing. **Same status as in core audit (Ex 2.15).** |
+| Ex 6.64: Corel is a hypergraph category | ✅ | catgraph::corel | `Corel<Lambda>` type with full `HypergraphCategory<Lambda>` impl shipped in **catgraph v0.12.0**. See [catgraph/CHANGELOG.md](../../catgraph/CHANGELOG.md) for the coarsen-and-compose semantics. |
 | Prop 6.66: hypergraph cats are self-dual compact closed | 🔗 | catgraph::compact_closed | cup/cap from η;δ and μ;ε |
 | Temperley-Lieb as diagrammatic SMC (spider-theorem adjacent) | ✅ | catgraph-applied::temperley_lieb | `BrauerMorphism` composition via connected components + loop counting; TL generators e_i; Frobenius-law-adjacent relations tested (e_i² = δ·e_i, Jones relations) |
 
@@ -159,15 +159,17 @@
 
 ### Major gaps
 
-1. ~~**Props and presentations (§5.2)**~~ — ✅ **Partly closed in catgraph-applied v0.4.0.** `Prop` type and `Free(G)` construction shipped in `catgraph-applied::prop`; `PropExpr<G>` expression trees realise the Def 5.30 syntactic layer. The remaining gap is the *presentation* machinery — equations quotienting `PropExpr<G>` by SMC axioms (Def 5.33) plus user-supplied generator equations. Deferred to v0.5.0 alongside the SFG_R / Mat(R) semantics, which needs the same equation infrastructure.
+1. ~~**Props and presentations (§5.2)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0–v0.5.0.** `Prop` type and `Free(G)` in `catgraph-applied::prop` (v0.4.0); `Presentation<G>` with 8-rule SMC canonical form (v0.5.0, `prop::presentation`). Def 5.30 and Def 5.33 both DONE.
 
-2. **Signal flow graphs and Mat(R) (§5.3–5.4)** — No signal flow graph type, no matrix prop, no functorial semantics S: SFG_R → Mat(R). **Impact:** catgraph cannot demonstrate the textbook's main Ch 5 result — that signal flow diagrams have functorial matrix semantics. This is a significant missing application domain (linear systems, control theory).
+2. ~~**Signal flow graphs and Mat(R) (§5.3–5.4)**~~ — ✅ **CLOSED in catgraph-applied v0.5.0.** `SignalFlowGraph<R>` (Def 5.45), `MatR<R>` (Def 5.50), and `sfg_to_mat` functor (Thm 5.53) all shipped. catgraph can now demonstrate the textbook's main Ch 5 result. Thm 5.60 is PARTIAL — equation set correct, faithfulness enumeration deferred to v0.5.1 KB upgrade.
 
 3. ~~**General decorated cospans (§6.4)**~~ — ✅ **CLOSED in catgraph-applied v0.3.0/v0.3.1.** `Decoration` trait + `DecoratedCospan<Lambda, D>` in `catgraph-applied::decorated_cospan`. `PetriDecoration` specializes to Petri nets; `Circuit` EdgeSet example specializes to resistor circuits. `HypergraphCategory<Lambda>` realized generically (Thm 6.77). `D::pushforward` wired through `Composable::compose` via `Cospan::compose_with_quotient` in v0.3.1; direct `PetriNet::permute_side` added.
 
 4. ~~**Operad algebras (§6.5 Def 6.99)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0.** Single-sorted `OperadAlgebra<O, Input>` trait in `catgraph-applied::operad_algebra`; `CircAlgebra` implementing F&S Ex 6.100 for `WiringDiagram`. Prop 6.101 (Cospan-algebras ≅ hypergraph props) — the operadic side of the equivalence is now expressible; a test-only consolidation of the `≅` remains.
 
 5. ~~**Operad functors (§6.5 Rough Def 6.98)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0.** `OperadFunctor<O1, O2, Input>` trait with concrete `E1ToE2` packaging the canonical little-intervals-into-little-disks inclusion; literal geometric functoriality verified by comparing E₂ disk positions modulo naming.
+
+6. ~~**Corel as hypergraph category (§6.3 Ex 6.64)**~~ — ✅ **CLOSED in catgraph v0.12.0.** `Corel<Lambda>` with `HypergraphCategory<Lambda>` impl shipped in catgraph core.
 
 ### Items intentionally deferred
 
@@ -231,23 +233,41 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 | ~~`OperadAlgebra` type (F: O → Set) + Ex 6.100 Circ~~ | Def 6.99, Ex 6.100 | ✅ v0.4.0 | `catgraph-applied/src/operad_algebra.rs` |
 | ~~`OperadFunctor` type + canonical `E₁ ↪ E₂`~~ | Rough Def 6.98 | ✅ v0.4.0 | `catgraph-applied/src/operad_functor.rs` |
 
-### Tier 3 — lower priority, deferred unless needed
+### Tier 3 — ✅ shipped in catgraph v0.12.0 / catgraph-applied v0.5.0
 
-| Gap | Textbook ref | Effort | Notes |
+| Gap | Textbook ref | Status | Location |
 |---|---|---|---|
-| Signal flow graphs (SFG_R) | Def 5.45 | 2–3 days | Free prop on G_R generators. Requires Prop type from Tier 2. |
-| Mat(R) prop + functorial semantics | Def 5.50, Thm 5.53 | 1–2 days | Matrix prop + S: SFG_R → Mat(R). Requires nalgebra or manual impl. |
-| Presentation type (G, s, t, E) | Def 5.33 | 1 day | Equations on prop expressions. Requires Free(G) from Tier 2. |
-| Graphical linear algebra (Thm 5.60) | §5.4.1 | 2 days | Presentation of Mat(R). Requires both Props and Mat(R). |
-| Corel `HypergraphCategory` impl | Ex 6.64 | 0.5 day | catgraph::span::Rel exists; needs Frobenius structure on Corel |
+| ~~Signal flow graphs (SFG_R)~~ | Def 5.45 | ✅ v0.5.0 | `catgraph-applied/src/sfg.rs` |
+| ~~Mat(R) prop + functorial semantics~~ | Def 5.50, Thm 5.53 | ✅ v0.5.0 | `catgraph-applied/src/mat.rs` + `sfg_to_mat.rs` |
+| ~~Presentation type (G, s, t, E)~~ | Def 5.33 | ✅ v0.5.0 | `catgraph-applied/src/prop/presentation.rs` |
+| Graphical linear algebra (Thm 5.60) | §5.4.1 | ⚠️ PARTIAL v0.5.0 | `catgraph-applied/src/graphical_linalg.rs` — equations complete, faithfulness enumeration `#[ignore]`'d pending KB normalizer |
+| ~~Corel `HypergraphCategory` impl~~ | Ex 6.64 | ✅ v0.12.0 | `catgraph/src/corel.rs` |
+
+### Tier 3.1 — v0.5.1 follow-ups
+
+| Item | Textbook ref | Notes |
+|---|---|---|
+| Thm 5.60 faithfulness enumeration (KB completion) | §5.4.1 | Re-enable the 12 `#[ignore]`'d tests once `Presentation::normalize` uses Knuth-Bendix completion to handle overlapping D-group scalar equations. Flips Thm 5.60 to DONE. |
+| `EnrichedCategory` + Lawvere metric (`UnitInterval` hom-sets) | §1.3–1.4 pedagogical anchor | Pre-work for Phase 6 `catgraph-magnitude`; `Tropical` as `[0,∞]`-enrichment base. |
 
 ---
 
 ## Release history
 
-See [`../CHANGELOG.md`](../CHANGELOG.md) for the per-release scope of this crate, and [`../../catgraph/CHANGELOG.md`](../../catgraph/CHANGELOG.md) for the cross-crate infrastructure (e.g. `Cospan::compose_with_quotient` shipped in catgraph v0.11.3 to unblock v0.3.1 pushforward wiring).
+See [`../CHANGELOG.md`](../CHANGELOG.md) for the per-release scope of this crate, and [`../../catgraph/CHANGELOG.md`](../../catgraph/CHANGELOG.md) for the cross-crate infrastructure (e.g. `Cospan::compose_with_quotient` shipped in catgraph v0.11.3 to unblock v0.3.1 pushforward wiring; `Corel<Lambda>` + `HypergraphCategory` impl shipped in catgraph v0.12.0 to close Ex 6.64).
 
-**Next release candidates:** Tier 3 (SFG_R, Mat(R), Corel, presentation equations) → v0.5.0 (requires `Prop` from Tier 2 ✅ plus an nalgebra dep for Mat(R)).
+| Release | Date | Highlights |
+|---|---|---|
+| v0.1.0 | 2026-04-14 | Initial workspace member; 6 modules moved from catgraph core (petri_net, wiring_diagram, temperley_lieb, linear_combination, e1_operad, e2_operad) |
+| v0.2.0–v0.2.x | 2026-04-16 | Phase 5 audit drafted; rustdoc framing pass (Phase 5.1) |
+| v0.3.0 | 2026-04-17 | Tier 1: DecoratedCospan<F> + HypergraphCategory for PetriNet + spider theorem (catgraph v0.11.2) |
+| v0.3.1 | 2026-04-18 | Tier 1.1: compose_with_quotient + pushforward wiring + PetriNet::permute_side + Transition::relabel |
+| v0.3.2 | 2026-04-19 | W.0 rayon ride-along: CondIterator at 4 call sites |
+| v0.3.3 | 2026-04-19 | W.1 WASM: parallel feature gate + wasm32-wasip1-threads smoke examples |
+| v0.4.0 | 2026-04-20 | Tier 2: Prop + Free(G), OperadAlgebra + CircAlgebra, OperadFunctor + E1ToE2; zero clippy pedantic warnings restored |
+| v0.5.0 | 2026-04-21 | Tier 3: Rig + 4 instances, Presentation<G> with SMC quotient, SignalFlowGraph<R>, MatR<R>, sfg_to_mat functor (Thm 5.53), graphical_linalg (Thm 5.60 PARTIAL), mat_f64 nalgebra bridge; Corel HypergraphCategory in catgraph v0.12.0 |
+
+**Next release candidate:** v0.5.1 — Knuth-Bendix normalizer upgrade (flips Thm 5.60 from PARTIAL to DONE); `EnrichedCategory` + Lawvere metric (UnitInterval, Tropical enrichment bases) as pre-work for Phase 6 `catgraph-magnitude`.
 
 ---
 
@@ -276,7 +296,7 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `category.rs` | implicit | §3.2 Def 3.6 (pedagogical) | HasIdentity, Composable |
 | `finset.rs` | §3.2 Lemma 3.6 | — | Permutation, Decomposition, epi-mono factorization |
 
-### catgraph-applied (v0.1.0) — mixed provenance
+### catgraph-applied (v0.5.0) — mixed provenance
 
 | Module | [FS19] ref | [FS18] ref | Neither paper | Notes |
 |---|---|---|---|---|
@@ -286,6 +306,13 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `linear_combination.rs` | — | §5.3.1 (rig infrastructure) | — | Free R-module R[T]. Provides the coefficient algebra that [FS18] §5.3 presupposes. Not a formal item in either paper — it's algebraic infrastructure. |
 | `e1_operad.rs` | — | §6.5 Rough Def 6.91 | May [May72], Boardman-Vogt [BV73] | Little-intervals operad. [FS18] §6.5 defines operads abstractly; the *specific* E₁ operad is from the algebraic topology literature. |
 | `e2_operad.rs` | — | §6.5 Rough Def 6.91 | May [May72], Boardman-Vogt [BV73] | Little-disks operad. Same: abstract operad definition from [FS18], specific E₂ construction from homotopy theory. |
+| `rig.rs` | — | §5.3.1 Def 5.36 | num_traits (blanket) | `Rig` trait + BoolRig, UnitInterval, Tropical, F64Rig. v0.5.0. |
+| `prop/presentation.rs` | — | §5.2 Def 5.33 | — | `Presentation<G>` with SMC canonical form + user equations. v0.5.0. |
+| `sfg.rs` | — | §5.3 Def 5.45 | — | `SignalFlowGraph<R>` free prop on G_R generators. v0.5.0. |
+| `mat.rs` | — | §5.3 Def 5.50 | — | `MatR<R>` pure-rig matrix prop. v0.5.0. |
+| `sfg_to_mat.rs` | — | §5.3 Thm 5.53 | — | `sfg_to_mat` functor S: SFG_R → Mat(R). v0.5.0. |
+| `graphical_linalg.rs` | — | §5.4 Thm 5.60 | — | `matr_presentation<R>` 16-equation presentation. PARTIAL in v0.5.0. |
+| `mat_f64.rs` (feature `f64-rig`) | — | §5.3 Def 5.50 bridge | nalgebra | `mat_to_nalgebra`/`mat_from_nalgebra` + det + inverse for F64Rig. v0.5.0. |
 
 ### catgraph-physics (v0.2.0) — no F&S provenance
 
