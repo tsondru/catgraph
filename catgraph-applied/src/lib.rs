@@ -40,6 +40,7 @@
 pub(crate) const F32_EPSILON: f32 = 1e-6;
 
 pub mod linear_combination;
+pub mod mat;
 pub mod rig;
 pub mod wiring_diagram;
 pub mod temperley_lieb;
