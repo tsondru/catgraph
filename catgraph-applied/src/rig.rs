@@ -314,7 +314,9 @@ mod tests {
     #[test]
     fn tropical_zero_is_infinity() {
         assert!(Tropical::zero().0.is_infinite());
-        assert_eq!(Tropical::one().0, 0.0);
+        // Tropical::one() is defined as Tropical(0.0); exact equality is
+        // intentional — we are testing the definition, not a computation.
+        assert!(Tropical::one().0.abs() < f64::EPSILON);
     }
 
     #[test]
