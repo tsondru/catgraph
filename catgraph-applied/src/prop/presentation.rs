@@ -91,6 +91,17 @@ impl<G: PropSignature> Presentation<G> {
         Ok(())
     }
 
+    /// Borrow the equation list (LHS-RHS pairs) for external inspection.
+    ///
+    /// Primarily intended for soundness/faithfulness testing: callers can
+    /// iterate every `(lhs, rhs)` pair and assert a chosen semantic
+    /// interpretation (e.g. matrix equality under a functor) holds on every
+    /// equation.
+    #[must_use]
+    pub fn equations(&self) -> &[(PropExpr<G>, PropExpr<G>)] {
+        &self.equations
+    }
+
     /// Normalize `expr` to canonical form under the SMC rules + user equations.
     ///
     /// Termination is always guaranteed by the depth bound; on a cyclic

@@ -196,17 +196,19 @@ impl<G: PropSignature> Monoidal for PropExpr<G> {
 }
 
 impl<G: PropSignature> SymmetricMonoidalMorphism<()> for PropExpr<G> {
+    /// Return a `PropExpr` representing the given permutation on `n` wires.
+    ///
+    /// **WARNING — PLACEHOLDER:** This method returns `Identity(n)` for any
+    /// permutation `p`, which does **NOT** preserve the permutation's action
+    /// on wires. See the function body for the rationale. Callers that need
+    /// a faithful permutation representation should use
+    /// `MatR::permutation_matrix` via the `Mat(R)` prop, which encodes the
+    /// permutation directly as a matrix and bypasses `PropExpr` entirely.
     fn from_permutation(
         p: Permutation,
         types: &[()],
         _types_as_on_domain: bool,
     ) -> Result<Self, CatgraphError> {
-        // A permutation on n points is a morphism n → n in the free prop:
-        // the interpretation is the unique symmetric-braiding composite
-        // realising p. For v0.4.0 we return the identity-braid wrapper,
-        // which is correct only up to the SMC quotient. Callers that need
-        // the explicit braid decomposition should construct it manually;
-        // equality modulo SMC axioms is v0.5.0 work (see module docs).
         let n = types.len();
         if p.len() != n {
             return Err(CatgraphError::Composition {
@@ -216,7 +218,14 @@ impl<G: PropSignature> SymmetricMonoidalMorphism<()> for PropExpr<G> {
                 ),
             });
         }
-        Ok(PropExpr::Braid(0, n))
+        // F&S 2018 does not give a canonical decomposition of arbitrary permutations
+        // into braids of the free prop; a faithful implementation would compute a
+        // Bubblesort-style decomposition using the `permutations` crate's cycle
+        // structure. For v0.5.0 we return Identity(n) — explicitly documenting that
+        // this does NOT preserve the permutation's action. Callers that need faithful
+        // permutation representations should use `MatR::permutation_matrix` directly
+        // via the Mat(R) prop, which bypasses PropExpr entirely.
+        Ok(PropExpr::Identity(n))
     }
 
     fn permute_side(&mut self, p: &Permutation, of_codomain: bool) {

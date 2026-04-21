@@ -152,6 +152,20 @@ impl<R: Rig + std::fmt::Debug + 'static> SignalFlowGraph<R> {
         &self.0
     }
 
+    /// Wrap a `PropExpr` into a `SignalFlowGraph`.
+    ///
+    /// This is the inverse of [`as_prop_expr`](Self::as_prop_expr). Intended
+    /// for soundness tests and for plumbing equation pairs from a
+    /// [`Presentation`](crate::prop::presentation::Presentation) back through
+    /// functors like `sfg_to_mat` that consume `SignalFlowGraph`.
+    ///
+    /// No structural validation is performed — the caller is responsible for
+    /// ensuring the expression is built from `SfgGenerator<R>` primitives.
+    #[must_use]
+    pub fn from_prop_expr(expr: PropExpr<SfgGenerator<R>>) -> Self {
+        Self(expr)
+    }
+
     /// Domain arity (number of input wires).
     #[must_use]
     pub fn domain(&self) -> usize {
@@ -269,6 +283,39 @@ mod tests {
     fn discard_n_4_domain_is_4() {
         let d = discard_n::<F64Rig>(4);
         assert_eq!(d.domain(), 4);
+        assert_eq!(d.codomain(), 0);
+    }
+
+    #[test]
+    fn copy_n_zero_is_discard() {
+        let c = copy_n::<F64Rig>(0).unwrap();
+        // copy_n(0) returns discard, which is 1 → 0.
+        assert_eq!(c.domain(), 1);
+        assert_eq!(c.codomain(), 0);
+    }
+
+    #[test]
+    fn copy_n_one_is_identity() {
+        let c = copy_n::<F64Rig>(1).unwrap();
+        // copy_n(1) returns identity(1), which is 1 → 1.
+        assert_eq!(c.domain(), 1);
+        assert_eq!(c.codomain(), 1);
+    }
+
+    #[test]
+    fn discard_n_zero_is_identity() {
+        let d = discard_n::<F64Rig>(0);
+        // discard_n(0) returns identity(0), which is 0 → 0.
+        assert_eq!(d.domain(), 0);
+        assert_eq!(d.codomain(), 0);
+    }
+
+    #[test]
+    fn discard_n_one_is_discard() {
+        let d = discard_n::<F64Rig>(1);
+        // discard_n(1) = discard ⊗ identity(0) = discard (via SMC quotient),
+        // structurally this is just `discard`. Arity 1 → 0.
+        assert_eq!(d.domain(), 1);
         assert_eq!(d.codomain(), 0);
     }
 }

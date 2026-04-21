@@ -111,6 +111,15 @@ where
     // C4. η ; ε = id_0
     p.add_equation(cmp(zero_gen(), discard()), id_n(0))?;
 
+    // D-group scalar equations: D2 is independent of rig_samples (the unit
+    // scalar is always R::one()); D3-D6 need a single sample `a`; D1 needs two
+    // samples `a, b` with their precomputed product. We emit D2 first (outside
+    // the loop), then iterate the single-sample equations, then close with the
+    // double-sample D1 in the inner loop. The out-of-paper-order of D1 (last
+    // by emission) vs its paper position (first in §5.4) is deliberate for
+    // enumeration efficiency — emitting D1 last puts the most instantiated
+    // equations at the end of the presentation's equation list.
+
     // D2. r_{one} = id_1
     p.add_equation(scalar(R::one()), id_n(1))?;
 
