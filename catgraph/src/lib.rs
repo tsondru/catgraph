@@ -43,6 +43,7 @@ pub mod operadic;
 pub mod finset;
 pub mod frobenius;
 pub mod compact_closed;
+pub mod corel;
 pub mod cospan;
 pub mod cospan_algebra;
 pub mod hypergraph_category;
