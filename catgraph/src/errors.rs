@@ -52,7 +52,7 @@ pub enum CatgraphError {
     #[error("presentation error: {message}")]
     Presentation { message: String },
 
-    /// Signal flow graph → matrix functor (S: SFG_R → Mat(R)) failed.
+    /// Signal flow graph → matrix functor (`S: SFG_R → Mat(R)`) failed.
     #[error("sfg functor error: {message}")]
     SfgFunctor { message: String },
 
