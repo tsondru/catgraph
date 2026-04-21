@@ -48,6 +48,18 @@ pub enum CatgraphError {
     #[error("corelation error: {message}")]
     Corel { message: String },
 
+    /// Prop presentation / term-rewriting failed.
+    #[error("presentation error: {message}")]
+    Presentation { message: String },
+
+    /// Signal flow graph → matrix functor (S: SFG_R → Mat(R)) failed.
+    #[error("sfg functor error: {message}")]
+    SfgFunctor { message: String },
+
+    /// Runtime rig-axiom violation (debug-mode check).
+    #[error("rig axiom violation: {axiom} witness {witness}")]
+    RigAxiomViolation { axiom: &'static str, witness: String },
+
     /// Petri net operation failed (out-of-bounds transition, not enabled, etc.).
     #[error("petri net error: {message}")]
     PetriNet { message: String },
