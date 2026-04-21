@@ -1,6 +1,6 @@
 [package]
 name = "catgraph-applied"
-version = "0.4.0"
+version = "0.5.0"
 description = "Applied category theory extensions for catgraph: Petri nets, E_n operads, Temperley-Lieb, wiring diagrams, linear combinations, props, operad algebras and functors"
 keywords = ["category-theory", "operad", "petri-net", "temperley-lieb", "wiring-diagram"]
 categories = ["mathematics", "science", "data-structures"]

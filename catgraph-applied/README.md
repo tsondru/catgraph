@@ -17,9 +17,15 @@ This crate packages applied-CT modules that build on catgraph's strict Fong-Spiv
 | `linear_combination` | Formal linear combinations over a coefficient ring |
 | `e1_operad` | Little-intervals operad (E₁) |
 | `e2_operad` | Little-disks operad (E₂) |
-| `prop` | Symmetric strict monoidal categories with `Ob = ℕ` and the free prop `Free(G)` on a signature (F&S Def 5.2, Def 5.25; v0.4.0) |
+| `prop` | Symmetric strict monoidal categories with `Ob = ℕ` and the free prop `Free(G)` on a signature (F&S Def 5.2, Def 5.25; v0.4.0); `Presentation<G>` with 8-rule SMC quotient (Def 5.33; v0.5.0) |
 | `operad_algebra` | Single-sorted operad algebras `F : O → Set` with concrete `CircAlgebra` for `WiringDiagram` (F&S Def 6.99, Ex 6.100; v0.4.0) |
 | `operad_functor` | Functors between operads with the canonical `E₁ ↪ E₂` inclusion (F&S Rough Def 6.98; v0.4.0) |
+| `rig` | `Rig` trait (semiring) + `BoolRig`, `UnitInterval`, `Tropical`, `F64Rig` instances (F&S Def 5.36; v0.5.0) |
+| `sfg` | `SignalFlowGraph<R>` — free prop on signal-flow generators (F&S Def 5.45; v0.5.0) |
+| `mat` | `MatR<R>` — pure-rig matrix prop over any `Rig` R (F&S Def 5.50; v0.5.0) |
+| `sfg_to_mat` | `sfg_to_mat` functor `S: SFG_R → Mat(R)` (F&S Thm 5.53; v0.5.0) |
+| `graphical_linalg` | `matr_presentation<R>` — 16-equation Thm 5.60 presentation of Mat(R) (F&S §5.4; v0.5.0, PARTIAL — faithfulness enumeration v0.5.1) |
+| `mat_f64` (feature `f64-rig`) | nalgebra bridge for `MatR<F64Rig>`: determinant, inverse, `DMatrix` roundtrip (v0.5.0) |
 
 ## Dependency on catgraph
 
@@ -33,7 +39,7 @@ Every module depends on catgraph's public API:
 
 ## Paper alignment
 
-See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section Seven Sketches coverage audit (Chapters 4–6, 56 items tracked). Cross-linked from [`../catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
+See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section Seven Sketches coverage audit (Chapters 4–6, 57 items tracked; v0.5.0 headline: 81% of implementable items DONE). Cross-linked from [`../catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
 
 ## Changelog
 

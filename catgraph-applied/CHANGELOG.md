@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 ## [Unreleased]
 
+No in-flight work.
+
 ### Performance candidates (bench-driven, no version target)
 
 Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
@@ -14,6 +16,81 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `walk_tree_prefix` / `walk_tree_postfix` for multiway BFS / confluence-diamond enumeration
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
+
+## [0.5.0] - 2026-04-21
+
+Tier 3 applied-CT closures — F&S *Seven Sketches* Chapter 5 main content:
+the prop presentation machinery, functorial semantics `S: SFG_R → Mat(R)`,
+and the 16-equation Thm 5.60 presentation of Mat(R). Also closes §6.3 Ex 6.64
+(Corel as `HypergraphCategory`) via catgraph v0.12.0 core.
+
+### Added
+
+- `src/rig.rs` — `Rig` trait (F&S Def 5.36) as a blanket impl over
+  `num_traits::{Zero, One}` + `Add` + `Mul`. 4 concrete instances:
+  `BoolRig` (∨, ∧), `UnitInterval` ([0,1] Viterbi semiring; BTV 2021
+  enrichment base), `Tropical` ([0,∞], min, +, ∞, 0; Lawvere metric / magnitude
+  homology base), `F64Rig` (real demo rig). `BaseChange<UnitInterval>` for
+  `Tropical` via `d = −ln π`. `verify_rig_axioms` runtime check returning
+  `CatgraphError::RigAxiomViolation`.
+- `src/prop/presentation.rs` — `Presentation<G>` (F&S Def 5.33) with
+  `add_equation`, `normalize`, `eq_mod`, `with_depth`. 8-rule SMC canonical
+  form applied first (closes Def 5.30 PARTIAL gap); user equations applied
+  left-to-right. Bounded-depth rewriting (default 32); Knuth-Bendix
+  completion is v0.5.1 work.
+- `src/sfg.rs` — `SignalFlowGraph<R>` (F&S Def 5.45). 5 primitive generators
+  from Eq 5.52: Copy 1→2, Discard 1→0, Add 2→1, Zero 0→1, Scalar(r) 1→1.
+  Derived `copy_n` / `discard_n` as iterated compositions.
+- `src/mat.rs` — `MatR<R>` matrix prop (F&S Def 5.50) over any `Rig` R,
+  backed by `Vec<Vec<R>>`. F&S convention: morphism `m → n` is `m × n`.
+  `Composable`, `Monoidal`, `SymmetricMonoidalMorphism` + `block_diagonal`
+  tensor. Works for Tropical, Boolean, and UnitInterval without nalgebra.
+- `src/sfg_to_mat.rs` — `sfg_to_mat` functor `S: SFG_R → Mat(R)` (F&S
+  Thm 5.53). Structural recursion over `PropExpr<SfgGenerator<R>>`; generator
+  matrix table matches Eq 5.52 exactly. Functoriality on all 4 rigs verified
+  via 13 integration tests.
+- `src/graphical_linalg.rs` — `matr_presentation<R>` builds the 16 equations
+  from F&S Thm 5.60 p.170 (Groups A cocomonoid, B monoid, C bialgebra,
+  D scalar). `verify_sfg_to_mat_is_full_and_faithful<R>` enumeration harness.
+- `src/mat_f64.rs` (feature `f64-rig`, opt-in) — nalgebra bridge for
+  `MatR<F64Rig>`: `mat_to_nalgebra` / `mat_from_nalgebra` roundtrip,
+  `determinant`, `try_inverse`.
+- 9 new integration test files + 2 runnable examples (`rig_showcase`,
+  `sfg_to_mat`).
+
+### Changed
+
+- `src/prop.rs` → `src/prop/mod.rs` (directory module) to host the new
+  `presentation` submodule. API unchanged; all v0.4.0 prop tests continue
+  to pass.
+- `PropSignature: Eq` relaxed to `PropSignature: PartialEq` with matching
+  `#[derive(PartialEq)]` on `PropExpr`. Required to use f64-backed rigs
+  (`UnitInterval`, `F64Rig`, `Tropical`) as `Scalar(R)` generator payloads
+  inside `SfgGenerator<R>`. Strict weakening — all existing impls that
+  required `Eq` still compile.
+- catgraph dep bumped to v0.12.0 (for `Corel<Lambda>` + new error variants
+  `Presentation`, `SfgFunctor`, `RigAxiomViolation`).
+
+### Features
+
+- `f64-rig` (opt-in, off by default) — enables the `mat_f64` module and adds
+  a transitive `nalgebra` dep. Non-f64 rig users skip nalgebra entirely.
+
+### Known limitations
+
+- **Thm 5.60 faithfulness enumeration tests `#[ignore]`'d.** The 12
+  `thm_5_60_faithful_*` tests in `tests/graphical_linalg.rs` are marked
+  `#[ignore]` with documented reason: `Presentation::normalize` uses bounded
+  structural rewriting without Knuth-Bendix completion; the D-group scalar
+  equations heavily overlap and produce false-negative equivalence-class
+  splits. The equation set itself is correct — all 16 F&S p.170 equations
+  construct cleanly — and soundness smoke tests pass. Audit §5.4 Thm 5.60
+  is **PARTIAL** in v0.5.0. **v0.5.1 will add KB completion and re-enable
+  the faithfulness tests.**
+
+### Requires
+
+- catgraph v0.12.0 (new error variants + `Corel<Lambda>`).
 
 ## [0.4.0] - 2026-04-20
 
@@ -174,7 +251,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.0...HEAD
+[0.5.0]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...catgraph-applied-v0.5.0
 [0.4.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.4.0
 [0.3.3]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.3
 [0.3.2]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.2
