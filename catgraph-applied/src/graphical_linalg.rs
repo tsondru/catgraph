@@ -200,41 +200,60 @@ where
     // Enumerate expressions up to depth = size_bound.
     let expressions = enumerate_sfg_expressions::<R>(size_bound, rig_samples);
 
-    // Normalize each → group by canonical representative.
-    let mut by_class: std::collections::HashMap<String, Vec<SignalFlowGraph<R>>> =
-        std::collections::HashMap::new();
-    for expr in &expressions {
-        let normalized = presentation.normalize(expr.as_prop_expr())?.expr;
-        let key = format!("{normalized:?}");
-        by_class.entry(key).or_default().push(expr.clone());
-    }
-
-    // For each equivalence class, compute S(representative) → matrix and
-    // group by the matrix. If any matrix key has >1 equivalence class, those
-    // classes are faithfulness-violation witnesses.
+    // Primary bucket = matrix image under S. Within each bucket, two
+    // expressions are a faithfulness-violation witness iff they are NOT
+    // equal modulo the presentation. The v0.5.1 change: within-bucket
+    // partitioning now uses Presentation::eq_mod (which routes through the
+    // default CongruenceClosure engine), replacing the v0.5.0 pattern of
+    // format-string bucketing on normalize() output.
     let mut by_matrix: std::collections::HashMap<String, Vec<SignalFlowGraph<R>>> =
         std::collections::HashMap::new();
-    for reps in by_class.values() {
-        if let Some(first) = reps.first() {
-            let m = sfg_to_mat(first)?;
-            let matrix_key = format!(
-                "{}×{} {:?}",
-                m.rows(),
-                m.cols(),
-                m.entries()
-            );
-            by_matrix.entry(matrix_key).or_default().push(first.clone());
-        }
+    for expr in &expressions {
+        let m = sfg_to_mat(expr)?;
+        let matrix_key = format!("{}×{} {:?}", m.rows(), m.cols(), m.entries());
+        by_matrix.entry(matrix_key).or_default().push(expr.clone());
     }
 
     let mut collisions = 0usize;
     let mut witnesses: Vec<(SignalFlowGraph<R>, SignalFlowGraph<R>)> = Vec::new();
-    for class_reps in by_matrix.values() {
-        if class_reps.len() > 1 {
-            // Faithfulness violation: two distinct equivalence classes mapped
-            // to the same matrix. Record adjacent-pair witnesses to keep the
-            // report size bounded.
-            for w in class_reps.windows(2) {
+
+    for bucket in by_matrix.values() {
+        if bucket.len() < 2 {
+            continue;
+        }
+
+        // Partition the bucket into presentation-equivalence classes via
+        // pairwise eq_mod. `classes[i]` is a representative of the i-th
+        // class; each expression is added to the first class whose
+        // representative it is eq_mod-equal to, or opens a new class.
+        //
+        // eq_mod returns Option<bool>:
+        //   Some(true)  → equal in presentation (same class)
+        //   Some(false) → decisively distinct (different class)
+        //   None        → CC depth bound hit without decision (treated as
+        //                 distinct; this is the conservative choice —
+        //                 reporting a possible witness rather than silently
+        //                 collapsing).
+        let mut classes: Vec<&SignalFlowGraph<R>> = Vec::new();
+        for expr in bucket {
+            let mut matched = false;
+            for rep in &classes {
+                if let Some(true) = presentation.eq_mod(expr.as_prop_expr(), rep.as_prop_expr())? {
+                    matched = true;
+                    break;
+                }
+            }
+            if !matched {
+                classes.push(expr);
+            }
+        }
+
+        if classes.len() > 1 {
+            // Faithfulness violation: multiple presentation-equivalence
+            // classes share a matrix image. Record adjacent-pair witnesses
+            // between the class representatives to keep the report size
+            // bounded.
+            for w in classes.windows(2) {
                 collisions += 1;
                 witnesses.push((w[0].clone(), w[1].clone()));
             }

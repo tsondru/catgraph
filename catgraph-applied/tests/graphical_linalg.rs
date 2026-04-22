@@ -1,36 +1,30 @@
 //! F&S Thm 5.60 faithfulness tests for `S: SFG_R → Mat(R)` on bounded
 //! enumerations of SFG expressions.
 //!
-//! # Status: currently `#[ignore]`'d pending a complete normalizer
+//! # Status
 //!
-//! The 16 equations in [`matr_presentation`] are the correct Thm 5.60
-//! equation set (verified against F&S 2018 p.170). However, the underlying
-//! [`catgraph_applied::prop::presentation::Presentation`] normalizer performs
-//! structural top-level rewriting, not a full congruence closure (Knuth-Bendix
-//! completion is out of scope for v0.5.0 per its module docstring). On bounded
-//! SFG enumerations this yields thousands of false-negative `eq_mod` answers:
-//! expressions that ARE provably equal under the Thm 5.60 equations (and under
-//! S-image matrix equality) fail to reduce to a common normal form.
+//! The 12 `thm_5_60_faithful_*` tests below remain `#[ignore]`'d as of v0.5.1.
 //!
-//! Example (Tropical, depth 2):
+//! **What changed in v0.5.1 (but didn't close the gap):**
+//! - `Presentation::eq_mod` now dispatches to a Knuth-Bendix-grade congruence-
+//!   closure engine by default (see `catgraph_applied::prop::presentation::kb`).
+//!   This correctly decides overlapping user equations — the v0.5.0 limitation
+//!   that originally motivated the `#[ignore]`.
+//! - The faithfulness harness now routes through `eq_mod` (not `normalize`),
+//!   so the CC engine is actually consulted during enumeration.
+//! - SMC Rule 9 (`Identity(m) ⊗ Identity(n) → Identity(m+n)`) was added to
+//!   `apply_smc_rules`.
 //!
-//!   LHS:  `Add ; (Scalar(1) ; Scalar(2))`         — should reduce to `Add ; r_3` via D1
-//!   RHS:  `(r_2 ⊗ r_2) ; (Add ; r_1)`             — should reduce to `Add ; r_3` via D4 + D1
+//! **What still blocks re-enable:**
+//! The SMC pre-pass in `apply_smc_rules` is a one-pass bottom-up rewriter. It
+//! correctly canonicalizes terms where interchange applies at the given
+//! factoring, but cannot re-associate to discover interchange opportunities.
+//! Example witness: `ε ⊗ (σ_{1,1} ⊗ id_1)` vs `(ε ⊗ id_3) ; (σ_{1,1} ⊗ id_1)`
+//! — these are equal by SMC coherence, but distinguishing them requires
+//! rebalancing the outer tensor, re-associating, and then applying
+//! interchange. Closing this requires Joyal-Street string-diagram normal form.
 //!
-//! Both map to the same 2×1 matrix under `S`, but the structural rewriter does
-//! not compose the D-axiom chain through associativity rebalancing.
-//!
-//! The 12 tests below are ignored with a shared rationale. They will flip to
-//! active once either:
-//!
-//! 1. The Presentation normalizer is upgraded to congruence closure (post-v0.5.0), or
-//! 2. A matrix-direct quotient is added (normalize by computing `sfg_to_mat`
-//!    and using matrix equality — defeats the point of verifying the
-//!    presentation is *syntactically* complete, but cheap).
-//!
-//! The module and presentation are correct; the test harness is correct; the
-//! failure surface is the normalizer. See task status for the per-rig witness
-//! evidence. Run via `--ignored` to surface the collision counts.
+//! Scheduled for v0.5.2.
 
 use catgraph_applied::{
     graphical_linalg::{matr_presentation, verify_sfg_to_mat_is_full_and_faithful},
