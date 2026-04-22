@@ -41,6 +41,7 @@ use catgraph::errors::CatgraphError;
 /// v0.5.1 API change: replaces the v0.5.0 `Result<PropExpr<G>>` return type.
 /// See [`Presentation::normalize`] migration notes.
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct NormalizeResult<G: PropSignature> {
     /// The (possibly partial) normalized expression.
     pub expr: PropExpr<G>,
@@ -146,7 +147,13 @@ impl<G: PropSignature> Presentation<G> {
                 return Ok(NormalizeResult {
                     expr: current,
                     converged: true,
-                    steps_taken: step,
+                    // `step` is 0-indexed but a complete iteration (one SMC
+                    // pass + one user-equations pass) runs BEFORE the
+                    // fixpoint check, so the number of iterations performed
+                    // is `step + 1`. Matches the rustdoc contract and the
+                    // depth-bound branch (which returns `self.rewrite_depth`,
+                    // the count of full iterations run).
+                    steps_taken: step + 1,
                 });
             }
             current = after_user;

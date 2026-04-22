@@ -32,13 +32,21 @@ fn normalize_result_converged_on_simple_reduction() {
     let result = p.normalize(&a()).unwrap();
     assert!(result.converged, "simple A→B rewrite should converge");
     assert_eq!(result.expr, b());
-    assert!(result.steps_taken >= 1);
+    // Iteration 1: SMC no-op on A, user equation A→B rewrites A to B. Since
+    // B != A the loop updates current=B and continues. Iteration 2: SMC
+    // no-op on B, user equation A→B doesn't match (lhs=A, term=B), so
+    // after_user == current and the fixpoint check fires. With the
+    // post-increment semantics (`step + 1`), steps_taken = 2.
+    assert_eq!(result.steps_taken, 2);
 }
 
 #[test]
 fn normalize_result_hits_bound_on_cycle() {
-    // A → A;A is a non-terminating expansion (the RHS always has a fresh
-    // leftmost A subterm to rewrite). Must hit the depth bound.
+    // A → A;A grows monotonically (LHS always matches the leftmost A in the
+    // RHS), guaranteeing the depth bound is hit regardless of depth parity.
+    // Contrast A ↔ B, which converges in 1 iteration because
+    // `apply_user_equations` runs both equations sequentially in a single
+    // pass.
     let mut p = Presentation::<G>::with_depth(4);
     let a_then_a = Free::<G>::compose(a(), a()).unwrap();
     p.add_equation(a(), a_then_a).unwrap();
@@ -56,5 +64,7 @@ fn normalize_result_preserves_original_on_zero_equations() {
     let result = p.normalize(&a()).unwrap();
     assert!(result.converged);
     assert_eq!(result.expr, a());
-    assert_eq!(result.steps_taken, 0);
+    // Iteration 1: SMC no-op + empty user-equation list (no-op) → fixpoint
+    // detected immediately. With post-increment semantics, steps_taken = 1.
+    assert_eq!(result.steps_taken, 1);
 }
