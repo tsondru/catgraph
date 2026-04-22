@@ -97,7 +97,7 @@ where
 /// 2015).
 pub struct CongruenceClosure<G>
 where
-    G: PropSignature + Eq + Hash,
+    G: PropSignature,
 {
     /// Canonical term-graph lookup: structural `Node` → `TermId`. Ensures
     /// structurally-identical sub-terms share a single ID on insertion.
@@ -127,7 +127,7 @@ where
 
 impl<G> CongruenceClosure<G>
 where
-    G: PropSignature + Eq + Hash,
+    G: PropSignature,
 {
     /// Build a new engine seeded with the given equations.
     ///

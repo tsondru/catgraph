@@ -9,7 +9,7 @@ use catgraph_applied::prop::{presentation::Presentation, Free, PropExpr, PropSig
 // (the signature trait requires the generator type itself to implement
 // `PropSignature` with its own `source()` / `target()` methods).
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 enum TestGen {
     A,
     B,

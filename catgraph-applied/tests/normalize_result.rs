@@ -3,7 +3,7 @@
 use catgraph_applied::prop::presentation::Presentation;
 use catgraph_applied::prop::{Free, PropExpr, PropSignature};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 enum G {
     A,
     B,

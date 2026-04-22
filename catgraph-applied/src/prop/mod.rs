@@ -43,7 +43,19 @@ use permutations::Permutation;
 /// A signature `(G, s, t)` for a free prop: every generator has a declared
 /// source arity [`PropSignature::source`] and target arity
 /// [`PropSignature::target`], both natural numbers.
-pub trait PropSignature: Clone + PartialEq + std::fmt::Debug {
+///
+/// # v0.5.1 supertrait widening
+///
+/// As of v0.5.1 `PropSignature` requires `Eq + Hash` in addition to
+/// `Clone + PartialEq + Debug`. These bounds are needed by the
+/// [`presentation::kb::CongruenceClosure`] decision procedure, which uses `G`
+/// as a `HashMap` key in its term graph. Migration:
+///
+/// - Derived-`PartialEq` types: add `Eq, Hash` to the `#[derive(...)]`.
+/// - Types containing `f64`: provide manual `Eq` + `Hash` impls via
+///   `to_bits()` for bit-exact hashing (see [`crate::rig::UnitInterval`] /
+///   [`crate::rig::Tropical`] / [`crate::rig::F64Rig`]).
+pub trait PropSignature: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug {
     /// Source arity `s(g) ∈ ℕ`.
     fn source(&self) -> usize;
     /// Target arity `t(g) ∈ ℕ`.
@@ -57,7 +69,7 @@ pub trait PropSignature: Clone + PartialEq + std::fmt::Debug {
 /// in O(height). Smart constructors on [`Free`] produce only well-formed
 /// expressions; raw variant construction is available but callers must
 /// uphold the composition-arity invariant themselves.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PropExpr<G: PropSignature> {
     /// `id_n : n → n`.
     Identity(usize),

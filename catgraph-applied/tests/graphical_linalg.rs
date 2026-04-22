@@ -78,7 +78,7 @@ fn witness_debug<R>(
     report: &catgraph_applied::graphical_linalg::FaithfulnessReport<R>,
 ) -> Option<(String, String)>
 where
-    R: catgraph_applied::rig::Rig + std::fmt::Debug + 'static,
+    R: catgraph_applied::rig::Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     report.witnesses.first().map(|(a, b)| {
         (
@@ -255,7 +255,7 @@ fn thm_5_60_faithful_f64_depth_4() {
 /// completion — deferred to v0.5.1.
 fn assert_soundness_for_rig<R>(rig_samples: &[R]) -> String
 where
-    R: Rig + std::fmt::Debug + 'static,
+    R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     let presentation = matr_presentation::<R>(rig_samples)
         .expect("matr_presentation builds");

@@ -24,6 +24,18 @@
 //! - [`F64Rig`] — plain real rig for `Mat(R)` and `SFG_R` demos.
 //!
 //! `rust_decimal::Decimal` is a rig via the blanket impl automatically.
+//!
+//! # `Eq + Hash` on `f64`-wrapping rigs
+//!
+//! [`UnitInterval`], [`Tropical`], and [`F64Rig`] manually implement `Eq` and
+//! `Hash` via bit-exact `f64::to_bits()`. This is required by the v0.5.1
+//! [`PropSignature`](crate::prop::PropSignature) supertrait widening:
+//! [`SfgGenerator<R>`](crate::sfg::SfgGenerator) now requires `R: Eq + Hash`,
+//! and the [`prop::presentation::kb::CongruenceClosure`](crate::prop::presentation::kb::CongruenceClosure)
+//! term graph uses `SfgGenerator<R>` as a `HashMap` key. NaN caveats inherit
+//! from `PartialEq`: a NaN payload would be non-reflexive; callers should not
+//! construct NaN values in these newtypes (the [`UnitInterval::new`] validator
+//! already rejects them).
 
 use std::ops::{Add, Mul};
 use num::{Zero, One};
@@ -126,6 +138,16 @@ impl Mul for UnitInterval {
     fn mul(self, other: Self) -> Self { UnitInterval(self.0 * other.0) }
 }
 
+// Bit-exact `Eq + Hash` for use as a `HashMap` key in the congruence-closure
+// term graph (v0.5.1 `PropSignature: Eq + Hash` widening). NaN caveats
+// inherit from `PartialEq`; [`UnitInterval::new`] rejects NaN on construction.
+impl Eq for UnitInterval {}
+impl std::hash::Hash for UnitInterval {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+
 /// Tropical (min-plus) semiring over `[0, ∞]`, with `+∞` as the additive
 /// zero and `0` as the multiplicative unit. Represents Lawvere metric-space
 /// distances directly; use as the enrichment base for
@@ -160,6 +182,16 @@ impl Mul for Tropical {
     fn mul(self, other: Self) -> Self { Tropical(self.0 + other.0) }
 }
 
+// Bit-exact `Eq + Hash` for use as a `HashMap` key in the congruence-closure
+// term graph (v0.5.1 `PropSignature: Eq + Hash` widening). NaN caveats
+// inherit from `PartialEq`.
+impl Eq for Tropical {}
+impl std::hash::Hash for Tropical {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+
 /// Plain real rig `(ℝ, 0, 1, +, ·)`.
 ///
 /// Included primarily for `Mat(R)` and `SFG_R` demonstration purposes. Note
@@ -186,6 +218,16 @@ impl Add for F64Rig {
 impl Mul for F64Rig {
     type Output = Self;
     fn mul(self, other: Self) -> Self { F64Rig(self.0 * other.0) }
+}
+
+// Bit-exact `Eq + Hash` for use as a `HashMap` key in the congruence-closure
+// term graph (v0.5.1 `PropSignature: Eq + Hash` widening). NaN caveats
+// inherit from `PartialEq`.
+impl Eq for F64Rig {}
+impl std::hash::Hash for F64Rig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
 }
 
 /// Base-change between rigs: a `From → To` conversion functor.

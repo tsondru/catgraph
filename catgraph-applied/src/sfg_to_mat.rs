@@ -36,13 +36,13 @@ use crate::{
 /// [`PropExpr`] is ill-formed. For values built through the safe
 /// [`SignalFlowGraph`] constructors this cannot occur; the error arm exists
 /// to surface misuse via direct `PropExpr` construction.
-pub fn sfg_to_mat<R: Rig + std::fmt::Debug + 'static>(
+pub fn sfg_to_mat<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(
     sfg: &SignalFlowGraph<R>,
 ) -> Result<MatR<R>, CatgraphError> {
     sfg_to_mat_inner(sfg.as_prop_expr())
 }
 
-fn sfg_to_mat_inner<R: Rig + std::fmt::Debug + 'static>(
+fn sfg_to_mat_inner<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(
     expr: &PropExpr<SfgGenerator<R>>,
 ) -> Result<MatR<R>, CatgraphError> {
     match expr {
@@ -69,7 +69,7 @@ fn sfg_to_mat_inner<R: Rig + std::fmt::Debug + 'static>(
 }
 
 /// Eq 5.52 generator-to-matrix table.
-fn generator_matrix<R: Rig>(g: &SfgGenerator<R>) -> MatR<R> {
+fn generator_matrix<R: Rig + Eq + std::hash::Hash>(g: &SfgGenerator<R>) -> MatR<R> {
     match g {
         // Copy : 1 → 2 → 1×2 [[one, one]]
         SfgGenerator::Copy => MatR::<R>::new(1, 2, vec![vec![R::one(), R::one()]])

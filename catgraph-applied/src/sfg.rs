@@ -15,13 +15,13 @@
 //!
 //! ## Trait-bound story
 //!
-//! `PropSignature` requires `Clone + PartialEq + Debug`. Since the workspace
-//! [`crate::rig::Rig`] trait gives us `Clone + PartialEq + Debug`-inducible
-//! members (though `Rig` itself does not require `Debug`, every concrete
-//! instance has it), [`SfgGenerator<R>`] derives `Clone + Debug` and defines
-//! `PartialEq` structurally via the derive — this compiles for every `R: Rig`
-//! including the `f64`-backed ones (`F64Rig`, `UnitInterval`, `Tropical`) that
-//! cannot impl `Eq`.
+//! As of v0.5.1 [`PropSignature`] requires `Clone + PartialEq + Eq + Hash +
+//! Debug`. [`SfgGenerator<R>`] derives all five uniformly and therefore
+//! requires `R: Rig + Eq + Hash + Debug`. All four shipped rigs
+//! ([`crate::rig::BoolRig`], [`crate::rig::UnitInterval`],
+//! [`crate::rig::Tropical`], [`crate::rig::F64Rig`]) satisfy these — the three
+//! `f64`-wrapping rigs provide manual `Eq + Hash` impls via bit-exact
+//! `to_bits()` (NaN caveats documented on the rig module).
 
 use catgraph::errors::CatgraphError;
 
@@ -33,8 +33,14 @@ use crate::{
 /// The 5 primitive `G_R` generators from F&S Def 5.45 / Eq 5.52.
 ///
 /// Parameterised over the rig `R` so that `Scalar(r)` ranges over `R`-values.
-#[derive(Clone, Debug, PartialEq)]
-pub enum SfgGenerator<R: Rig> {
+///
+/// The `Eq + Hash` bounds on `R` are required (via the v0.5.1 `PropSignature`
+/// widening) by the congruence-closure decision procedure. All four shipped
+/// rig instances — [`crate::rig::BoolRig`], [`crate::rig::UnitInterval`],
+/// [`crate::rig::Tropical`], [`crate::rig::F64Rig`] — satisfy both; the three
+/// `f64`-wrapping rigs provide manual `Eq + Hash` via bit-exact `to_bits()`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SfgGenerator<R: Rig + Eq + std::hash::Hash> {
     /// `Δ : 1 → 2` — duplicate a wire.
     Copy,
     /// `! : 1 → 0` — discard a wire.
@@ -47,7 +53,7 @@ pub enum SfgGenerator<R: Rig> {
     Scalar(R),
 }
 
-impl<R: Rig + std::fmt::Debug + 'static> PropSignature for SfgGenerator<R> {
+impl<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static> PropSignature for SfgGenerator<R> {
     fn source(&self) -> usize {
         match self {
             SfgGenerator::Copy | SfgGenerator::Discard | SfgGenerator::Scalar(_) => 1,
@@ -70,7 +76,7 @@ impl<R: Rig + std::fmt::Debug + 'static> PropSignature for SfgGenerator<R> {
 ///
 /// Primarily a documentation / type-level marker; actual prop operations go
 /// through [`SignalFlowGraph`] and [`Free::<SfgGenerator<R>>`].
-pub struct SfgSignature<R: Rig + std::fmt::Debug + 'static>(std::marker::PhantomData<R>);
+pub struct SfgSignature<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(std::marker::PhantomData<R>);
 
 /// A morphism `m → n` of `SFG_R` — an arity-tracked expression tree over
 /// the 5 primitive generators plus identity / braid / composition / tensor.
@@ -79,9 +85,9 @@ pub struct SfgSignature<R: Rig + std::fmt::Debug + 'static>(std::marker::Phantom
 /// F&S Thm 5.60 quotient (matrix equivalence of signal-flow graphs) is v0.5.x
 /// presentation-layer work.
 #[derive(Clone, Debug)]
-pub struct SignalFlowGraph<R: Rig + std::fmt::Debug + 'static>(PropExpr<SfgGenerator<R>>);
+pub struct SignalFlowGraph<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(PropExpr<SfgGenerator<R>>);
 
-impl<R: Rig + std::fmt::Debug + 'static> SignalFlowGraph<R> {
+impl<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static> SignalFlowGraph<R> {
     /// `Δ : 1 → 2` — the copy generator.
     #[must_use]
     pub fn copy() -> Self {
@@ -187,7 +193,7 @@ impl<R: Rig + std::fmt::Debug + 'static> SignalFlowGraph<R> {
 /// In principle this construction is arity-safe, but it returns
 /// `Result<_, CatgraphError>` to match the composition signature and to
 /// surface any bugs in the recursion.
-pub fn copy_n<R: Rig + std::fmt::Debug + 'static>(
+pub fn copy_n<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(
     n: usize,
 ) -> Result<SignalFlowGraph<R>, CatgraphError> {
     match n {
@@ -204,7 +210,7 @@ pub fn copy_n<R: Rig + std::fmt::Debug + 'static>(
 /// Iterated discard: `discard_n(0) = id(0)`,
 /// `discard_n(n) = discard ⊗ discard_n(n-1)`.
 #[must_use]
-pub fn discard_n<R: Rig + std::fmt::Debug + 'static>(n: usize) -> SignalFlowGraph<R> {
+pub fn discard_n<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static>(n: usize) -> SignalFlowGraph<R> {
     if n == 0 {
         SignalFlowGraph::<R>::identity(0)
     } else {

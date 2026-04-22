@@ -41,7 +41,7 @@ pub fn matr_presentation<R>(
     rig_samples: &[R],
 ) -> Result<Presentation<SfgGenerator<R>>, CatgraphError>
 where
-    R: Rig + std::fmt::Debug + 'static,
+    R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     // Short alias for the generator-parameterised PropExpr type used below.
     type E<R> = PropExpr<SfgGenerator<R>>;
@@ -157,7 +157,7 @@ where
 
 /// Faithfulness-check report for `S: SFG_R → Mat(R)` on a size-bounded sample.
 #[derive(Debug, Clone)]
-pub struct FaithfulnessReport<R: Rig + std::fmt::Debug + 'static> {
+pub struct FaithfulnessReport<R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static> {
     pub size_bound: usize,
     pub expressions_checked: usize,
     pub collisions_under_s: usize,
@@ -193,7 +193,7 @@ pub fn verify_sfg_to_mat_is_full_and_faithful<R>(
     rig_samples: &[R],
 ) -> Result<FaithfulnessReport<R>, CatgraphError>
 where
-    R: Rig + std::fmt::Debug + 'static,
+    R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     let presentation = matr_presentation(rig_samples)?;
 
@@ -256,7 +256,7 @@ fn enumerate_sfg_expressions<R>(
     rig_samples: &[R],
 ) -> Vec<SignalFlowGraph<R>>
 where
-    R: Rig + std::fmt::Debug + 'static,
+    R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     let mut expressions: Vec<SignalFlowGraph<R>> = Vec::new();
 
@@ -302,7 +302,7 @@ where
 
 fn total_arity<R>(sfg: &SignalFlowGraph<R>) -> usize
 where
-    R: Rig + std::fmt::Debug + 'static,
+    R: Rig + std::fmt::Debug + Eq + std::hash::Hash + 'static,
 {
     sfg.domain().max(sfg.codomain())
 }
