@@ -32,6 +32,8 @@
 //! overlapping user equations the rewriter may yield false `eq_mod` negatives
 //! — a conservative answer. Knuth-Bendix completion is out of scope.
 
+pub mod kb;
+
 use super::{PropExpr, PropSignature};
 use catgraph::errors::CatgraphError;
 
