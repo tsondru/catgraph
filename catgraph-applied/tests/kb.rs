@@ -84,3 +84,31 @@ fn cc_overlapping_equations_converge() {
     );
 }
 
+#[test]
+fn cc_handles_deep_tensor_nesting() {
+    // Left-associated 5-fold tensor vs right-associated: structurally different,
+    // NOT equal in congruence closure (which doesn't apply associativity
+    // unless given the equation). Verify cc correctly distinguishes these.
+    let mut cc = CongruenceClosure::<G>::new(&[]);
+    let mut lhs = g(G::A);
+    for _ in 0..4 {
+        lhs = Free::<G>::tensor(lhs, g(G::A));
+    }
+    let inner = Free::<G>::tensor(g(G::A), g(G::A));
+    let mid = Free::<G>::tensor(g(G::A), inner);
+    let rhs = Free::<G>::tensor(g(G::A), mid);
+    // Same shape (5 A's tensored) but structurally different parenthesization
+    // → NOT equal without assoc equation.
+    assert!(!cc.are_equal(&lhs, &rhs));
+}
+
+#[test]
+fn cc_with_assoc_equation_joins_nesting() {
+    // Given (A ⊗ A) ⊗ A = A ⊗ (A ⊗ A), the direct equation holds.
+    let aa = Free::<G>::tensor(g(G::A), g(G::A));
+    let left_3 = Free::<G>::tensor(aa.clone(), g(G::A));
+    let right_3 = Free::<G>::tensor(g(G::A), aa.clone());
+    let mut cc = CongruenceClosure::<G>::new(&[(left_3.clone(), right_3.clone())]);
+    assert!(cc.are_equal(&left_3, &right_3));
+}
+
