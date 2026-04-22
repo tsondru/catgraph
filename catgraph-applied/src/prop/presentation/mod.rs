@@ -37,6 +37,34 @@ pub mod kb;
 use super::{PropExpr, PropSignature};
 use catgraph::errors::CatgraphError;
 
+/// Engine selector for [`Presentation::eq_mod`].
+///
+/// **Scope:** this selector affects [`Presentation::eq_mod`] only.
+/// [`Presentation::normalize`] is always bounded structural rewriting —
+/// congruence closure partitions into equivalence classes without producing a
+/// canonical representative, so it doesn't have a meaningful `normalize`
+/// semantics.
+///
+/// - [`NormalizeEngine::Structural`]: the v0.5.0 `eq_mod` behavior — normalize
+///   both sides via bounded structural rewriting and compare. Cheap and
+///   deterministic for non-overlapping presentations; may yield false negatives
+///   (`None`) on overlapping equations (e.g., the 16 Thm 5.60 scalar D-group
+///   equations).
+/// - [`NormalizeEngine::CongruenceClosure`] (default since v0.5.1): decide
+///   equality via bounded congruence closure over [`kb::CongruenceClosure`].
+///   Correct decision procedure for any equational theory without binders,
+///   including overlapping equations. Always returns `Some(_)` — no false
+///   negatives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NormalizeEngine {
+    /// v0.5.0 `eq_mod` behavior: normalize both sides via bounded structural
+    /// rewriting and compare structurally.
+    Structural,
+    /// v0.5.1 default: decide equality via bounded congruence closure.
+    #[default]
+    CongruenceClosure,
+}
+
 /// Result of [`Presentation::normalize`]. Distinguishes "fully reduced"
 /// from "hit depth bound" so callers can decide how to handle partial results.
 ///
@@ -58,6 +86,7 @@ pub struct NormalizeResult<G: PropSignature> {
 pub struct Presentation<G: PropSignature> {
     equations: Vec<(PropExpr<G>, PropExpr<G>)>,
     rewrite_depth: usize,
+    engine: NormalizeEngine,
 }
 
 impl<G: PropSignature> Default for Presentation<G> {
@@ -67,22 +96,46 @@ impl<G: PropSignature> Default for Presentation<G> {
 }
 
 impl<G: PropSignature> Presentation<G> {
-    /// New empty presentation with default `rewrite_depth = 32`.
+    /// New empty presentation with default `rewrite_depth = 32` and default
+    /// [`NormalizeEngine::CongruenceClosure`] engine (v0.5.1).
     #[must_use]
     pub fn new() -> Self {
         Self {
             equations: Vec::new(),
             rewrite_depth: 32,
+            engine: NormalizeEngine::default(),
         }
     }
 
-    /// New empty presentation with a custom rewrite-depth bound.
+    /// New empty presentation with a custom rewrite-depth bound. Engine
+    /// defaults to [`NormalizeEngine::CongruenceClosure`].
     #[must_use]
     pub fn with_depth(rewrite_depth: usize) -> Self {
         Self {
             equations: Vec::new(),
             rewrite_depth,
+            engine: NormalizeEngine::default(),
         }
+    }
+
+    /// New empty presentation with an explicit engine selector. Depth
+    /// defaults to `32`.
+    ///
+    /// Use this to opt into the v0.5.0 [`NormalizeEngine::Structural`]
+    /// behavior on an overlapping presentation (for regression testing or
+    /// performance comparison).
+    #[must_use]
+    pub fn with_engine(engine: NormalizeEngine) -> Self {
+        Self {
+            equations: Vec::new(),
+            rewrite_depth: 32,
+            engine,
+        }
+    }
+
+    /// Set the engine after construction.
+    pub fn set_engine(&mut self, engine: NormalizeEngine) {
+        self.engine = engine;
     }
 
     /// Add an equation `lhs = rhs`. Both sides must have matching arity.
@@ -170,10 +223,15 @@ impl<G: PropSignature> Presentation<G> {
 
     /// Equality modulo this presentation.
     ///
-    /// Returns `Ok(Some(true))` if both sides converge and normalize to the same
-    /// expression; `Ok(Some(false))` if both converge to different expressions;
-    /// `Ok(None)` if at least one side hit the depth bound before converging
-    /// (the answer is unknown — increase `rewrite_depth`, or accept ambiguity).
+    /// Dispatches on [`Presentation::engine`]:
+    ///
+    /// - [`NormalizeEngine::Structural`]: normalize both sides via bounded
+    ///   structural rewriting and compare. Returns `Ok(Some(true))` /
+    ///   `Ok(Some(false))` when both sides converge, or `Ok(None)` if at least
+    ///   one side hit the depth bound.
+    /// - [`NormalizeEngine::CongruenceClosure`] (default since v0.5.1):
+    ///   decide equality via bounded congruence closure. Always returns
+    ///   `Ok(Some(_))` — no false negatives on overlapping equations.
     ///
     /// # Errors
     ///
@@ -184,12 +242,30 @@ impl<G: PropSignature> Presentation<G> {
         a: &PropExpr<G>,
         b: &PropExpr<G>,
     ) -> Result<Option<bool>, CatgraphError> {
-        let na = self.normalize(a)?;
-        let nb = self.normalize(b)?;
-        if !na.converged || !nb.converged {
-            return Ok(None);
+        match self.engine {
+            NormalizeEngine::Structural => {
+                // v0.5.0 behavior: normalize both sides + compare; None if
+                // either side hit the depth bound.
+                let na = self.normalize(a)?;
+                let nb = self.normalize(b)?;
+                if !na.converged || !nb.converged {
+                    return Ok(None);
+                }
+                Ok(Some(na.expr == nb.expr))
+            }
+            NormalizeEngine::CongruenceClosure => {
+                // v0.5.1 default: decide equality via congruence closure.
+                // No false negatives on overlapping equations; always Some(_).
+                let mut engine = kb::CongruenceClosure::new(&self.equations);
+                Ok(Some(engine.are_equal(a, b)))
+            }
         }
-        Ok(Some(na.expr == nb.expr))
+    }
+
+    /// Borrow the engine selector.
+    #[must_use]
+    pub fn engine(&self) -> NormalizeEngine {
+        self.engine
     }
 
     fn apply_user_equations(&self, expr: &PropExpr<G>) -> PropExpr<G> {

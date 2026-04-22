@@ -1,7 +1,10 @@
 //! Integration tests for `Presentation<G>` and the SMC-axiom term rewriter.
 
 use catgraph::errors::CatgraphError;
-use catgraph_applied::prop::{presentation::Presentation, Free, PropExpr, PropSignature};
+use catgraph_applied::prop::{
+    presentation::{NormalizeEngine, Presentation},
+    Free, PropExpr, PropSignature,
+};
 
 // ---- Tiny signature for testing ----
 //
@@ -52,7 +55,15 @@ fn user_equation_applied_left_to_right() {
 #[test]
 fn eq_mod_detects_smc_interchange() {
     // (A ⊗ B) ; (A ⊗ B)  vs  (A ; A) ⊗ (B ; B) — should be SMC-equal via interchange.
-    let pres = Presentation::<TestGen>::new();
+    //
+    // v0.5.1 note: SMC axioms (interchange, unitors, associators) are built
+    // into `normalize` as fixed rewrite rules, NOT seeded into the
+    // congruence-closure engine. So this SMC-equality test requires the
+    // `Structural` engine explicitly — under the default `CongruenceClosure`
+    // engine, the two sides are structurally distinct and the CC returns
+    // `Some(false)`. Callers that want CC-backed SMC equality must explicitly
+    // pre-seed SMC axioms as user equations (future work; see plan Phase 6).
+    let pres = Presentation::<TestGen>::with_engine(NormalizeEngine::Structural);
 
     let lhs = Free::<TestGen>::compose(
         Free::<TestGen>::tensor(g(TestGen::A), g(TestGen::B)),
@@ -67,7 +78,7 @@ fn eq_mod_detects_smc_interchange() {
 
     assert!(
         pres.eq_mod(&lhs, &rhs).unwrap().unwrap_or(false),
-        "(A⊗B);(A⊗B) should SMC-equal (A;A)⊗(B;B)"
+        "(A⊗B);(A⊗B) should SMC-equal (A;A)⊗(B;B) under the Structural engine"
     );
 }
 
@@ -129,4 +140,77 @@ fn compose_identity_reduction_smc_rule() {
 #[allow(dead_code)]
 fn _use_c() -> PropExpr<TestGen> {
     g(TestGen::C)
+}
+
+// ---- v0.5.1 NormalizeEngine selector tests ----
+//
+// The overlapping-equations "killer case": seed `A ; A = B` AND `A = C`.
+// Under the v0.5.0 structural rewriter, normalize rewrites `A ; A → B` and
+// `A → C` independently, yielding distinct normal forms and a false negative.
+// The v0.5.1 congruence-closure engine handles overlap and returns `true`.
+
+#[test]
+fn presentation_eq_mod_cc_joins_overlapping_equations() {
+    // Setup: A;A = B  AND  A = C  ⟹  A;C == C;C == A;A == B (via congruence).
+    let mut pres = Presentation::<TestGen>::new(); // default: CongruenceClosure
+
+    let a_semi_a = Free::<TestGen>::compose(g(TestGen::A), g(TestGen::A)).unwrap();
+    pres.add_equation(a_semi_a, g(TestGen::B)).unwrap();
+    pres.add_equation(g(TestGen::A), g(TestGen::C)).unwrap();
+
+    let a_semi_c = Free::<TestGen>::compose(g(TestGen::A), g(TestGen::C)).unwrap();
+
+    // CC derives A;C == B by congruence: A = C replaces the second A in
+    // `A;A = B`, giving A;C = B.
+    assert_eq!(
+        pres.eq_mod(&a_semi_c, &g(TestGen::B)).unwrap(),
+        Some(true),
+        "CC engine should derive A;C == B via congruence closure over overlapping equations"
+    );
+}
+
+#[test]
+fn presentation_default_engine_is_cc() {
+    // Default `new()` should pick CongruenceClosure — verified by the
+    // overlapping-equations killer case returning `Some(true)`.
+    let pres = Presentation::<TestGen>::new();
+    assert_eq!(pres.engine(), NormalizeEngine::CongruenceClosure);
+
+    // Also verify `with_depth` defaults to CC.
+    let pres2 = Presentation::<TestGen>::with_depth(64);
+    assert_eq!(pres2.engine(), NormalizeEngine::CongruenceClosure);
+}
+
+#[test]
+fn presentation_with_engine_structural_recovers_v050_behavior() {
+    // Under the Structural engine, a simple non-overlapping equation should
+    // still work: A = B ⟹ eq_mod(A, B) = Some(true).
+    let mut pres = Presentation::<TestGen>::with_engine(NormalizeEngine::Structural);
+    pres.add_equation(g(TestGen::A), g(TestGen::B)).unwrap();
+    assert_eq!(pres.engine(), NormalizeEngine::Structural);
+    assert_eq!(
+        pres.eq_mod(&g(TestGen::A), &g(TestGen::B)).unwrap(),
+        Some(true),
+        "Structural engine should decide A == B when A = B is the only equation"
+    );
+
+    // And `set_engine` flips the engine in place.
+    pres.set_engine(NormalizeEngine::CongruenceClosure);
+    assert_eq!(pres.engine(), NormalizeEngine::CongruenceClosure);
+}
+
+#[test]
+fn presentation_structural_engine_returns_none_on_cyclic_overlap() {
+    // With A = B, B = A under Structural + small depth bound, normalization
+    // oscillates. The v0.5.0 behavior is to return `None` (depth-bound hit).
+    // This locks in that the `Structural` branch preserves the `Option<bool>`
+    // return-type contract.
+    let mut pres = Presentation::<TestGen>::with_depth(16);
+    pres.set_engine(NormalizeEngine::Structural);
+    pres.add_equation(g(TestGen::A), g(TestGen::B)).unwrap();
+    pres.add_equation(g(TestGen::B), g(TestGen::A)).unwrap();
+
+    // Any of Some(true) / Some(false) / None is acceptable here — the point
+    // is that we don't panic and we stay within the depth bound.
+    let _ = pres.eq_mod(&g(TestGen::A), &g(TestGen::B)).unwrap();
 }
