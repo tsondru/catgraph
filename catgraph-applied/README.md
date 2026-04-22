@@ -24,8 +24,27 @@ This crate packages applied-CT modules that build on catgraph's strict Fong-Spiv
 | `sfg` | `SignalFlowGraph<R>` — free prop on signal-flow generators (F&S Def 5.45; v0.5.0) |
 | `mat` | `MatR<R>` — pure-rig matrix prop over any `Rig` R (F&S Def 5.50; v0.5.0) |
 | `sfg_to_mat` | `sfg_to_mat` functor `S: SFG_R → Mat(R)` (F&S Thm 5.53; v0.5.0) |
-| `graphical_linalg` | `matr_presentation<R>` — 16-equation Thm 5.60 presentation of Mat(R) (F&S §5.4; v0.5.0, PARTIAL — faithfulness enumeration v0.5.1) |
+| `graphical_linalg` | `matr_presentation<R>` — 16-equation Thm 5.60 presentation of Mat(R) (F&S §5.4; v0.5.0, PARTIAL — string-diagram normal form deferred to v0.5.2) |
 | `mat_f64` (feature `f64-rig`) | nalgebra bridge for `MatR<F64Rig>`: determinant, inverse, `DMatrix` roundtrip (v0.5.0) |
+| `prop::presentation::kb` | Congruence-closure decision procedure (DST 1980 signature-table variant) — default `eq_mod` backend since v0.5.1 |
+| `enriched` | `EnrichedCategory<V>` trait + `HomMap<O, V>` finite realization (F&S §1.1, §2.4; v0.5.1) |
+| `lawvere_metric` | `LawvereMetricSpace<T>` over `Tropical` — triangle-inequality verifier + `-ln π` embedding from `UnitInterval` (Lawvere 1973; v0.5.1) |
+
+### New in v0.5.1
+
+- `prop::presentation::kb` — congruence-closure decision procedure for
+  `Presentation` (replaces bounded structural rewriting as the default
+  `eq_mod` backend).
+- `enriched::EnrichedCategory<V>` — V-enriched categories over a `Rig`.
+  Object-safe for heterogeneous `dyn` collections.
+- `lawvere_metric::LawvereMetricSpace<T>` — Lawvere metric spaces over
+  `Tropical` with triangle-inequality verification.
+
+**BREAKING:** `Presentation::normalize` / `eq_mod` signatures changed.
+`PropSignature` widened to `Eq + Hash`. See `CHANGELOG.md` for migration.
+
+**Known gap:** Thm 5.60 faithfulness tests remain `#[ignore]`'d pending
+SMC string-diagram normal form (v0.5.2).
 
 ## Dependency on catgraph
 

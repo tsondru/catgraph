@@ -19,7 +19,7 @@
 //!
 //! # Algorithm sketch
 //!
-//! The term graph hash-conses every sub-term to a [`TermId`]. A signature
+//! The term graph hash-conses every sub-term to a `TermId`. A signature
 //! table keyed on `(Tag, root_class(arg_a), root_class(arg_b))` records the
 //! canonical representative of each function-node congruence class. On
 //! `add_term` we probe this table: if a match exists, the new term is

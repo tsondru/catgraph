@@ -17,6 +17,112 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
 
+## [0.5.1] - 2026-04-22
+
+**BREAKING CHANGES in `Presentation` and `PropSignature`** — migration guide below. Ships three independent tracks: the normalizer upgrade (Knuth-Bendix-grade correctness for overlapping equations), SMC Rule 9 (identity-coherence of ⊗), and enrichment infrastructure (Phase 6 prep).
+
+### Added
+
+- `src/prop/presentation/kb.rs` — congruence-closure decision procedure
+  (Downey-Sethi-Tarjan 1980, signature-table variant). Term graph +
+  union-find with path halving + congruence propagation through
+  Compose/Tensor. Complete for finitely-presented equational theories
+  without binders. 10 unit tests in `tests/kb.rs`.
+- `Presentation::with_engine(NormalizeEngine)` + `Presentation::set_engine`
+  — engine selector **for `eq_mod` only** (`normalize` remains structural
+  rewriting regardless of engine). Variants:
+  - `NormalizeEngine::Structural` — v0.5.0 `eq_mod` behavior: normalize both
+    sides and compare. Fast, but returns `None` (unknown) on overlapping
+    equations that exceed the rewrite-depth bound.
+  - `NormalizeEngine::CongruenceClosure` (default since v0.5.1) — decides
+    equality via bounded congruence closure with an SMC-structural pre-pass.
+    No false negatives; correct decision procedure for finitely-presented
+    equational theories without binders.
+- SMC Rule 9 in `apply_smc_rules`: `Identity(m) ⊗ Identity(n) → Identity(m+n)`
+  (identity-coherence of ⊗). Valid SMC axiom missing from v0.5.0's 8 rules.
+- `src/enriched.rs` — `EnrichedCategory<V: Rig>` trait generalizing
+  `Hom(a, b): Set` to `Hom(a, b): V` for any rig V. Concrete
+  `HomMap<O, V>` finite realization. Object-safe (documented in trait
+  rustdoc) for `Box<dyn EnrichedCategory<V, Object = T>>` consumers.
+  References F&S §1.1, §2.4; CTFP Ch 28.
+- `src/lawvere_metric.rs` — `LawvereMetricSpace<T>` over `Tropical`.
+  Triangle-inequality verifier + `-ln π` embedding from `UnitInterval` via
+  `BaseChange`. `EnrichedCategory<Tropical>` impl. References CTFP §28.5,
+  Lawvere 1973.
+
+### Changed
+
+- **BREAKING:** `Presentation::normalize` return type changed from
+  `Result<PropExpr<G>, CatgraphError>` to `Result<NormalizeResult<G>, CatgraphError>`.
+  The new `NormalizeResult<G>` struct exposes `.expr`, `.converged`,
+  `.steps_taken` fields so callers can detect partial results when the
+  rewrite-depth bound is hit.
+- **BREAKING:** `Presentation::eq_mod` return type changed from
+  `Result<bool, CatgraphError>` to `Result<Option<bool>, CatgraphError>`.
+  `None` signals "at least one side hit the rewrite-depth bound before
+  converging — answer unknown".
+- **BREAKING:** `PropSignature` trait now requires `Eq + Hash` in addition
+  to `Clone + PartialEq + Debug`. Required for the HashMap-backed
+  congruence-closure term graph.
+- **BREAKING:** The three f64-wrapping rigs (`UnitInterval`, `Tropical`,
+  `F64Rig`) gained manual `Eq + Hash` impls via `f64::to_bits()`. NaN
+  caveats inherit from `PartialEq` (same as `f64`). Required by the
+  supertrait widening.
+
+### Fixed
+
+- Faithfulness harness (`verify_sfg_to_mat_is_full_and_faithful`) now
+  routes through `Presentation::eq_mod` (not `normalize`), so the new CC
+  engine is actually consulted during enumeration.
+
+### Deferred to v0.5.2
+
+- **Thm 5.60 faithfulness tests remain `#[ignore]`'d.** Investigation during
+  v0.5.1 execution revealed that `apply_smc_rules` (a one-pass bottom-up
+  rewriter) cannot canonicalize interchange-requires-reassociation cases
+  (e.g., `ε ⊗ (σ ⊗ id)` vs `(ε ⊗ id₃); (σ ⊗ id)`). Closing this requires
+  Joyal-Street string-diagram normal form. Audit §5.4 Thm 5.60 stays
+  PARTIAL with a clearer gap characterization.
+
+### Migration guide for v0.5.0 → v0.5.1
+
+```rust
+// v0.5.0 (OLD)
+let normalized: PropExpr<G> = presentation.normalize(&expr)?;
+if presentation.eq_mod(&a, &b)? { ... }
+
+// v0.5.1 (NEW) — explicit (recommended)
+let result = presentation.normalize(&expr)?;
+let normalized: PropExpr<G> = result.expr;
+if !result.converged {
+    // hit the depth bound — handle explicitly
+}
+
+match presentation.eq_mod(&a, &b)? {
+    Some(true) => { /* definitely equal */ }
+    Some(false) => { /* definitely unequal */ }
+    None => { /* hit depth bound — unknown */ }
+}
+
+// v0.5.1 (NEW) — conservative (fastest migration)
+let normalized = presentation.normalize(&expr)?.expr;
+let eq = presentation.eq_mod(&a, &b)?.unwrap_or(false);
+```
+
+`unwrap_or(false)` is conservative — treats "unknown" as "unequal",
+matching v0.5.0's behavior for overlapping equations. But the new default
+CC engine always returns `Some(_)` (never `None`) on bounded user-equation
+sets, so `unwrap_or(false)` only matters if you explicitly opt into
+`Structural`.
+
+For types implementing `PropSignature`: add `Eq + Hash` to the derive.
+For types wrapping `f64`, follow the manual impl pattern in `rig.rs`:
+`impl Eq for T {}` + `impl Hash` via `self.0.to_bits().hash(state)`.
+
+### Requires
+
+- catgraph v0.12.0 (unchanged from v0.5.0).
+
 ## [0.5.0] - 2026-04-21
 
 Tier 3 applied-CT closures — F&S *Seven Sketches* Chapter 5 main content:
@@ -251,7 +357,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.0...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.1...HEAD
+[0.5.1]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.0...catgraph-applied-v0.5.1
 [0.5.0]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...catgraph-applied-v0.5.0
 [0.4.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.4.0
 [0.3.3]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.3.3
