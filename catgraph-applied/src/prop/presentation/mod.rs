@@ -221,6 +221,38 @@ impl<G: PropSignature> Presentation<G> {
         })
     }
 
+    /// SMC-only bounded normalization: apply the 8 fixed SMC-canonical-form
+    /// rules to a fixpoint, **without** applying user equations. Used by the
+    /// CC engine's pre-pass so the congruence-closure graph is fed
+    /// SMC-canonicalized operands and seeded equations without pre-consuming
+    /// the user equations themselves.
+    ///
+    /// Returns `Result` for forward-compatibility (matches `normalize`'s
+    /// signature; future well-formedness checks may fire during rewriting).
+    #[allow(clippy::unnecessary_wraps)]
+    fn normalize_smc_only(
+        &self,
+        expr: &PropExpr<G>,
+    ) -> Result<NormalizeResult<G>, CatgraphError> {
+        let mut current = expr.clone();
+        for step in 0..self.rewrite_depth {
+            let after_smc = apply_smc_rules(&current);
+            if after_smc == current {
+                return Ok(NormalizeResult {
+                    expr: current,
+                    converged: true,
+                    steps_taken: step + 1,
+                });
+            }
+            current = after_smc;
+        }
+        Ok(NormalizeResult {
+            expr: current,
+            converged: false,
+            steps_taken: self.rewrite_depth,
+        })
+    }
+
     /// Equality modulo this presentation.
     ///
     /// Dispatches on [`Presentation::engine`]:
@@ -254,10 +286,68 @@ impl<G: PropSignature> Presentation<G> {
                 Ok(Some(na.expr == nb.expr))
             }
             NormalizeEngine::CongruenceClosure => {
-                // v0.5.1 default: decide equality via congruence closure.
-                // No false negatives on overlapping equations; always Some(_).
-                let mut engine = kb::CongruenceClosure::new(&self.equations);
-                Ok(Some(engine.are_equal(a, b)))
+                // v0.5.1 default: decide equality via congruence closure,
+                // **preceded by SMC-structural canonicalization** on both the
+                // query operands and the seeded equations.
+                //
+                // Why the pre-pass: the CC term graph doesn't natively know the
+                // SMC axioms (interchange, unitors, associators, compose-
+                // identity, braid-involution) — they live in `normalize`'s
+                // fixed rewrite rules, not in the user's equation set. Without
+                // this pre-pass, the v0.5.1 default engine would lose the
+                // SMC-detection capability that v0.5.0 `eq_mod` had via its
+                // structural-rewriter path — which counts as a false negative
+                // in violation of the CC engine's "no false negatives" design
+                // contract.
+                //
+                // What the pre-pass does:
+                // 1. Normalize both query operands structurally.
+                // 2. Normalize both sides of every seeded equation the same
+                //    way, so the CC term graph partitions SMC-equivalent
+                //    terms into the same class root.
+                // 3. If ANY of those normalizations hits the depth bound,
+                //    bail with `Ok(None)` — CC can't give a meaningful answer
+                //    on partial normal forms.
+                //
+                // Why this still delivers Thm 5.60 faithfulness: SMC
+                // normalization only rewrites structure (Compose/Tensor/
+                // Identity/Braid). It never touches scalar-ring contents
+                // (e.g. `SfgGenerator::Scalar(r)`), so the overlapping-
+                // equation decision (the CC engine's whole raison d'être)
+                // still works.
+                //
+                // Perf note (v0.5.2 scope): re-normalizing the entire seed
+                // set on every `eq_mod` call is wasteful. A future release
+                // should cache SMC-normalized equations in `Presentation` at
+                // `add_equation` time.
+                //
+                // Note: we use `normalize_smc_only` here, NOT the full
+                // `normalize`. `normalize` interleaves SMC rules with user-
+                // equation rewriting; pre-applying user equations before
+                // handing the graph to CC would pre-consume them, collapsing
+                // the query into a structural-equality check and defeating
+                // CC's overlapping-equation decision procedure. SMC-only is
+                // the right granularity: canonicalize structure, then let CC
+                // do its equational-closure job on the user equations.
+                let na = self.normalize_smc_only(a)?;
+                let nb = self.normalize_smc_only(b)?;
+                if !na.converged || !nb.converged {
+                    return Ok(None);
+                }
+                let normalized_equations: Vec<(PropExpr<G>, PropExpr<G>)> = {
+                    let mut out = Vec::with_capacity(self.equations.len());
+                    for (lhs, rhs) in &self.equations {
+                        let nl = self.normalize_smc_only(lhs)?;
+                        let nr = self.normalize_smc_only(rhs)?;
+                        if !nl.converged || !nr.converged {
+                            return Ok(None);
+                        }
+                        out.push((nl.expr, nr.expr));
+                    }
+                    out
+                };
+                let mut engine = kb::CongruenceClosure::new(&normalized_equations);
+                Ok(Some(engine.are_equal(&na.expr, &nb.expr)))
             }
         }
     }

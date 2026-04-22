@@ -55,15 +55,7 @@ fn user_equation_applied_left_to_right() {
 #[test]
 fn eq_mod_detects_smc_interchange() {
     // (A ⊗ B) ; (A ⊗ B)  vs  (A ; A) ⊗ (B ; B) — should be SMC-equal via interchange.
-    //
-    // v0.5.1 note: SMC axioms (interchange, unitors, associators) are built
-    // into `normalize` as fixed rewrite rules, NOT seeded into the
-    // congruence-closure engine. So this SMC-equality test requires the
-    // `Structural` engine explicitly — under the default `CongruenceClosure`
-    // engine, the two sides are structurally distinct and the CC returns
-    // `Some(false)`. Callers that want CC-backed SMC equality must explicitly
-    // pre-seed SMC axioms as user equations (future work; see plan Phase 6).
-    let pres = Presentation::<TestGen>::with_engine(NormalizeEngine::Structural);
+    let pres = Presentation::<TestGen>::new();
 
     let lhs = Free::<TestGen>::compose(
         Free::<TestGen>::tensor(g(TestGen::A), g(TestGen::B)),
@@ -78,7 +70,7 @@ fn eq_mod_detects_smc_interchange() {
 
     assert!(
         pres.eq_mod(&lhs, &rhs).unwrap().unwrap_or(false),
-        "(A⊗B);(A⊗B) should SMC-equal (A;A)⊗(B;B) under the Structural engine"
+        "(A⊗B);(A⊗B) should SMC-equal (A;A)⊗(B;B)"
     );
 }
 
@@ -197,6 +189,52 @@ fn presentation_with_engine_structural_recovers_v050_behavior() {
     // And `set_engine` flips the engine in place.
     pres.set_engine(NormalizeEngine::CongruenceClosure);
     assert_eq!(pres.engine(), NormalizeEngine::CongruenceClosure);
+}
+
+#[test]
+fn presentation_cc_handles_both_smc_interchange_and_overlapping_user_equations() {
+    // Subsumption contract: the default CC engine handles SMC-structural
+    // rewrites AND CC overlapping-equation joining in the SAME presentation.
+    //
+    // Setup: seed `A;A = B` and `A = C` (overlapping per Thm 5.60 scalar
+    // D-group pattern — the second A in `A;A = B` overlaps with `A = C`).
+    //
+    // Query: `(A ⊗ Identity(0)) ; C` vs `B`.
+    //
+    // - Pre-pass (SMC structural normalize) on LHS: right unitor rewrites
+    //   `A ⊗ Identity(0)` → `A`, yielding `A ; C`. Under pure CC (no pre-
+    //   pass) the LHS would have been structurally `(A⊗Identity(0));C`,
+    //   which the CC term graph wouldn't unify with any seeded equation
+    //   because neither seed has a tensor node.
+    // - CC on normalized query: the graph contains `A;A = B` and `A = C`.
+    //   Via congruence, `A ; C ≡ C ; C ≡ A ; A ≡ B`. Returns `Some(true)`.
+    //
+    // If this test fails on the default engine, either the SMC pre-pass
+    // didn't run (losing v0.5.0 capability) or the CC engine isn't being
+    // fed the normalized equation graph (losing v0.5.1 capability).
+    let mut pres = Presentation::<TestGen>::new(); // default: CongruenceClosure
+    assert_eq!(pres.engine(), NormalizeEngine::CongruenceClosure);
+
+    let a_semi_a = Free::<TestGen>::compose(g(TestGen::A), g(TestGen::A)).unwrap();
+    pres.add_equation(a_semi_a, g(TestGen::B)).unwrap();
+    pres.add_equation(g(TestGen::A), g(TestGen::C)).unwrap();
+
+    // LHS: (A ⊗ Identity(0)) ; C. Arity: `A ⊗ Identity(0)` is 1→1 (A is 1→1,
+    // Identity(0) is 0→0). C is 1→1. So the compose is well-typed.
+    let lhs = Free::<TestGen>::compose(
+        Free::<TestGen>::tensor(g(TestGen::A), Free::<TestGen>::identity(0)),
+        g(TestGen::C),
+    )
+    .unwrap();
+    let rhs = g(TestGen::B);
+
+    assert_eq!(
+        pres.eq_mod(&lhs, &rhs).unwrap(),
+        Some(true),
+        "default CC engine must subsume BOTH SMC normalization (unitor reduces \
+         A⊗Identity(0) → A) AND CC overlapping-equation joining (A;C ≡ A;A ≡ B \
+         via A=C congruence)"
+    );
 }
 
 #[test]
