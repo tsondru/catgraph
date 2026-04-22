@@ -9,10 +9,10 @@
 //! # Implementation
 //!
 //! Bounded-depth (default 32) term rewriting with:
-//! 1. A fixed set of 8 **SMC-canonical-form rules** applied first (interchange,
+//! 1. A fixed set of 9 **SMC-canonical-form rules** applied first (interchange,
 //!    unitors, associator, compose-identity, compose-associator,
-//!    braid-involution). This closes the F&S Def 5.30 PARTIAL gap (the
-//!    syntactic quotient by SMC axioms is now explicit).
+//!    braid-involution, identity-coherence of ⊗). This closes the F&S Def 5.30
+//!    PARTIAL gap (the syntactic quotient by SMC axioms is now explicit).
 //! 2. User equations `E` applied left-to-right thereafter.
 //!
 //! ## SMC rules
@@ -25,10 +25,12 @@
 //! 6. **Compose-identity (right)**: `f ; Identity(n) → f` when `n` matches `f`'s target.
 //! 7. **Compose-associator (right-bias)**: `(f ; g) ; h → f ; (g ; h)`.
 //! 8. **Braid-involution**: `Braid(m,n) ; Braid(n,m) → Identity(m+n)`.
+//! 9. **Identity-coherence of ⊗** (added v0.5.1):
+//!    `Identity(m) ⊗ Identity(n) → Identity(m+n)`.
 //!
 //! # Confluence
 //!
-//! The 8 fixed rules are confluent on non-overlapping user equations. For
+//! The 9 fixed rules are confluent on non-overlapping user equations. For
 //! overlapping user equations the rewriter may yield false `eq_mod` negatives
 //! — a conservative answer. Knuth-Bendix completion is out of scope.
 
@@ -453,6 +455,17 @@ fn apply_smc_rules<G: PropSignature>(expr: &PropExpr<G>) -> PropExpr<G> {
         // Rule 3: f ⊗ Identity(0) → f
         PropExpr::Tensor(ref f, ref g) if matches!(g.as_ref(), PropExpr::Identity(0)) => {
             apply_smc_rules(f)
+        }
+        // Rule 9 (v0.5.1): Identity(m) ⊗ Identity(n) → Identity(m+n)
+        //                  (identity-coherence of the monoidal product)
+        PropExpr::Tensor(ref f, ref g)
+            if matches!(f.as_ref(), PropExpr::Identity(_))
+                && matches!(g.as_ref(), PropExpr::Identity(_)) =>
+        {
+            if let (PropExpr::Identity(m), PropExpr::Identity(n)) = (f.as_ref(), g.as_ref()) {
+                return PropExpr::Identity(m + n);
+            }
+            PropExpr::Tensor(f.clone(), g.clone())
         }
         // Rule 4: (f ⊗ g) ⊗ h → f ⊗ (g ⊗ h)
         PropExpr::Tensor(ref outer_left, ref outer_right)
