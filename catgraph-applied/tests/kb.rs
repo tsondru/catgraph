@@ -112,3 +112,32 @@ fn cc_with_assoc_equation_joins_nesting() {
     assert!(cc.are_equal(&left_3, &right_3));
 }
 
+#[test]
+fn cc_mixed_compose_tensor_congruence() {
+    // Seed A = B. The test term layers BOTH tags in a single expression:
+    //
+    //   lhs = (A ⊗ C) ; (C ⊗ C)           -- outer Compose, inner Tensor
+    //   rhs = (B ⊗ C) ; (C ⊗ C)
+    //
+    // Arities (all G generators are 1→1):
+    //   A ⊗ C : 2 → 2,  C ⊗ C : 2 → 2,   so (A ⊗ C) ; (C ⊗ C) : 2 → 2.
+    //
+    // For lhs = rhs the engine must propagate A = B congruence through:
+    //   (1) the inner Tensor:   A ⊗ C  =  B ⊗ C     (Tag::Tensor)
+    //   (2) the outer Compose:  (A⊗C);(C⊗C) = (B⊗C);(C⊗C)   (Tag::Compose)
+    //
+    // If propagation were one-tag-only, the assertion would fail.
+    let mut cc = CongruenceClosure::<G>::new(&[(g(G::A), g(G::B))]);
+    let cc_tensor = Free::<G>::tensor(g(G::C), g(G::C)); // 2 → 2
+
+    let ac = Free::<G>::tensor(g(G::A), g(G::C)); // 2 → 2
+    let bc = Free::<G>::tensor(g(G::B), g(G::C)); // 2 → 2
+    let lhs = Free::<G>::compose(ac, cc_tensor.clone()).unwrap();
+    let rhs = Free::<G>::compose(bc, cc_tensor).unwrap();
+
+    assert!(
+        cc.are_equal(&lhs, &rhs),
+        "A = B must propagate through both Tensor and Compose in a mixed term"
+    );
+}
+

@@ -30,9 +30,16 @@
 //!
 //! # Complexity
 //!
-//! Per `are_equal` query: `O((|a| + |b|) · α(n))` for term insertion,
-//! plus an amortized near-linear cost for congruence propagation (each
-//! effective merge reduces the number of equivalence classes by 1).
+//! Per `are_equal` query:
+//! - Term insertion: `O(|a| + |b|)` expected, assuming `O(1)` hash
+//!   operations on the term / signature tables.
+//! - Congruence propagation: amortized `O(n · α(n))` total across all
+//!   merges, where `α` is the inverse-Ackermann function (from union-find
+//!   with path halving).
+//!
+//! With a sorted-pair signature representation (as in the original DST
+//! paper) the `α(n)` bound extends to per-insertion; we trade that for
+//! the average-case simplicity of a hash table.
 //!
 //! # References
 //!
@@ -96,8 +103,9 @@ where
     /// structurally-identical sub-terms share a single ID on insertion.
     nodes: HashMap<Node<G>, TermId>,
     /// Inverse map for each fresh `TermId`: the `Node` it was created from.
-    /// Retained for future debugging / re-extraction hooks.
-    #[allow(dead_code)]
+    /// Read by `propagate` to re-canonicalize a function node's children
+    /// via `find` after a merge has potentially invalidated the IDs
+    /// recorded in the `uses` list.
     reverse: Vec<Node<G>>,
     /// Union-find parent pointers; `parent[i] == i` iff `i` is a class root.
     parent: Vec<TermId>,
@@ -111,7 +119,9 @@ where
     /// to the canonical representative of the corresponding congruence
     /// class. New function nodes probe this table on insertion.
     signatures: HashMap<(Tag, TermId, TermId), TermId>,
-    /// FIFO worklist of pending `(ra, rb)` root pairs awaiting propagation.
+    /// LIFO worklist (stack) of pending `(ra, rb)` root pairs awaiting
+    /// propagation. DST terminates under any worklist order, so a stack
+    /// via `Vec::pop` is fine.
     pending: Vec<(TermId, TermId)>,
 }
 
@@ -151,6 +161,7 @@ where
     /// May extend the term graph with previously unseen sub-terms; after
     /// any such extension, congruence is re-propagated so the returned
     /// verdict is consistent with the seeded theory.
+    #[must_use]
     pub fn are_equal(&mut self, a: &PropExpr<G>, b: &PropExpr<G>) -> bool {
         let a_id = self.add_term(a);
         let b_id = self.add_term(b);
@@ -211,10 +222,13 @@ where
         }
         if let Some(existing) = self.signatures.insert((tag, ra, rb), id) {
             // Signature collision: `existing` already represents the
-            // congruence class of (tag, ra, rb); put it back as canonical
-            // and merge the new id with it.
-            self.signatures.insert((tag, ra, rb), existing);
+            // congruence class of (tag, ra, rb). Merge the two, then
+            // store the *post-merge* canonical root — `merge` links one
+            // root onto the other but the direction is implementation-
+            // defined, so we must re-canonicalize via `find`.
             self.merge(id, existing);
+            let root = self.find(existing);
+            self.signatures.insert((tag, ra, rb), root);
         }
     }
 
@@ -229,19 +243,23 @@ where
     }
 
     /// Merge two classes. If they are already unified this is a no-op.
-    /// Otherwise the smaller-id side is linked to the larger-id side
-    /// (stable ordering keeps tests deterministic) and the pair is queued
-    /// for propagation via [`Self::propagate`].
+    /// Otherwise the first argument's root is linked to the second
+    /// argument's root — ordering is determined by the caller, not by
+    /// ID comparison — and the pair is queued for propagation via
+    /// [`Self::propagate`].
+    ///
+    /// We don't union-by-rank here because per-class uses lists
+    /// dominate cost and aren't tied to the root choice; `propagate`
+    /// is responsible for re-filing uses from the losing root into
+    /// the winning root's list.
     fn merge(&mut self, a: TermId, b: TermId) {
         let ra = self.find(a);
         let rb = self.find(b);
         if ra == rb {
             return;
         }
-        // Link ra → rb (arbitrary direction; we don't union-by-rank here
-        // because the per-class uses list is what dominates cost, and it's
-        // not tied to the root choice). Record the losing-side root so
-        // propagation knows which uses list to walk.
+        // Link ra's root onto rb's root. Record the losing-side root
+        // so propagation knows which uses list to walk.
         self.parent[ra] = rb;
         self.pending.push((ra, rb));
     }
