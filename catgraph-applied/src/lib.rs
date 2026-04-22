@@ -57,3 +57,4 @@ pub mod sfg;
 pub mod sfg_to_mat;
 pub mod graphical_linalg;
 pub mod enriched;
+pub mod lawvere_metric;

@@ -1,10 +1,12 @@
-//! Integration tests for [`catgraph_applied::enriched`].
+//! Integration tests for [`catgraph_applied::enriched`] and
+//! [`catgraph_applied::lawvere_metric`].
 //!
-//! Covers the `EnrichedCategory<V>` trait + `HomMap<O, V>` concrete impl.
-//! Lawvere-metric tests are appended in Task 10.
+//! The `EnrichedCategory<V>` trait + `HomMap<O, V>` concrete impl are covered
+//! first (6 tests); then [`LawvereMetricSpace<T>`] over [`Tropical`] (4 tests).
 
 use catgraph_applied::{
     enriched::{EnrichedCategory, HomMap},
+    lawvere_metric::LawvereMetricSpace,
     rig::{F64Rig, Tropical, UnitInterval},
 };
 
@@ -55,4 +57,61 @@ fn objects_iterator_preserves_order() {
     let hm: HomMap<char, F64Rig> = HomMap::new(vec!['x', 'y', 'z']);
     let collected: Vec<char> = hm.objects().collect();
     assert_eq!(collected, vec!['x', 'y', 'z']);
+}
+
+// ------------------------------------------------------------------
+// LawvereMetricSpace tests
+// ------------------------------------------------------------------
+
+#[test]
+fn lawvere_triangle_inequality_identity_space() {
+    // Every point has d(x, y) = 0. Triangle holds trivially.
+    let objects = vec!['a', 'b', 'c'];
+    let mut m = LawvereMetricSpace::new(objects.clone());
+    for a in &objects {
+        for b in &objects {
+            m.set_distance(*a, *b, Tropical(0.0));
+        }
+    }
+    assert!(m.triangle_inequality_holds());
+}
+
+#[test]
+fn lawvere_triangle_inequality_fails_on_violation() {
+    // Set d(a,c) = 10 but d(a,b) + d(b,c) = 2 + 3 = 5 < 10 — violation.
+    let objects = vec!['a', 'b', 'c'];
+    let mut m = LawvereMetricSpace::new(objects);
+    m.set_distance('a', 'b', Tropical(2.0));
+    m.set_distance('b', 'c', Tropical(3.0));
+    m.set_distance('a', 'c', Tropical(10.0));
+    // Missing distances default to +∞, so many sums will be +∞ (and +∞ is
+    // always ≥ anything), but the specific triple (a, b, c) violates.
+    assert!(!m.triangle_inequality_holds());
+}
+
+#[test]
+fn lawvere_from_unit_interval_roundtrip() {
+    let objects = vec!['a', 'b'];
+    let m = LawvereMetricSpace::<char>::from_unit_interval(objects, |a, b| {
+        if a == b {
+            UnitInterval::new(1.0).unwrap()
+        } else {
+            UnitInterval::new(0.5).unwrap()
+        }
+    });
+    // d(a, a) = -ln(1) = 0.0; d(a, b) = -ln(0.5) ≈ 0.693.
+    assert!((m.distance(&'a', &'a').0 - 0.0).abs() < 1e-9);
+    assert!((m.distance(&'a', &'b').0 - (-0.5_f64.ln())).abs() < 1e-9);
+}
+
+#[test]
+fn lawvere_enriched_category_impl() {
+    // Verify LawvereMetricSpace implements EnrichedCategory<Tropical>
+    // and delegates `hom` to `distance`.
+    let objects = vec!['a', 'b'];
+    let mut m = LawvereMetricSpace::new(objects);
+    m.set_distance('a', 'b', Tropical(2.5));
+    // hom via trait
+    let d = EnrichedCategory::<Tropical>::hom(&m, &'a', &'b');
+    assert_eq!(d, Tropical(2.5));
 }
