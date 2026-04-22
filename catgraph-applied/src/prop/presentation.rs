@@ -35,6 +35,21 @@
 use super::{PropExpr, PropSignature};
 use catgraph::errors::CatgraphError;
 
+/// Result of [`Presentation::normalize`]. Distinguishes "fully reduced"
+/// from "hit depth bound" so callers can decide how to handle partial results.
+///
+/// v0.5.1 API change: replaces the v0.5.0 `Result<PropExpr<G>>` return type.
+/// See [`Presentation::normalize`] migration notes.
+#[derive(Debug, Clone)]
+pub struct NormalizeResult<G: PropSignature> {
+    /// The (possibly partial) normalized expression.
+    pub expr: PropExpr<G>,
+    /// `true` iff normalization reached a fixpoint before the depth bound.
+    pub converged: bool,
+    /// Number of rewrite iterations performed (≤ `rewrite_depth`).
+    pub steps_taken: usize,
+}
+
 /// A presentation of a prop: generators `G` with arity maps plus equations `E`.
 #[derive(Debug, Clone)]
 pub struct Presentation<G: PropSignature> {
@@ -108,35 +123,64 @@ impl<G: PropSignature> Presentation<G> {
     /// equation set the result is whichever representative was reached when
     /// the bound was hit.
     ///
+    /// Returns a [`NormalizeResult`] exposing `.expr` (the possibly-partial
+    /// normalized expression), `.converged` (`true` iff a fixpoint was reached
+    /// before the depth bound), and `.steps_taken` (the number of rewrite
+    /// iterations performed).
+    ///
+    /// v0.5.1 API change: previously returned `Result<PropExpr<G>, _>`.
+    /// Callers that only need the expression can write
+    /// `p.normalize(&e)?.expr`.
+    ///
     /// # Errors
     ///
     /// Currently infallible, but returns [`CatgraphError::Presentation`] for
     /// forward-compatibility (future well-formedness checks may fire during
     /// rewriting).
-    pub fn normalize(&self, expr: &PropExpr<G>) -> Result<PropExpr<G>, CatgraphError> {
+    pub fn normalize(&self, expr: &PropExpr<G>) -> Result<NormalizeResult<G>, CatgraphError> {
         let mut current = expr.clone();
-        for _ in 0..self.rewrite_depth {
+        for step in 0..self.rewrite_depth {
             let after_smc = apply_smc_rules(&current);
             let after_user = self.apply_user_equations(&after_smc);
             if after_user == current {
-                return Ok(current);
+                return Ok(NormalizeResult {
+                    expr: current,
+                    converged: true,
+                    steps_taken: step,
+                });
             }
             current = after_user;
         }
         // Depth bound reached; return whatever we have.
-        Ok(current)
+        Ok(NormalizeResult {
+            expr: current,
+            converged: false,
+            steps_taken: self.rewrite_depth,
+        })
     }
 
     /// Equality modulo this presentation.
     ///
+    /// Returns `Ok(Some(true))` if both sides converge and normalize to the same
+    /// expression; `Ok(Some(false))` if both converge to different expressions;
+    /// `Ok(None)` if at least one side hit the depth bound before converging
+    /// (the answer is unknown — increase `rewrite_depth`, or accept ambiguity).
+    ///
     /// # Errors
     ///
-    /// Returns [`CatgraphError::Presentation`] if normalization fails for
-    /// either side (currently unreachable; future-proofing).
-    pub fn eq_mod(&self, a: &PropExpr<G>, b: &PropExpr<G>) -> Result<bool, CatgraphError> {
+    /// Returns [`CatgraphError::Presentation`] if normalization fails for either
+    /// side (currently unreachable; future-proofing).
+    pub fn eq_mod(
+        &self,
+        a: &PropExpr<G>,
+        b: &PropExpr<G>,
+    ) -> Result<Option<bool>, CatgraphError> {
         let na = self.normalize(a)?;
         let nb = self.normalize(b)?;
-        Ok(na == nb)
+        if !na.converged || !nb.converged {
+            return Ok(None);
+        }
+        Ok(Some(na.expr == nb.expr))
     }
 
     fn apply_user_equations(&self, expr: &PropExpr<G>) -> PropExpr<G> {
@@ -304,7 +348,7 @@ impl<G: PropSignature> PresentedProp<G> {
     pub fn quotient_representative(
         &self,
         expr: &PropExpr<G>,
-    ) -> Result<PropExpr<G>, CatgraphError> {
+    ) -> Result<NormalizeResult<G>, CatgraphError> {
         self.presentation.normalize(expr)
     }
 }

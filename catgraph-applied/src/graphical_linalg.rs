@@ -204,7 +204,7 @@ where
     let mut by_class: std::collections::HashMap<String, Vec<SignalFlowGraph<R>>> =
         std::collections::HashMap::new();
     for expr in &expressions {
-        let normalized = presentation.normalize(expr.as_prop_expr())?;
+        let normalized = presentation.normalize(expr.as_prop_expr())?.expr;
         let key = format!("{normalized:?}");
         by_class.entry(key).or_default().push(expr.clone());
     }
