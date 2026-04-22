@@ -56,3 +56,4 @@ pub mod operad_functor;
 pub mod sfg;
 pub mod sfg_to_mat;
 pub mod graphical_linalg;
+pub mod enriched;
