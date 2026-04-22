@@ -58,7 +58,7 @@ Every module depends on catgraph's public API:
 
 ## Paper alignment
 
-See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section Seven Sketches coverage audit (Chapters 4–6, 57 items tracked; v0.5.0 headline: 81% of implementable items DONE). Cross-linked from [`../catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
+See [`docs/SEVEN-SKETCHES-AUDIT.md`](docs/SEVEN-SKETCHES-AUDIT.md) for the section-by-section Seven Sketches coverage audit (Chapters 4–6, 60 items tracked; v0.5.1 headline: 83% of implementable items DONE). Cross-linked from [`../catgraph/docs/FONG-SPIVAK-AUDIT.md`](../catgraph/docs/FONG-SPIVAK-AUDIT.md) "Reconciliation" section.
 
 ## Changelog
 

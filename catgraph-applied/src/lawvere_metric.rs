@@ -110,6 +110,17 @@ impl<T: Clone + Eq + Hash> LawvereMetricSpace<T> {
     /// Probabilities of `0` become `+∞` (unreachable); probabilities of `1`
     /// become `0` (self-identity distance).
     ///
+    /// # Caller obligations
+    ///
+    /// To satisfy the Lawvere metric identity axiom (`d(x, x) = 0`), the
+    /// caller must ensure `prob(x, x) = UnitInterval::new(1.0).unwrap()` for
+    /// every object `x`. This constructor does not enforce the axiom — a
+    /// closure that returns `prob(x, x) < 1.0` produces a structure where
+    /// `d(x, x) > 0`, silently violating the axiom.
+    /// [`triangle_inequality_holds`](Self::triangle_inequality_holds) checks
+    /// only the triangle inequality; callers that want identity-axiom
+    /// validation must assert it separately.
+    ///
     /// # Iteration order
     ///
     /// The constructor iterates `objects × objects` in the `Vec<T>` order,

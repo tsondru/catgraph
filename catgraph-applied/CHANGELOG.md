@@ -1,3 +1,6 @@
+<!-- markdownlint-disable MD024 -->
+<!-- MD024 (no-duplicate-heading) disabled: Keep a Changelog intentionally
+     reuses `### Added`, `### Changed`, `### Fixed`, etc. across releases. -->
 # Changelog
 
 All notable changes to this crate are documented in this file.

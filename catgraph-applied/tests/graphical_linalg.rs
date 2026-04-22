@@ -64,9 +64,11 @@ fn matr_presentation_builds_unit_interval() {
 }
 
 const IGNORE_REASON: &str =
-    "Thm 5.60 syntactic faithfulness: Presentation normalizer is structural, not full \
-     congruence closure; yields false-negative eq_mod. Reactivate when KB-completion \
-     or a matrix-backed quotient is wired up.";
+    "Thm 5.60 syntactic faithfulness: `apply_smc_rules` is a one-pass bottom-up \
+     rewriter that cannot canonicalize interchange-requires-reassociation cases \
+     (e.g., `ε ⊗ (σ ⊗ id)` vs `(ε ⊗ id₃) ; (σ ⊗ id)`). v0.5.1 added the CC \
+     engine + harness rewrite; closing this gap requires Joyal-Street \
+     string-diagram normal form in `apply_smc_rules`. Scheduled for v0.5.2.";
 
 fn witness_debug<R>(
     report: &catgraph_applied::graphical_linalg::FaithfulnessReport<R>,
