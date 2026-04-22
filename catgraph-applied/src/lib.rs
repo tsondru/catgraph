@@ -22,6 +22,11 @@
 //!   (F&S Def 6.99, Ex 6.100; v0.4.0)
 //! - [`operad_functor`] — functors between operads with the canonical
 //!   `E₁ ↪ E₂` inclusion (F&S Rough Def 6.98; v0.4.0)
+//! - [`enriched`] — `EnrichedCategory<V>` trait + `HomMap<O, V>` concrete impl
+//!   (F&S §2.4, CTFP Ch 28; v0.5.1)
+//! - [`lawvere_metric`] — `LawvereMetricSpace<T>` over `Tropical` with triangle
+//!   inequality verifier + `-ln π` embedding from `UnitInterval`
+//!   (Lawvere 1973, BTV 2021; v0.5.1)
 //!
 //! ## Relationship to catgraph
 //!

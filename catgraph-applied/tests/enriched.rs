@@ -115,3 +115,57 @@ fn lawvere_enriched_category_impl() {
     let d = EnrichedCategory::<Tropical>::hom(&m, &'a', &'b');
     assert_eq!(d, Tropical(2.5));
 }
+
+// ------------------------------------------------------------------
+// Trait-contract test: compose_hom override path
+// ------------------------------------------------------------------
+
+/// A hom-table that overrides `compose_hom` to use `V::one()` regardless of the
+/// stored hom values — verifies the default-override path is wired correctly.
+/// Not semantically meaningful; this is a trait-contract test fixture.
+struct IdentityCompose<O, V>
+where
+    O: Clone + Eq + std::hash::Hash,
+    V: catgraph_applied::rig::Rig,
+{
+    inner: HomMap<O, V>,
+}
+
+impl<O, V> EnrichedCategory<V> for IdentityCompose<O, V>
+where
+    O: Clone + Eq + std::hash::Hash + 'static,
+    V: catgraph_applied::rig::Rig + 'static,
+{
+    type Object = O;
+
+    fn hom(&self, a: &Self::Object, b: &Self::Object) -> V {
+        self.inner.hom(a, b)
+    }
+
+    // Override — ignore stored homs, always return the rig identity. The
+    // unused `_a/_b/_c` params document the signature shape; the point of
+    // this fixture is exactly that they are ignored.
+    #[allow(clippy::used_underscore_binding)]
+    fn compose_hom(
+        &self,
+        _a: &Self::Object,
+        _b: &Self::Object,
+        _c: &Self::Object,
+    ) -> V {
+        V::one()
+    }
+
+    fn objects(&self) -> Box<dyn Iterator<Item = Self::Object> + '_> {
+        self.inner.objects()
+    }
+}
+
+#[test]
+fn compose_hom_override_wins_over_default() {
+    let mut inner = HomMap::<char, F64Rig>::new(vec!['a', 'b', 'c']);
+    inner.set_hom('a', 'b', F64Rig(2.0));
+    inner.set_hom('b', 'c', F64Rig(3.0));
+    let ec = IdentityCompose { inner };
+    // Default would return 2.0 * 3.0 = 6.0; the override always returns 1.0.
+    assert_eq!(ec.compose_hom(&'a', &'b', &'c'), F64Rig(1.0));
+}

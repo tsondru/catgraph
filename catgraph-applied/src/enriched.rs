@@ -36,6 +36,25 @@ use crate::rig::Rig;
 ///   implementations may override for specialised semantics (e.g. over
 ///   [`crate::rig::Tropical`] this coincides with real addition of
 ///   distances — shortest-path semantics).
+///
+/// # Object safety
+///
+/// This trait IS object-safe. Callers may use `Box<dyn EnrichedCategory<V, Object = T>>`
+/// (specifying both the `V: Rig` parameter and the `Object` associated type at the
+/// `dyn` site). The associated type constraint is required because trait objects
+/// erase the concrete `Self`, so `Self::Object` needs a binding to be nameable:
+///
+/// ```rust,ignore
+/// use catgraph_applied::enriched::{EnrichedCategory, HomMap};
+/// use catgraph_applied::rig::Tropical;
+///
+/// let boxed: Box<dyn EnrichedCategory<Tropical, Object = char>>
+///     = Box::new(HomMap::new(vec!['a', 'b']));
+/// let _d = boxed.hom(&'a', &'b');
+/// ```
+///
+/// This is important for Phase 6 `catgraph-magnitude` consumers that may hold
+/// heterogeneous collections of enriched categories.
 pub trait EnrichedCategory<V: Rig> {
     /// Objects of the enriched category.
     type Object: Clone + Eq + Hash;
