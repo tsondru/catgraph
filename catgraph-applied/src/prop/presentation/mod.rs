@@ -34,10 +34,13 @@
 //! overlapping user equations the rewriter may yield false `eq_mod` negatives
 //! — a conservative answer. Knuth-Bendix completion is out of scope.
 
+pub mod functorial;
 pub mod kb;
+pub mod smc_nf;
 
 use super::{PropExpr, PropSignature};
 use catgraph::errors::CatgraphError;
+use functorial::CompleteFunctor;
 
 /// Engine selector for [`Presentation::eq_mod`].
 ///
@@ -223,8 +226,10 @@ impl<G: PropSignature> Presentation<G> {
         })
     }
 
-    /// SMC-only bounded normalization: apply the 8 fixed SMC-canonical-form
-    /// rules to a fixpoint, **without** applying user equations. Used by the
+    /// SMC-only bounded normalization: apply the 9 fixed SMC-canonical-form
+    /// rules (including Rule 9 — identity-coherence of ⊗ `Identity(m) ⊗
+    /// Identity(n) → Identity(m+n)`, added v0.5.1) to a fixpoint, **without**
+    /// applying user equations. Used by the
     /// CC engine's pre-pass so the congruence-closure graph is fed
     /// SMC-canonicalized operands and seeded equations without pre-consuming
     /// the user equations themselves.
@@ -288,49 +293,30 @@ impl<G: PropSignature> Presentation<G> {
                 Ok(Some(na.expr == nb.expr))
             }
             NormalizeEngine::CongruenceClosure => {
-                // v0.5.1 default: decide equality via congruence closure,
-                // **preceded by SMC-structural canonicalization** on both the
-                // query operands and the seeded equations.
+                // v0.5.2 hybrid: check Layer-1 NF structural equality FIRST,
+                // then fall back to v0.5.1's CC engine with the old
+                // `normalize_smc_only` pre-pass.
                 //
-                // Why the pre-pass: the CC term graph doesn't natively know the
-                // SMC axioms (interchange, unitors, associators, compose-
-                // identity, braid-involution) — they live in `normalize`'s
-                // fixed rewrite rules, not in the user's equation set. Without
-                // this pre-pass, the v0.5.1 default engine would lose the
-                // SMC-detection capability that v0.5.0 `eq_mod` had via its
-                // structural-rewriter path — which counts as a false negative
-                // in violation of the CC engine's "no false negatives" design
-                // contract.
+                // Why the hybrid:
+                // - The NF is exact for SMC coherence (associator, unitor,
+                //   interchange, braid-naturality, σ²=id) and catches those
+                //   equalities without consulting user equations.
+                // - The CC engine handles user-equation congruence (e.g., the
+                //   16 Thm 5.60 equations) but doesn't know SMC axioms.
+                // - Replacing CC's pre-pass entirely with NF was tried and
+                //   regressed the faithfulness-test collision counts at
+                //   BoolRig d2 (2574 → 3763) because NF reshapes seeded-
+                //   equation LHS/RHS into forms CC's structural hash no
+                //   longer matches the query against.
+                // - The union (NF OR CC) captures both capabilities without
+                //   the reshaping problem.
                 //
-                // What the pre-pass does:
-                // 1. Normalize both query operands structurally.
-                // 2. Normalize both sides of every seeded equation the same
-                //    way, so the CC term graph partitions SMC-equivalent
-                //    terms into the same class root.
-                // 3. If ANY of those normalizations hits the depth bound,
-                //    bail with `Ok(None)` — CC can't give a meaningful answer
-                //    on partial normal forms.
-                //
-                // Why this still delivers Thm 5.60 faithfulness: SMC
-                // normalization only rewrites structure (Compose/Tensor/
-                // Identity/Braid). It never touches scalar-ring contents
-                // (e.g. `SfgGenerator::Scalar(r)`), so the overlapping-
-                // equation decision (the CC engine's whole raison d'être)
-                // still works.
-                //
-                // Perf note (v0.5.2 scope): re-normalizing the entire seed
-                // set on every `eq_mod` call is wasteful. A future release
-                // should cache SMC-normalized equations in `Presentation` at
-                // `add_equation` time.
-                //
-                // Note: we use `normalize_smc_only` here, NOT the full
-                // `normalize`. `normalize` interleaves SMC rules with user-
-                // equation rewriting; pre-applying user equations before
-                // handing the graph to CC would pre-consume them, collapsing
-                // the query into a structural-equality check and defeating
-                // CC's overlapping-equation decision procedure. SMC-only is
-                // the right granularity: canonicalize structure, then let CC
-                // do its equational-closure job on the user equations.
+                // Perf note: the NF check is cheap (no equation enumeration)
+                // and short-circuits a large fraction of queries.
+                if smc_nf::nf(a) == smc_nf::nf(b) {
+                    return Ok(Some(true));
+                }
+                // Fall back to v0.5.1's CC engine with SMC pre-pass.
                 let na = self.normalize_smc_only(a)?;
                 let nb = self.normalize_smc_only(b)?;
                 if !na.converged || !nb.converged {
@@ -360,6 +346,50 @@ impl<G: PropSignature> Presentation<G> {
         self.engine
     }
 
+    /// Decide equality using a semantic functor `f : Free(G) → T` that is
+    /// *complete* on this presentation.
+    ///
+    /// For any [`CompleteFunctor`] `f`, the test is `f(a) == f(b)` in the
+    /// functor's target type. The decision is always definite
+    /// (`Ok(Some(_))`) — there is no depth bound, no syntactic rewriting,
+    /// no false negatives. Completeness is an external claim carried by
+    /// the functor implementation (see [`CompleteFunctor`] rustdoc).
+    ///
+    /// # Example — Thm 5.60 Mat(R) via [`functorial::MatrixNFFunctor`]
+    ///
+    /// `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)` (Baez-Erbele 2015 / F&S Thm 5.60).
+    /// Two signal-flow graphs are equivalent under the 17 Thm 5.60
+    /// equations iff their matrix images are equal:
+    ///
+    /// ```ignore
+    /// let f = MatrixNFFunctor::<BoolRig>::new();
+    /// assert_eq!(pres.eq_mod_functorial(&a, &b, &f)?, Some(true));
+    /// ```
+    ///
+    /// Complements [`Self::eq_mod`], which uses the syntactic
+    /// [`NormalizeEngine::CongruenceClosure`] default and may return
+    /// `None` or `Some(false)` where the functorial engine would return
+    /// `Some(true)` (CC is sound but syntactically incomplete on
+    /// overlapping equation sets).
+    ///
+    /// # Errors
+    ///
+    /// Propagates [`CatgraphError`] from `f.apply` if either input
+    /// expression is ill-formed.
+    pub fn eq_mod_functorial<F>(
+        &self,
+        a: &PropExpr<G>,
+        b: &PropExpr<G>,
+        f: &F,
+    ) -> Result<Option<bool>, CatgraphError>
+    where
+        F: CompleteFunctor<G>,
+    {
+        let fa = f.apply(a)?;
+        let fb = f.apply(b)?;
+        Ok(Some(fa == fb))
+    }
+
     fn apply_user_equations(&self, expr: &PropExpr<G>) -> PropExpr<G> {
         let mut current = expr.clone();
         for (lhs, rhs) in &self.equations {
@@ -369,7 +399,7 @@ impl<G: PropSignature> Presentation<G> {
     }
 }
 
-/// Apply the 8 fixed SMC-axiom rules once bottom-up, recursing into Compose/Tensor.
+/// Apply the 9 fixed SMC-axiom rules once bottom-up, recursing into Compose/Tensor.
 fn apply_smc_rules<G: PropSignature>(expr: &PropExpr<G>) -> PropExpr<G> {
     // First, recurse into children (bottom-up).
     let expr = match expr {

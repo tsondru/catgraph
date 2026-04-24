@@ -88,12 +88,13 @@ impl<T: Clone + Eq + Hash> LawvereMetricSpace<T> {
                     let dxy = self.distance(x, y);
                     let dyz = self.distance(y, z);
                     let dxz = self.distance(x, z);
-                    // Tropical multiplication = real addition — this is the
-                    // defining property of the (min, +) semiring.
+                    // Tropical multiplication is real addition (the (min, +)
+                    // semiring's multiplicative op), so `sum.0 = dxy.0 + dyz.0`.
                     let sum = dxy * dyz;
-                    // The metric inequality `d(x,z) ≤ d(x,y) + d(y,z)` is
-                    // ordinary `≤` on the underlying `f64`, not the rig's
-                    // `min` order.
+                    // The triangle inequality `d(x,z) ≤ d(x,y) + d(y,z)` is
+                    // the ordinary `≤` on `[0, ∞]`, i.e. ordering on the
+                    // underlying `f64` — distinct from the rig's additive
+                    // order (which is `min`, not `≤`).
                     if dxz.0 > sum.0 {
                         return false;
                     }

@@ -54,6 +54,36 @@ use std::hash::Hash;
 
 use super::super::{PropExpr, PropSignature};
 
+/// Kind ordinal for atom-canonical preference (lowest wins). Used by
+/// [`CongruenceClosure::atom_canonical`] to bias toward identity/braid
+/// atoms when surfacing a class's atom representative. Kinds 3 and 4
+/// (`Compose`, `Tensor`) correspond to composites and are skipped by the
+/// scan.
+fn node_kind<G: PropSignature>(node: &Node<G>) -> u8 {
+    match node {
+        Node::Identity(_) => 0,
+        Node::Braid(_, _) => 1,
+        Node::Generator(_) => 2,
+        Node::Compose(_, _) => 3,
+        Node::Tensor(_, _) => 4,
+    }
+}
+
+/// Lift an atom [`Node`] (one of `Identity`, `Braid`, `Generator`) to the
+/// equivalent [`PropExpr`]. Panics on composite kinds — callers guarantee
+/// atom-only input by filtering in [`CongruenceClosure::atom_canonical`].
+fn atom_node_to_expr<G: PropSignature>(node: Node<G>) -> PropExpr<G> {
+    match node {
+        Node::Identity(n) => PropExpr::Identity(n),
+        Node::Braid(m, n) => PropExpr::Braid(m, n),
+        Node::Generator(g) => PropExpr::Generator(g),
+        Node::Compose(_, _) | Node::Tensor(_, _) => {
+            unreachable!("atom_node_to_expr called on composite node")
+        }
+    }
+}
+
+
 /// Internal term ID — dense index into the term graph.
 type TermId = usize;
 
@@ -132,7 +162,9 @@ where
     /// Build a new engine seeded with the given equations.
     ///
     /// Each equation's LHS and RHS are inserted into the term graph and
-    /// their classes merged. Congruence is then propagated to fixpoint.
+    /// their classes merged. Congruence is then propagated to fixpoint,
+    /// interleaved with post-merge SMC normalization (the internal
+    /// `propagate_fixpoint` method).
     #[must_use]
     pub fn new(equations: &[(PropExpr<G>, PropExpr<G>)]) -> Self {
         let mut engine = Self {
@@ -152,7 +184,7 @@ where
         for (l, r) in seed_pairs {
             engine.merge(l, r);
         }
-        engine.propagate();
+        engine.propagate_fixpoint();
         engine
     }
 
@@ -165,7 +197,7 @@ where
     pub fn are_equal(&mut self, a: &PropExpr<G>, b: &PropExpr<G>) -> bool {
         let a_id = self.add_term(a);
         let b_id = self.add_term(b);
-        self.propagate();
+        self.propagate_fixpoint();
         self.find(a_id) == self.find(b_id)
     }
 
@@ -213,6 +245,7 @@ where
     /// Register a freshly-inserted function node in its children's uses
     /// lists and in the signature table. If the signature collides with an
     /// existing class representative, enqueue a merge.
+    #[allow(clippy::similar_names)] // `ra`/`rb`/`ra_post`/`rb_post` are an intentional paired naming for the pre-merge and post-merge versions of the children's class roots; renaming away the similarity harms readability.
     fn install_function_node(&mut self, id: TermId, a: TermId, b: TermId, tag: Tag) {
         let ra = self.find(a);
         let rb = self.find(b);
@@ -226,9 +259,18 @@ where
             // store the *post-merge* canonical root — `merge` links one
             // root onto the other but the direction is implementation-
             // defined, so we must re-canonicalize via `find`.
+            //
+            // Defensive: re-canonicalize the key via `find(a) / find(b)`
+            // in addition to the value. Today `merge(id, existing)` only
+            // unions `{id, existing}` — it cannot shift the children's
+            // roots `ra`/`rb`, so the key is invariant. Recomputing it
+            // anyway means any future refactor that moves merges into
+            // `install_function_node` (or that reorders the recursion)
+            // cannot silently leak a stale signature key past this point.
             self.merge(id, existing);
-            let root = self.find(existing);
-            self.signatures.insert((tag, ra, rb), root);
+            let (ra_post, rb_post, root_post) =
+                (self.find(a), self.find(b), self.find(existing));
+            self.signatures.insert((tag, ra_post, rb_post), root_post);
         }
     }
 
@@ -262,6 +304,169 @@ where
         // so propagation knows which uses list to walk.
         self.parent[ra] = rb;
         self.pending.push((ra, rb));
+    }
+
+    /// Drive congruence propagation interleaved with post-merge SMC
+    /// normalization to fixpoint.
+    ///
+    /// Each iteration does a full [`Self::propagate`] drain (congruence
+    /// closure) followed by a [`Self::smc_refine`] pass (SMC string-diagram
+    /// normal form applied to each term under class-canonical substitution).
+    /// The loop terminates when `smc_refine` reports no new merges.
+    ///
+    /// # Why this is needed
+    ///
+    /// User equations may merge classes whose members are SMC-atoms (e.g.,
+    /// `Scalar(R::one())` and `Identity(1)`). After such a merge, terms like
+    /// `Tensor(Identity(3), Scalar(1))` are congruent to
+    /// `Tensor(Identity(3), Identity(1))` — but the latter is not congruent
+    /// to `Identity(4)` without the infinite family of SMC Rule 9 rewrites
+    /// (`Identity(m) ⊗ Identity(n) = Identity(m+n)`). Calling [`smc_nf::nf`]
+    /// on each term using class-canonical subterms surfaces exactly these
+    /// post-merge opportunities without seeding an infinite equation set.
+    ///
+    /// # Termination
+    ///
+    /// Each effective [`Self::smc_refine`] pass strictly decreases the number
+    /// of equivalence classes (every merge added reduces class count by 1);
+    /// the class count is bounded below by 1, so the loop terminates after
+    /// finitely many iterations. The `SAFETY_BOUND` is a defense-in-depth
+    /// guard — in practice never reached on the 16 Thm 5.60 equations.
+    fn propagate_fixpoint(&mut self) {
+        const SAFETY_BOUND: usize = 64;
+        for _ in 0..SAFETY_BOUND {
+            self.propagate();
+            if !self.smc_refine() {
+                return;
+            }
+        }
+        // Safety bound exhausted — finish pending propagation and return.
+        // An infinite loop here would indicate a bug in smc_refine (it
+        // should strictly reduce class count per iteration).
+        self.propagate();
+    }
+
+    /// Post-merge SMC refinement pass.
+    ///
+    /// For each currently-existing term, rebuild its [`PropExpr`] using
+    /// *atom-canonical* substitutions (see [`Self::atom_canonical`]) at
+    /// every sub-term position whose class contains any atom, run
+    /// [`smc_nf::nf`] on the result, fold back via
+    /// [`smc_nf::from_string_diagram`], and merge the NF into the term's
+    /// class if it differs.
+    ///
+    /// Returns `true` iff any new merge was performed. Callers drive a
+    /// fixpoint loop over this and [`Self::propagate`] via
+    /// [`Self::propagate_fixpoint`].
+    ///
+    /// # Why atom-only substitution
+    ///
+    /// The natural alternative — substitute each child's full class-canonical
+    /// representative — produces exponentially large `PropExpr` trees when
+    /// composite canonicals themselves reference other composite classes,
+    /// which then trigger stack overflow in the downstream [`Self::add_term`]
+    /// recursion. Atom-only substitution stays O(|term|) and captures the
+    /// essential post-merge SMC refinement case: atomic equivalences like
+    /// `Scalar(R::one()) ≡ Identity(1)` (D2 in the 16 F&S Thm 5.60 equations)
+    /// that enable SMC Rule 9 (`Identity(m) ⊗ Identity(n) → Identity(m+n)`)
+    /// to fire on the enclosing `Tensor`.
+    ///
+    /// Composite-↔-composite equivalences are handled by plain congruence
+    /// propagation on the term graph via [`Self::propagate`]; they don't
+    /// need re-NF passes.
+    fn smc_refine(&mut self) -> bool {
+        let term_count = self.reverse.len();
+        let mut pairs: Vec<(TermId, PropExpr<G>)> = Vec::with_capacity(term_count);
+
+        for id in 0..term_count {
+            let canon_expr = self.term_to_canonical_expr(id);
+            let nf_sd = super::smc_nf::nf(&canon_expr);
+            let nf_expr = super::smc_nf::from_string_diagram(&nf_sd);
+            if nf_expr != canon_expr {
+                pairs.push((id, nf_expr));
+            }
+        }
+
+        let mut progress = false;
+        for (id, nf_expr) in pairs {
+            let new_id = self.add_term(&nf_expr);
+            // `add_term` may have auto-merged `new_id` into an existing class
+            // via signature-table collision; check the post-insertion classes
+            // to decide whether we need to enqueue an additional merge.
+            if self.find(id) != self.find(new_id) {
+                self.merge(id, new_id);
+                progress = true;
+            }
+        }
+
+        progress
+    }
+
+    /// Rebuild a [`PropExpr`] for `id`, substituting an *atom-canonical*
+    /// representative (see [`Self::atom_canonical`]) at every sub-term
+    /// position whose class contains any atom — including at composite
+    /// (`Compose`/`Tensor`) positions, because a composite like
+    /// `Compose(Discard, Zero)` may belong to a class that also contains an
+    /// atom like `Scalar(R::zero())` (a direct equation in Thm 5.60). Such
+    /// atom-for-composite substitution is the key mechanism for exposing
+    /// post-merge SMC Rule 9 opportunities on the enclosing `Tensor`/`Compose`.
+    ///
+    /// # Size bound
+    ///
+    /// Substitution only ever *shrinks* the tree — an atom replaces a
+    /// composite. Recursion happens only when no atom is available in the
+    /// class, and then descends into strictly-smaller child [`TermId`]s.
+    /// Output size is bounded by the input term's size, avoiding the
+    /// composite-canonical exponential blow-up.
+    fn term_to_canonical_expr(&mut self, id: TermId) -> PropExpr<G> {
+        // Try atom-for-anything substitution first. This covers both
+        // atom-kind nodes (natural case) and composite nodes whose class
+        // also contains an atom (D2-style equations). Only recurse into
+        // child Compose/Tensor structure when no atom representative
+        // exists for this class.
+        if let Some(atom_node) = self.atom_canonical(id) {
+            return atom_node_to_expr(atom_node);
+        }
+        let node = self.reverse[id].clone();
+        match node {
+            Node::Identity(n) => PropExpr::Identity(n),
+            Node::Braid(m, n) => PropExpr::Braid(m, n),
+            Node::Generator(g) => PropExpr::Generator(g),
+            Node::Compose(a, b) => {
+                let a_expr = self.term_to_canonical_expr(a);
+                let b_expr = self.term_to_canonical_expr(b);
+                PropExpr::Compose(Box::new(a_expr), Box::new(b_expr))
+            }
+            Node::Tensor(a, b) => {
+                let a_expr = self.term_to_canonical_expr(a);
+                let b_expr = self.term_to_canonical_expr(b);
+                PropExpr::Tensor(Box::new(a_expr), Box::new(b_expr))
+            }
+        }
+    }
+
+    /// Scan `id`'s union-find class for any atom member (`Identity`, `Braid`,
+    /// or `Generator`). Returns the preferred atom (lowest-kind, smallest
+    /// [`TermId`]) if one exists, else `None`. Composite members (`Compose`,
+    /// `Tensor`) are ignored — see [`Self::term_to_canonical_expr`] for
+    /// rationale.
+    fn atom_canonical(&mut self, id: TermId) -> Option<Node<G>> {
+        let root = self.find(id);
+        let mut best: Option<(u8, TermId)> = None;
+        for candidate in 0..self.reverse.len() {
+            let kind = node_kind(&self.reverse[candidate]);
+            if kind >= 3 {
+                continue; // Compose / Tensor — not an atom.
+            }
+            if self.find(candidate) != root {
+                continue;
+            }
+            let key = (kind, candidate);
+            if best.is_none_or(|b| key < b) {
+                best = Some(key);
+            }
+        }
+        best.map(|(_, idx)| self.reverse[idx].clone())
     }
 
     /// Drain the pending worklist, re-probing the signature table for

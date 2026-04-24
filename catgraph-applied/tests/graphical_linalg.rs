@@ -1,30 +1,51 @@
-//! F&S Thm 5.60 faithfulness tests for `S: SFG_R → Mat(R)` on bounded
-//! enumerations of SFG expressions.
+//! CC completeness tracking for `S: SFG_R → Mat(R)` on bounded enumerations.
 //!
-//! # Status
+//! # What these tests actually measure (name clarification, v0.5.2)
 //!
-//! The 12 `thm_5_60_faithful_*` tests below remain `#[ignore]`'d as of v0.5.1.
+//! The 12 `cc_completeness_tracking_*` tests below are **NOT** Thm 5.60
+//! faithfulness tests — that theorem is already proved abstractly by
+//! Baez-Erbele 2015 (`Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)`, with `sfg_to_mat`
+//! realising the isomorphism). We do not need to verify an established
+//! theorem; this suite predates that reframing and was mis-named in v0.5.0.
 //!
-//! **What changed in v0.5.1 (but didn't close the gap):**
-//! - `Presentation::eq_mod` now dispatches to a Knuth-Bendix-grade congruence-
-//!   closure engine by default (see `catgraph_applied::prop::presentation::kb`).
-//!   This correctly decides overlapping user equations — the v0.5.0 limitation
-//!   that originally motivated the `#[ignore]`.
-//! - The faithfulness harness now routes through `eq_mod` (not `normalize`),
-//!   so the CC engine is actually consulted during enumeration.
-//! - SMC Rule 9 (`Identity(m) ⊗ Identity(n) → Identity(m+n)`) was added to
-//!   `apply_smc_rules`.
+//! What the harness actually does: it enumerates SFG expressions up to
+//! bounded depth, buckets them by `Presentation::eq_mod` under the 17 Thm
+//! 5.60 equations, then checks that every bucket maps to a single matrix
+//! under `sfg_to_mat`. A "collision" is a pair of expressions CC decides
+//! are `eq_mod`-distinct that the matrix functor identifies — i.e., a
+//! witness of the default [`CongruenceClosure`] engine's syntactic
+//! incompleteness relative to the complete semantic engine
+//! `NormalizeEngine::Functorial(MatrixNFFunctor)` (added v0.5.2).
 //!
-//! **What still blocks re-enable:**
-//! The SMC pre-pass in `apply_smc_rules` is a one-pass bottom-up rewriter. It
-//! correctly canonicalizes terms where interchange applies at the given
-//! factoring, but cannot re-associate to discover interchange opportunities.
-//! Example witness: `ε ⊗ (σ_{1,1} ⊗ id_1)` vs `(ε ⊗ id_3) ; (σ_{1,1} ⊗ id_1)`
-//! — these are equal by SMC coherence, but distinguishing them requires
-//! rebalancing the outer tensor, re-associating, and then applying
-//! interchange. Closing this requires Joyal-Street string-diagram normal form.
+//! # Why the gap can't close under plain CC
 //!
-//! Scheduled for v0.5.2.
+//! Residual collisions all exhibit the same structural pattern: derivation
+//! chains requiring intermediate composite terms not present in the CC
+//! term graph. Plain congruence closure (with or without `smc_refine`)
+//! closes under sub-term-closure of seeded/queried terms but cannot
+//! synthesize fresh composite intermediates. Closing the gap requires
+//! either:
+//! - **Knuth-Bendix completion** of the 17 equations modulo SMC coherence
+//!   (v0.5.3+ research; 1-3 weeks if confluence terminates).
+//! - **The Functorial engine**: [`Presentation::eq_mod_functorial`] with
+//!   [`MatrixNFFunctor<R>`] — complete by theorem for Mat(R), ships in v0.5.2.
+//!
+//! v0.5.2 Option A (atom-canonical `smc_refine` in the kb.rs fixpoint) cut
+//! `BoolRig` d=2 collisions 2574 → 1433 (~44%) but can't reach zero — see
+//! `.claude/plans/2026-04-23-v0.5.2-revised-scope.md` §2.
+//!
+//! # Why keep these tests `#[ignore]`'d
+//!
+//! They are diagnostic, not a release gate. `Mag(a) = Mag(b)` (v0.5.2
+//! semantic equality) is already achievable via
+//! [`Presentation::eq_mod_functorial(&a, &b, &MatrixNFFunctor::new())`].
+//! The tests stay `#[ignore]`'d to bound CC incompleteness as engine work
+//! progresses; a zero-collision run would mean either KB has completed
+//! (v0.5.3+ Branch A) or an unexpected CC improvement has landed.
+//!
+//! [`CongruenceClosure`]: catgraph_applied::prop::presentation::NormalizeEngine::CongruenceClosure
+//! [`MatrixNFFunctor<R>`]: catgraph_applied::prop::presentation::functorial::MatrixNFFunctor
+//! [`Presentation::eq_mod_functorial`]: catgraph_applied::prop::presentation::Presentation::eq_mod_functorial
 
 use catgraph_applied::{
     graphical_linalg::{matr_presentation, verify_sfg_to_mat_is_full_and_faithful},
@@ -63,12 +84,20 @@ fn matr_presentation_builds_unit_interval() {
     matr_presentation::<UnitInterval>(&samples).unwrap();
 }
 
-const IGNORE_REASON: &str =
-    "Thm 5.60 syntactic faithfulness: `apply_smc_rules` is a one-pass bottom-up \
-     rewriter that cannot canonicalize interchange-requires-reassociation cases \
-     (e.g., `ε ⊗ (σ ⊗ id)` vs `(ε ⊗ id₃) ; (σ ⊗ id)`). v0.5.1 added the CC \
-     engine + harness rewrite; closing this gap requires Joyal-Street \
-     string-diagram normal form in `apply_smc_rules`. Scheduled for v0.5.2.";
+const IGNORE_REASON: &str = "\
+    CC completeness tracking (NOT a Thm 5.60 faithfulness test): Baez-Erbele \
+    2015 proved `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)` abstractly — we do not need to \
+    empirically verify the theorem. These tests bound the incompleteness of \
+    the default `NormalizeEngine::CongruenceClosure` engine against the \
+    matrix ground truth on bounded-depth enumeration. v0.5.2 Option A \
+    (atom-canonical `smc_refine` in kb.rs) reduces BoolRig d=2 collisions \
+    2574 → 1433 (~44%). Closing the remaining gap requires either \
+    Knuth-Bendix completion of the 17 equations modulo SMC coherence \
+    (v0.5.3+ research), or use of `Presentation::eq_mod_functorial` with \
+    `MatrixNFFunctor` for an operationally complete Mat(R) decision \
+    procedure (v0.5.2 ships this as opt-in). These tests stay `#[ignore]`'d \
+    as diagnostic, not as a release gate.\
+";
 
 fn witness_debug<R>(
     report: &catgraph_applied::graphical_linalg::FaithfulnessReport<R>,
@@ -87,8 +116,8 @@ where
 // ---- BoolRig × {2, 3, 4} ----
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_bool_depth_2() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_bool_depth_2() {
     let samples = vec![BoolRig(false), BoolRig(true)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<BoolRig>(2, &samples).unwrap();
     assert_eq!(
@@ -101,16 +130,16 @@ fn thm_5_60_faithful_bool_depth_2() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_bool_depth_3() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_bool_depth_3() {
     let samples = vec![BoolRig(false), BoolRig(true)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<BoolRig>(3, &samples).unwrap();
     assert_eq!(report.collisions_under_s, 0);
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_bool_depth_4() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_bool_depth_4() {
     let samples = vec![BoolRig(false), BoolRig(true)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<BoolRig>(4, &samples).unwrap();
     assert_eq!(report.collisions_under_s, 0);
@@ -119,8 +148,8 @@ fn thm_5_60_faithful_bool_depth_4() {
 // ---- UnitInterval × {2, 3, 4} ----
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_unit_interval_depth_2() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_unit_interval_depth_2() {
     let samples = vec![
         UnitInterval::new(0.0).unwrap(),
         UnitInterval::new(0.5).unwrap(),
@@ -137,8 +166,8 @@ fn thm_5_60_faithful_unit_interval_depth_2() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_unit_interval_depth_3() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_unit_interval_depth_3() {
     let samples = vec![
         UnitInterval::new(0.0).unwrap(),
         UnitInterval::new(0.5).unwrap(),
@@ -150,8 +179,8 @@ fn thm_5_60_faithful_unit_interval_depth_3() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_unit_interval_depth_4() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_unit_interval_depth_4() {
     let samples = vec![
         UnitInterval::new(0.0).unwrap(),
         UnitInterval::new(0.5).unwrap(),
@@ -165,8 +194,8 @@ fn thm_5_60_faithful_unit_interval_depth_4() {
 // ---- Tropical × {2, 3, 4} ----
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_tropical_depth_2() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_tropical_depth_2() {
     let samples = vec![
         Tropical(f64::INFINITY),
         Tropical(0.0),
@@ -184,8 +213,8 @@ fn thm_5_60_faithful_tropical_depth_2() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_tropical_depth_3() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_tropical_depth_3() {
     let samples = vec![
         Tropical(f64::INFINITY),
         Tropical(0.0),
@@ -198,8 +227,8 @@ fn thm_5_60_faithful_tropical_depth_3() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_tropical_depth_4() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_tropical_depth_4() {
     let samples = vec![
         Tropical(f64::INFINITY),
         Tropical(0.0),
@@ -214,8 +243,8 @@ fn thm_5_60_faithful_tropical_depth_4() {
 // ---- F64Rig × {2, 3, 4} ----
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_f64_depth_2() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_f64_depth_2() {
     let samples = vec![F64Rig(0.0), F64Rig(1.0), F64Rig(2.0), F64Rig(-1.0)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<F64Rig>(2, &samples).unwrap();
     assert_eq!(
@@ -227,16 +256,16 @@ fn thm_5_60_faithful_f64_depth_2() {
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_f64_depth_3() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_f64_depth_3() {
     let samples = vec![F64Rig(0.0), F64Rig(1.0), F64Rig(2.0), F64Rig(-1.0)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<F64Rig>(3, &samples).unwrap();
     assert_eq!(report.collisions_under_s, 0);
 }
 
 #[test]
-#[ignore = "Thm 5.60 syntactic faithfulness; see module docstring"]
-fn thm_5_60_faithful_f64_depth_4() {
+#[ignore = "CC completeness tracking; see module docstring and IGNORE_REASON"]
+fn cc_completeness_tracking_f64_depth_4() {
     let samples = vec![F64Rig(0.0), F64Rig(1.0), F64Rig(2.0), F64Rig(-1.0)];
     let report = verify_sfg_to_mat_is_full_and_faithful::<F64Rig>(4, &samples).unwrap();
     assert_eq!(report.collisions_under_s, 0);

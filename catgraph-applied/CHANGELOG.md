@@ -19,6 +19,7 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `walk_tree_prefix` / `walk_tree_postfix` for multiway BFS / confluence-diamond enumeration
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
+- `kb::CongruenceClosure::atom_canonical` — currently O(n) per call, called O(n) times inside `smc_refine`, so O(n²) per fixpoint iteration (bounded by `SAFETY_BOUND = 64`). Replace the full-graph scan with a per-class best-atom cache updated on `merge`. Surfaced by v0.5.1 code-review pass (2026-04-24). Not blocking at current d≤3 Mat(R) test sizes (~40 terms → ~100k ops). If Branch A (Knuth-Bendix completion) wins at v0.5.3 decision, `atom_canonical` is deleted and this TODO dissolves.
 
 ## [0.5.1] - 2026-04-22
 
