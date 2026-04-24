@@ -1,8 +1,8 @@
-# Seven Sketches Coverage Audit (catgraph-applied v0.5.1)
+# Seven Sketches Coverage Audit (catgraph-applied v0.5.2)
 
 > **Paper:** Fong & Spivak, *Seven Sketches in Compositionality: An Invitation to Applied Category Theory* (arXiv:1803.05316v3, 12 Oct 2018)
-> **Library:** catgraph-applied v0.5.1 (workspace member of catgraph v0.12.0)
-> **Date:** 2026-04-16 (Phase 5 initial audit); updated 2026-04-20 for v0.4.0 Tier 2; updated 2026-04-21 for v0.5.0 Tier 3; updated 2026-04-22 for v0.5.1 enrichment + CC engine
+> **Library:** catgraph-applied v0.5.2 (workspace member of catgraph v0.12.0)
+> **Date:** 2026-04-16 (Phase 5 initial audit); updated 2026-04-20 for v0.4.0 Tier 2; updated 2026-04-21 for v0.5.0 Tier 3; updated 2026-04-22 for v0.5.1 enrichment + CC engine; updated 2026-04-24 for v0.5.2 Layer 1 NF + Option A CC + Functorial engine (§5.4 Thm 5.60 closed)
 > **Method:** read all 334 pages of the textbook, cross-checked each numbered definition/theorem/example against catgraph-applied source and catgraph core
 >
 > **Note on scope:** *Seven Sketches* is a 334-page textbook covering seven topics in applied CT. Only **Chapters 4, 5, and 6** contain formal content relevant to catgraph-applied's modules. Chapters 1–3 (orders, enrichment, databases) and Chapter 7 (toposes) establish foundational CT that catgraph core already provides or that is outside catgraph's scope entirely.
@@ -304,7 +304,7 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `category.rs` | implicit | §3.2 Def 3.6 (pedagogical) | HasIdentity, Composable |
 | `finset.rs` | §3.2 Lemma 3.6 | — | Permutation, Decomposition, epi-mono factorization |
 
-### catgraph-applied (v0.5.1) — mixed provenance
+### catgraph-applied (v0.5.2) — mixed provenance
 
 | Module | [FS19] ref | [FS18] ref | Neither paper | Notes |
 |---|---|---|---|---|
@@ -315,7 +315,7 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `e1_operad.rs` | — | §6.5 Rough Def 6.91 | May [May72], Boardman-Vogt [BV73] | Little-intervals operad. [FS18] §6.5 defines operads abstractly; the *specific* E₁ operad is from the algebraic topology literature. |
 | `e2_operad.rs` | — | §6.5 Rough Def 6.91 | May [May72], Boardman-Vogt [BV73] | Little-disks operad. Same: abstract operad definition from [FS18], specific E₂ construction from homotopy theory. |
 | `rig.rs` | — | §5.3.1 Def 5.36 | num_traits (blanket) | `Rig` trait + BoolRig, UnitInterval, Tropical, F64Rig. v0.5.0. |
-| `prop/presentation.rs` | — | §5.2 Def 5.33 | — | `Presentation<G>` with SMC canonical form + user equations. v0.5.0. |
+| `prop/presentation/mod.rs` | — | §5.2 Def 5.33 | — | `Presentation<G>` with 9-rule SMC canonical form + user equations; `NormalizeEngine` selector (Structural / CongruenceClosure) + `eq_mod_functorial<F>` method (v0.5.2). File split out of a single `prop/presentation.rs` in v0.5.1 when the CC backend landed. v0.5.0/v0.5.1/v0.5.2. |
 | `sfg.rs` | — | §5.3 Def 5.45 | — | `SignalFlowGraph<R>` free prop on G_R generators. v0.5.0. |
 | `mat.rs` | — | §5.3 Def 5.50 | — | `MatR<R>` pure-rig matrix prop. v0.5.0. |
 | `sfg_to_mat.rs` | — | §5.3 Thm 5.53 | — | `sfg_to_mat` functor S: SFG_R → Mat(R). v0.5.0. |
@@ -327,7 +327,7 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `lawvere_metric.rs` | — | §1.3–1.4 pedagogical anchor | Lawvere 1973, CTFP §28.5 | `LawvereMetricSpace<T>` over `Tropical` + triangle-inequality verifier + `-ln π` embedding from `UnitInterval`. v0.5.1. |
 | `prop/presentation/kb.rs` | — | §5.2 Def 5.33 (CC backend) | Downey-Sethi-Tarjan 1980 | Congruence-closure decision procedure (signature-table variant) — default `eq_mod` backend via `NormalizeEngine::CongruenceClosure`. v0.5.1. |
 
-### catgraph-physics (v0.2.0) — no F&S provenance
+### catgraph-physics (v0.2.2) — no F&S provenance
 
 | Module | [FS19] ref | [FS18] ref | Actual provenance | Notes |
 |---|---|---|---|---|

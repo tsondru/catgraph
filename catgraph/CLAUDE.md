@@ -1,6 +1,6 @@
-# catgraph (F&S 2019 crate, v0.11.3 slim baseline + Tier 1.1 quotient exposure)
+# catgraph (F&S 2019 crate, v0.12.0 — slim baseline + `Corel<Λ>`)
 
-Strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). v0.11.0 is the slim F&S baseline release — applied-CT extras now live in `catgraph-applied`, Wolfram-physics extensions in `catgraph-physics`.
+Strict implementation of [Fong & Spivak, *Hypergraph Categories* (2019)](https://arxiv.org/abs/1806.08304). v0.11.0 was the slim F&S baseline release; v0.11.3 added `Cospan::compose_with_quotient` (Tier 1.1 quotient exposure used by `catgraph-applied::DecoratedCospan`); v0.11.4 gated rayon behind the `parallel` feature for WASI; v0.12.0 adds `Corel<Λ>` as the dual of `Rel`, implementing `HypergraphCategory` per F&S 2018 Ex 6.64. Applied-CT extras live in `catgraph-applied`; Wolfram-physics extensions in `catgraph-physics`.
 
 ## Scope
 
@@ -24,8 +24,8 @@ See [`docs/FONG-SPIVAK-AUDIT.md`](docs/FONG-SPIVAK-AUDIT.md) for section-by-sect
 - LinRel examples (2.10, 2.11, 2.16, 2.20, 2.21, 4.14)
 
 **Out of scope** (delegated):
-- Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis → `catgraph-physics` (workspace sibling, v0.2.0)
-- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations, props + Free(G), operad algebras/functors → `catgraph-applied` (workspace sibling, v0.4.0)
+- Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis → `catgraph-physics` (workspace sibling, v0.2.2)
+- Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations, props + Free(G), operad algebras/functors, Rig + Mat(R), signal flow graphs, enriched categories, Lawvere metric spaces, Functorial decision engine → `catgraph-applied` (workspace sibling, v0.5.2)
 - Persistence → [catgraph-surreal](https://github.com/tsondru/catgraph-surreal)
 - Computational irreducibility → [irreducible](https://github.com/tsondru/irreducible)
 
