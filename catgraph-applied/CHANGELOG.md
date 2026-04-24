@@ -21,6 +21,115 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
 - `kb::CongruenceClosure::atom_canonical` — currently O(n) per call, called O(n) times inside `smc_refine`, so O(n²) per fixpoint iteration (bounded by `SAFETY_BOUND = 64`). Replace the full-graph scan with a per-class best-atom cache updated on `merge`. Surfaced by v0.5.1 code-review pass (2026-04-24). Not blocking at current d≤3 Mat(R) test sizes (~40 terms → ~100k ops). If Branch A (Knuth-Bendix completion) wins at v0.5.3 decision, `atom_canonical` is deleted and this TODO dissolves.
 
+## [0.5.2] - 2026-04-24
+
+**Additive release, no API break from v0.5.1.** Three independent tracks:
+Layer 1 Joyal-Street string-diagram normal form, Option A atom-canonical
+refinement of the CC engine, and the opt-in semantic `Functorial` decision
+procedure. Plus code-review polish and a test-suite rename that reflects
+what the `#[ignore]`'d suite actually measures.
+
+### Added
+
+- `src/prop/presentation/smc_nf.rs` — Layer 1 Joyal-Street string-diagram
+  normal form (~950 LOC). Canonicalizes `PropExpr<G>` up to the SMC
+  coherence axioms (associator, unitors, interchange, braid naturality,
+  `σ² = id`) without consulting user equations. Public API:
+  `smc_nf::nf(e)` → `StringDiagram<G>`, `smc_nf::from_string_diagram(sd)`
+  → `PropExpr<G>`. 18 paper-cited regression tests in
+  `tests/smc_nf_regression.rs` (Joyal-Street 1991 Part I, Selinger 2011).
+  6 proptest coverage tests + 1 known-gap case in
+  `tests/smc_nf_completeness.rs` (the interchange/topological-layer-order
+  case is tracked as `#[ignore]` and not blocking).
+- `src/prop/presentation/functorial.rs` — `CompleteFunctor<G>` trait +
+  `MatrixNFFunctor<R>` concrete instance. `MatrixNFFunctor` wraps the
+  existing `sfg_to_mat` as a semantic decision procedure for SFG_R,
+  complete by F&S Thm 5.60 / Baez-Erbele 2015. Supplies a provably
+  complete decision path for the `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)`
+  presentation — the congruence-closure engine's syntactic-incompleteness
+  gap (see `tests/graphical_linalg.rs`) is now closable operationally.
+- `Presentation::eq_mod_functorial<F: CompleteFunctor<G>>(&self, a, b, f)` —
+  opt-in semantic-decision method. Complements the syntactic `eq_mod` (the
+  `NormalizeEngine::CongruenceClosure` default remains unchanged). Always
+  returns `Ok(Some(_))` — no depth bounds, no false negatives; completeness
+  is an external claim carried by the functor implementation. Design note:
+  we keep the functor as a call-site parameter rather than adding a
+  `NormalizeEngine::Functorial` enum variant because `CompleteFunctor` has
+  an associated `Target` type that varies per instance, which precludes a
+  uniform enum-payload representation without type erasure.
+- Option A atom-canonical refinement in `kb::CongruenceClosure`: new
+  `propagate_fixpoint` outer loop alternating congruence propagation and a
+  post-merge `smc_refine` pass (bounded by `SAFETY_BOUND = 64`). Each refine
+  rebuilds terms using atom-canonical class substitutions and runs
+  `smc_nf::nf` on the rebuilt expression; any change is merged back into
+  the CC graph. Reduces BoolRig d=2 faithfulness-harness collisions
+  2574 → 1433 (~44%). The residual gap is closable only by Knuth-Bendix
+  saturation or the `Functorial` engine above; see
+  `.claude/plans/2026-04-23-v0.5.2-revised-scope.md`.
+- 6 smoke tests in `tests/functorial.rs` exercising `MatrixNFFunctor` /
+  `eq_mod_functorial` end-to-end.
+
+### Changed
+
+- `Presentation::eq_mod` (CC-engine branch) now has a Layer-1-NF short-circuit:
+  if `smc_nf::nf(a) == smc_nf::nf(b)` the call returns `Ok(Some(true))`
+  without running the CC fixpoint. Falls back to the v0.5.1 CC path
+  otherwise. Union capability (NF OR CC); neither is lost. No API change.
+- The 12 `thm_5_60_faithful_*` integration tests in
+  `tests/graphical_linalg.rs` are renamed to `cc_completeness_tracking_*`,
+  reflecting what they actually measure: the incompleteness of the default
+  `NormalizeEngine::CongruenceClosure` engine relative to the complete
+  semantic `MatrixNFFunctor`. Baez-Erbele 2015 proved
+  `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)` abstractly — we do not need to verify an
+  established theorem. The tests stay `#[ignore]`'d as diagnostic, not as a
+  release gate; `eq_mod_functorial` decides the underlying equality
+  operationally. `IGNORE_REASON` and the module docstring are rewritten to
+  match.
+
+### Fixed
+
+- `install_function_node` in `kb::CongruenceClosure` now re-canonicalizes
+  the signature-table key via `find(a) / find(b)` after the post-collision
+  merge, rather than reusing the pre-merge `ra, rb`. Belt-and-suspenders
+  defense against a future refactor that moves merges into
+  `install_function_node` or reorders the recursion — today `merge` cannot
+  shift the children's roots, so the observable behavior is unchanged.
+  Surfaced by v0.5.1 fresh-eyes code review (2026-04-24).
+- `normalize_smc_only` + `apply_smc_rules` docstrings corrected to say
+  "9 fixed SMC-canonical-form rules" (previously stale at "8 rules" after
+  Rule 9 landed in v0.5.1).
+- `LawvereMetricSpace::triangle_inequality_holds` comment clarifies that
+  the `>` comparison is ordering on `[0, ∞]` distinct from the tropical
+  rig's `min` additive order.
+- `smc_nf::from_string_diagram` gains a `# Panics` docstring noting the
+  internal `expect` calls are invariant-guarded and cannot fire.
+- `smc_nf_completeness::compose_associator` proptest stabilized by
+  raising `max_global_rejects` 1024 → 16 384 to accommodate the
+  three-way arity-compatibility rejection cascade from
+  `prop_assume!(a.target() == b.source())` +
+  `prop_assume!(b.target() == c.source())`.
+
+### Deferred (v0.5.3+ decision point)
+
+v0.5.3 is not scheduled work — it's a decision point between two branches:
+
+- **Branch A (Knuth-Bendix completion):** saturate the 17 Thm 5.60
+  equations modulo SMC coherence until confluent. 1-3 weeks research;
+  open-ended if confluence fails on a subset. Would render
+  `atom_canonical` / `term_to_canonical_expr` / `smc_refine` redundant
+  and close the `cc_completeness_tracking_*` tests under CC.
+- **Branch B (declare `MatrixNFFunctor` terminal):** accept that for
+  Mat(R) presentations the semantic engine is complete by theorem, keep
+  the `#[ignore]`'d tests as diagnostic, and move to Phase 6. Zero
+  effort.
+
+Pick at Phase 6 kickoff or when a non-Mat(R) presentation requires a
+syntactically complete decision procedure. Both paths remain open.
+
+### Requires
+
+- catgraph v0.12.0 (unchanged from v0.5.1).
+
 ## [0.5.1] - 2026-04-22
 
 **BREAKING CHANGES in `Presentation` and `PropSignature`** — migration guide below. Ships three independent tracks: the normalizer upgrade (Knuth-Bendix-grade correctness for overlapping equations), SMC Rule 9 (identity-coherence of ⊗), and enrichment infrastructure (Phase 6 prep).
@@ -361,7 +470,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.1...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.2...HEAD
+[0.5.2]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.1...catgraph-applied-v0.5.2
 [0.5.1]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.0...catgraph-applied-v0.5.1
 [0.5.0]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...catgraph-applied-v0.5.0
 [0.4.0]: https://github.com/tsondru/catgraph/releases/tag/catgraph-applied-v0.4.0

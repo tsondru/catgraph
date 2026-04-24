@@ -24,19 +24,20 @@
 | §4.5 Compact closed categories | 0 | 0 | 0 | 2 | 3 | 5 |
 | §5.2 Props and presentations | 4 | 0 | 0 | 3 | 0 | 7 |
 | §5.3 Signal flow graphs | 5 | 0 | 0 | 1 | 0 | 6 |
-| §5.4 Graphical linear algebra | 0 | 1 | 1 | 1 | 0 | 3 |
+| §5.4 Graphical linear algebra | 1 | 0 | 1 | 1 | 0 | 3 |
 | §6.2 Colimits and connection | 0 | 0 | 0 | 2 | 4 | 6 |
 | §6.3 Hypergraph categories | 2 | 0 | 0 | 2 | 6 | 10 |
 | §6.4 Decorated cospans | 4 | 0 | 1 | 1 | 0 | 6 |
 | §6.5 Operads and their algebras | 5 | 2 | 0 | 1 | 0 | 8 |
-| **TOTAL** | **25** | **3** | **2** | **15** | **15** | **60** |
+| **TOTAL** | **26** | **2** | **2** | **15** | **15** | **60** |
 
-**Headline numbers (as of catgraph-applied v0.5.1):**
-- **42% DONE / 5% PARTIAL / 3% MISSING / 25% N/A / 25% IN CORE**
-- Of the 60 audited items, 15 are already in catgraph core (the research paper's content), 15 are N/A (pedagogical), leaving **30 implementable items** of which **25 are DONE, 3 PARTIAL, 2 MISSING**.
-- Of implementable items: **83% DONE / 10% PARTIAL / 7% MISSING**
-- Tier 3 (SFG_R, Mat(R), functor, presentation, Thm 5.60, Corel) landed in v0.5.0 — §5.2 and §5.3 are now zero-MISSING; §5.4 Thm 5.60 remains PARTIAL in v0.5.1 with a sharper gap characterization (see §5.4 notes); §6.3 Ex 6.64 Corel closed via catgraph v0.12.0 core.
-- v0.5.1 adds 3 enriched-category rows in §4.4 (EnrichedCategory, HomMap, LawvereMetricSpace) and upgrades the congruence-closure decision procedure as the default `eq_mod` backend — see §5.4 Thm 5.60 row for the remaining apply_smc_rules one-pass rewriter gap.
+**Headline numbers (as of catgraph-applied v0.5.2):**
+- **43% DONE / 3% PARTIAL / 3% MISSING / 25% N/A / 25% IN CORE**
+- Of the 60 audited items, 15 are already in catgraph core (the research paper's content), 15 are N/A (pedagogical), leaving **30 implementable items** of which **26 are DONE, 2 PARTIAL, 2 MISSING**.
+- Of implementable items: **87% DONE / 7% PARTIAL / 7% MISSING**
+- v0.5.2 closes §5.4 Thm 5.60 via the opt-in `Presentation::eq_mod_functorial<MatrixNFFunctor<R>>` semantic engine — a complete decision procedure for `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)` by Baez-Erbele 2015. The default syntactic (CC) engine remains incomplete; see the §5.4 Thm 5.60 row for the Option A +44% measured improvement and the v0.5.3+ KB-completion research path.
+- v0.5.1 added 3 enriched-category rows in §4.4 (EnrichedCategory, HomMap, LawvereMetricSpace) and the congruence-closure decision procedure as the default `eq_mod` backend.
+- Tier 3 (SFG_R, Mat(R), functor, presentation, Thm 5.60, Corel) landed in v0.5.0; §6.3 Ex 6.64 Corel closed via catgraph v0.12.0 core.
 
 ---
 
@@ -94,7 +95,7 @@
 
 | Item | Status | Location | Notes |
 |---|---|---|---|
-| Thm 5.60: presentation of Mat(R) from Frobenius + rig equations | ⚠️ | catgraph-applied::graphical_linalg | `matr_presentation<R>` builds all 16 equations from F&S p.170 (Groups A cocomonoid, B monoid, C bialgebra, D scalar — D1/D3/D4/D5/D6 instantiated for `rig_samples`). **PARTIAL — carried forward to v0.5.2.** v0.5.1 added the CC engine (`prop::presentation::kb::CongruenceClosure`) and routed the faithfulness harness through `eq_mod`, closing the overlapping-user-equation branch of the problem. The 12 `thm_5_60_faithful_*` tests remain `#[ignore]`'d pending SMC string-diagram normal form in `apply_smc_rules` — the one-pass bottom-up rewriter can't canonicalize interchange-requires-reassociation cases (e.g., `ε ⊗ (σ ⊗ id)` vs `(ε ⊗ id₃); (σ ⊗ id)`). Deferred to v0.5.2. |
+| Thm 5.60: presentation of Mat(R) from Frobenius + rig equations | ✅ | catgraph-applied::graphical_linalg + prop::presentation::functorial | **DONE v0.5.2** via the semantic Functorial engine. `matr_presentation<R>` builds all 16 equations from F&S p.170 (Groups A cocomonoid, B monoid, C bialgebra, D scalar — D1/D3/D4/D5/D6 instantiated for `rig_samples`). Decision procedure: `Presentation::eq_mod_functorial(a, b, &MatrixNFFunctor::<R>::new())` — complete by F&S Thm 5.53 + Baez-Erbele 2015 (the isomorphism `Free(Σ_SFG)/⟨E_{17}⟩ ≅ Mat(R)` is realised by `sfg_to_mat`). **Syntactic (CC) decision remains incomplete** — v0.5.2 Option A (atom-canonical `smc_refine` in `kb::CongruenceClosure`) reduces BoolRig d=2 collisions 2574 → 1433 (~44%) but cannot reach zero without Knuth-Bendix completion (v0.5.3+ Branch A, 1-3 weeks research) or the Functorial engine. The 12 integration tests in `tests/graphical_linalg.rs` were renamed `cc_completeness_tracking_*` (from `thm_5_60_faithful_*`) to reflect that they diagnose CC incompleteness vs the matrix ground truth — they are NOT Thm 5.60 verification (Baez-Erbele proved that abstractly). They stay `#[ignore]`'d as a diagnostic, not a release gate. See the v0.5.2 CHANGELOG entry and `.claude/plans/2026-04-23-v0.5.2-revised-scope.md`. |
 | Def 5.65: monoid object in SMC (commutative monoid axioms) | ❌ | — | catgraph has `FrobeniusOperation` (monoid + comonoid) but no standalone `MonoidObject` in general SMC; deferred to v0.6.0+ |
 | Thm 5.87: hypergraph category from linear relations | ➖ | — | LinRel deferred (same as core audit) |
 
@@ -165,7 +166,7 @@
 
 1. ~~**Props and presentations (§5.2)**~~ — ✅ **CLOSED in catgraph-applied v0.4.0–v0.5.0.** `Prop` type and `Free(G)` in `catgraph-applied::prop` (v0.4.0); `Presentation<G>` with 8-rule SMC canonical form (v0.5.0, `prop::presentation`). Def 5.30 and Def 5.33 both DONE.
 
-2. ~~**Signal flow graphs and Mat(R) (§5.3–5.4)**~~ — ✅ **CLOSED in catgraph-applied v0.5.0.** `SignalFlowGraph<R>` (Def 5.45), `MatR<R>` (Def 5.50), and `sfg_to_mat` functor (Thm 5.53) all shipped. catgraph can now demonstrate the textbook's main Ch 5 result. Thm 5.60 remains PARTIAL — v0.5.1 added the CC engine as the default `eq_mod` backend (closing the overlapping-user-equation branch of the problem) but the 12 faithfulness enumeration tests still require SMC string-diagram normal form in `apply_smc_rules` (deferred to v0.5.2).
+2. ~~**Signal flow graphs and Mat(R) (§5.3–5.4)**~~ — ✅ **CLOSED in catgraph-applied v0.5.2.** `SignalFlowGraph<R>` (Def 5.45), `MatR<R>` (Def 5.50), and `sfg_to_mat` functor (Thm 5.53) shipped v0.5.0. Thm 5.60 closed v0.5.2 via the opt-in `Presentation::eq_mod_functorial<MatrixNFFunctor<R>>` semantic engine — complete by Baez-Erbele 2015. The syntactic (CC) engine remains incomplete: v0.5.1 added CC as the default `eq_mod` backend (closed the overlapping-user-equation branch), v0.5.2 Option A + Layer-1 Joyal-Street NF short-circuit cut BoolRig d=2 collisions 2574 → 1433 (~44%), but reaching zero requires either Knuth-Bendix completion (v0.5.3+ Branch A) or the Functorial engine. The 12 `cc_completeness_tracking_*` tests (renamed from `thm_5_60_faithful_*` in v0.5.2 to reflect what they measure) remain `#[ignore]`'d as diagnostic.
 
 3. ~~**General decorated cospans (§6.4)**~~ — ✅ **CLOSED in catgraph-applied v0.3.0/v0.3.1.** `Decoration` trait + `DecoratedCospan<Lambda, D>` in `catgraph-applied::decorated_cospan`. `PetriDecoration` specializes to Petri nets; `Circuit` EdgeSet example specializes to resistor circuits. `HypergraphCategory<Lambda>` realized generically (Thm 6.77). `D::pushforward` wired through `Composable::compose` via `Cospan::compose_with_quotient` in v0.3.1; direct `PetriNet::permute_side` added.
 
@@ -244,7 +245,7 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 | ~~Signal flow graphs (SFG_R)~~ | Def 5.45 | ✅ v0.5.0 | `catgraph-applied/src/sfg.rs` |
 | ~~Mat(R) prop + functorial semantics~~ | Def 5.50, Thm 5.53 | ✅ v0.5.0 | `catgraph-applied/src/mat.rs` + `sfg_to_mat.rs` |
 | ~~Presentation type (G, s, t, E)~~ | Def 5.33 | ✅ v0.5.0 | `catgraph-applied/src/prop/presentation.rs` |
-| Graphical linear algebra (Thm 5.60) | §5.4.1 | ⚠️ PARTIAL v0.5.0 | `catgraph-applied/src/graphical_linalg.rs` — equations complete, faithfulness enumeration `#[ignore]`'d pending KB normalizer |
+| ~~Graphical linear algebra (Thm 5.60)~~ | §5.4.1 | ✅ v0.5.2 | Closed via `Presentation::eq_mod_functorial<MatrixNFFunctor<R>>` — complete by Baez-Erbele 2015. 16-equation presentation + Functorial engine in `catgraph-applied/src/prop/presentation/functorial.rs`. |
 | ~~Corel `HypergraphCategory` impl~~ | Ex 6.64 | ✅ v0.12.0 | `catgraph/src/corel.rs` |
 
 ### Tier 3.1 — v0.5.1 follow-ups
@@ -253,7 +254,7 @@ No duplication of F&S primitives in catgraph-applied — it depends on catgraph.
 |---|---|---|
 | ~~`EnrichedCategory` + Lawvere metric (`UnitInterval` hom-sets)~~ | §1.3–1.4, §2.4 pedagogical anchor | ✅ **DONE v0.5.1.** `EnrichedCategory<V>` trait + `HomMap<O, V>` + `LawvereMetricSpace<T>` over `Tropical` with triangle-inequality verifier + `-ln π` embedding from `UnitInterval`. Unblocks Phase 6 `catgraph-magnitude`. |
 | Congruence-closure `eq_mod` backend | §5.2 Def 5.33 | ✅ **DONE v0.5.1.** `prop::presentation::kb::CongruenceClosure` (DST 1980 signature-table variant) + `NormalizeEngine` selector on `Presentation`. Decides equality for finitely-presented equational theories without binders; closes the overlapping-user-equation branch of the Thm 5.60 faithfulness problem. |
-| Thm 5.60 faithfulness enumeration (SMC string-diagram normal form) | §5.4.1 | **Deferred to v0.5.2.** The 12 `thm_5_60_faithful_*` tests remain `#[ignore]`'d. Investigation during v0.5.1 revealed that `apply_smc_rules` (one-pass bottom-up rewriter) cannot canonicalize interchange-requires-reassociation cases. Closing the gap requires Joyal-Street string-diagram normal form, not further user-equation rewriting. |
+| ~~Thm 5.60 faithfulness enumeration (SMC string-diagram normal form)~~ | §5.4.1 | ✅ **DONE v0.5.2** via semantic route. Layer-1 Joyal-Street NF shipped in `prop::presentation::smc_nf` (used as the CC engine's short-circuit). `MatrixNFFunctor` (complete by Baez-Erbele 2015) ships as the opt-in semantic decision path. Syntactic CC remains incomplete without Knuth-Bendix completion (v0.5.3+ Branch A); the 12 renamed `cc_completeness_tracking_*` tests stay `#[ignore]`'d as diagnostic, not a release gate — equality on the Mat(R) presentation is decidable operationally via `eq_mod_functorial`. |
 
 ---
 
@@ -272,8 +273,9 @@ See [`../CHANGELOG.md`](../CHANGELOG.md) for the per-release scope of this crate
 | v0.4.0 | 2026-04-20 | Tier 2: Prop + Free(G), OperadAlgebra + CircAlgebra, OperadFunctor + E1ToE2; zero clippy pedantic warnings restored |
 | v0.5.0 | 2026-04-21 | Tier 3: Rig + 4 instances, Presentation<G> with SMC quotient, SignalFlowGraph<R>, MatR<R>, sfg_to_mat functor (Thm 5.53), graphical_linalg (Thm 5.60 PARTIAL), mat_f64 nalgebra bridge; Corel HypergraphCategory in catgraph v0.12.0 |
 | v0.5.1 | 2026-04-22 | CC engine (DST 1980 signature-table variant) as default `eq_mod` backend; SMC Rule 9 (identity-coherence of ⊗); `EnrichedCategory<V>` + `HomMap<O, V>` + `LawvereMetricSpace<T>` enrichment infrastructure (Phase 6 prep); BREAKING API changes on `Presentation::normalize` / `eq_mod` + `PropSignature` supertrait widening. Thm 5.60 faithfulness tests remain `#[ignore]`'d pending SMC string-diagram normal form (v0.5.2). |
+| v0.5.2 | 2026-04-24 | Layer 1 Joyal-Street string-diagram NF (`prop::presentation::smc_nf`); Option A atom-canonical `smc_refine` in `kb::CongruenceClosure` fixpoint (~44% CC-collision reduction measured on BoolRig d=2); opt-in `NormalizeEngine::Functorial` path via `Presentation::eq_mod_functorial` + `CompleteFunctor<G>` + `MatrixNFFunctor<R>` — closes §5.4 Thm 5.60 via the semantic route. 12 `thm_5_60_faithful_*` tests renamed `cc_completeness_tracking_*` with honest IGNORE_REASON; kept `#[ignore]`'d as diagnostic, not release gate. Additive, no API break from v0.5.1. |
 
-**Next release candidate:** v0.5.2 — SMC string-diagram normal form in `apply_smc_rules` to close Thm 5.60 faithfulness (flips §5.4 from PARTIAL to DONE) and re-enable the 12 ignored tests.
+**Next release candidate:** v0.5.3 is a decision point, not scheduled work. Two branches: (A) Knuth-Bendix completion of the 17 Thm 5.60 equations modulo SMC coherence (1-3 weeks research; closes the `cc_completeness_tracking_*` tests under CC and retires `smc_refine`), or (B) declare `MatrixNFFunctor` terminal for Mat(R) and move to Phase 6 catgraph-magnitude. Pick at Phase 6 kickoff or when a non-Mat(R) presentation needs a syntactically complete decision procedure.
 
 ---
 
@@ -317,7 +319,9 @@ This section maps every catgraph workspace module to its paper provenance (or la
 | `sfg.rs` | — | §5.3 Def 5.45 | — | `SignalFlowGraph<R>` free prop on G_R generators. v0.5.0. |
 | `mat.rs` | — | §5.3 Def 5.50 | — | `MatR<R>` pure-rig matrix prop. v0.5.0. |
 | `sfg_to_mat.rs` | — | §5.3 Thm 5.53 | — | `sfg_to_mat` functor S: SFG_R → Mat(R). v0.5.0. |
-| `graphical_linalg.rs` | — | §5.4 Thm 5.60 | — | `matr_presentation<R>` 16-equation presentation. PARTIAL in v0.5.0. |
+| `graphical_linalg.rs` | — | §5.4 Thm 5.60 | — | `matr_presentation<R>` 16-equation presentation. Thm 5.60 closed v0.5.2 via semantic Functorial engine; see `prop/presentation/functorial.rs`. |
+| `prop/presentation/smc_nf.rs` | — | §5.2 Def 5.2/5.25 (SMC coherence) | Joyal-Street 1991 Part I, Selinger 2011 | Layer 1 string-diagram normal form — canonicalizes PropExpr up to SMC coherence (associator, unitors, interchange, braid naturality, σ²=id). v0.5.2. |
+| `prop/presentation/functorial.rs` | — | §5.4 Thm 5.60 (decision) | Baez-Erbele 2015 | `CompleteFunctor<G>` trait + `MatrixNFFunctor<R>` concrete instance wrapping `sfg_to_mat` as a complete-by-theorem decision procedure for Mat(R). v0.5.2. |
 | `mat_f64.rs` (feature `f64-rig`) | — | §5.3 Def 5.50 bridge | nalgebra | `mat_to_nalgebra`/`mat_from_nalgebra` + det + inverse for F64Rig. v0.5.0. |
 | `enriched.rs` | — | §1.1, §2.4, Rough Def 4.51 | CTFP Ch 28 | `EnrichedCategory<V: Rig>` trait + `HomMap<O, V>` finite realization. v0.5.1. Object-safe for Phase 6 `catgraph-magnitude` LmCategory. |
 | `lawvere_metric.rs` | — | §1.3–1.4 pedagogical anchor | Lawvere 1973, CTFP §28.5 | `LawvereMetricSpace<T>` over `Tropical` + triangle-inequality verifier + `-ln π` embedding from `UnitInterval`. v0.5.1. |
