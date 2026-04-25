@@ -19,6 +19,11 @@ num.workspace = true
 proptest.workspace = true
 criterion.workspace = true
 
-# Phase 6A scaffold (v0.1.0-dev). Pure-math crate: no tokio, no serde, no rayon.
-# `catgraph-applied` pinned to path during Phase 6A development; switches to
-# version = "0.5" git-tag pin at v0.1.0 release per cross-project convention.
+[[bench]]
+name = "magnitude_bench"
+harness = false
+
+# Phase 6A complete (v0.1.0). Pure-math crate: no tokio, no serde, no rayon.
+# `catgraph-applied` pinned to path during Phase 6A development; crates.io
+# publication switches the path dep to version = "0.5" (crates.io strips the
+# path attribute automatically on publish).
