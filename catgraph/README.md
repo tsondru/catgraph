@@ -34,6 +34,7 @@ Originally based on a fork of [Cobord/Hypergraph](https://github.com/Cobord/Hype
 |-------|---------|
 | [`catgraph-physics`](../catgraph-physics/) | Hypergraph DPO rewriting, multiway evolution, gauge theory, branchial spectral analysis |
 | [`catgraph-applied`](../catgraph-applied/) | Petri nets, wiring diagrams, E_n operads, Temperley-Lieb, linear combinations — applied-CT extensions |
+| [`catgraph-magnitude`](../catgraph-magnitude/) | Magnitude of enriched categories: Tsallis entropy, Möbius inversion, `LmCategory` (BV 2025) |
 
 **Sibling repos** (separate git repos, depend on catgraph via git tag):
 

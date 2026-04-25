@@ -32,6 +32,15 @@ This crate packages applied-CT modules that build on catgraph's strict Fong-Spiv
 | `enriched` | `EnrichedCategory<V>` trait + `HomMap<O, V>` finite realization (F&S §1.1, §2.4; v0.5.1) |
 | `lawvere_metric` | `LawvereMetricSpace<T>` over `Tropical` — triangle-inequality verifier + `-ln π` embedding from `UnitInterval` (Lawvere 1973; v0.5.1) |
 
+### New in v0.5.3
+
+- `F64Rig`: `Neg`, `Sub`, `Div`, and `From<f64>` impls exposing the ring and
+  field operations that catgraph-magnitude v0.1.0 requires for `mobius_function`
+  Gaussian elimination. The math-level ring property was already present (the
+  `verify_axioms_f64_rig_sample` test exercises `F64Rig(-1.0)`); this version
+  exposes the ring + field operations to Rust's type system. The ring/field bound
+  stays off `Rig` itself — only `F64Rig` carries it.
+
 ### New in v0.5.2
 
 Three independent tracks, all additive (no API break from v0.5.1):

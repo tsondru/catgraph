@@ -3,7 +3,7 @@
 Magnitude of enriched categories for the [catgraph](https://github.com/tsondru/catgraph) workspace.
 Anchored to Bradley & Vigneaux, *[Magnitude of Language Models](https://arxiv.org/abs/2501.06662)* (2025).
 
-**Status:** v0.1.0-dev (Phase 6A in progress; first publishable release).
+**Status:** v0.1.0 (Phase 6A complete; first publishable release).
 
 ## What
 
