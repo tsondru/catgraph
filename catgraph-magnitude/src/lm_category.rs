@@ -21,7 +21,7 @@
 //! - §3.10 Closed form: `Mag(tM) = (t − 1) · Σ_{x ∉ T(⊥)} H_t(p_x) +
 //!   #(T(⊥))`. The two acceptance tests in `tests/bv_2025_acceptance.rs`
 //!   verify this against the Möbius-sum form computed by
-//!   [`magnitude`](crate::magnitude::magnitude).
+//!   [`magnitude`] function.
 //! - §3.14 Cor: `d/dt Mag(tM)|_{t=1} = Σ_{x ∉ T(⊥)} H(p_x)` (Shannon
 //!   entropy). Verified by central finite difference with `h = 1e-4 >
 //!   TSALLIS_SHANNON_EPS`.

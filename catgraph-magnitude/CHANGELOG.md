@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 6A.4 `examples/lm_magnitude.rs` — BV 2025 magnitude bounds demonstration on two
+  contrasting LMs (deterministic 3-state, uniform 5-state). Prints `Mag(tM)` at
+  `t ∈ {0.5, 1.0, 2.0, 10.0, 1e6}` with Prop 3.10 closed-form comparison. Asserts four
+  properties from BV 2025 p.4 for `t ≥ 1`: (A) lower bound `≥ #T(⊥)`, (B) upper bound
+  `≤ #ob(M)`, (C) monotone non-decreasing in `t`, (D) convergence of `Mag(1e6·M)` to the
+  Prop 3.10 formula within `1e-3`. Also verifies closed form = Möbius sum to `< 1e-9` at
+  `t ∈ {0.5, 2.0, 10.0}`. Note: the `t → ∞` limit is `#T(⊥)` only for LMs with all-Dirac
+  transition rows; for non-degenerate rows the limit is `#T(⊥) + #{non-degenerate states}`
+  (derived and commented inline).
+- Phase 6A.4 `examples/tsallis_shannon.rs` — Tsallis-to-Shannon recovery (BV 2025 Rem 3.11)
+  over 50 seeded random distributions (size 2–5) at `δt ∈ {1e-2, …, 1e-7}`. Asserts exact
+  zero error within the `TSALLIS_SHANNON_EPS = 1e-6` special-case branch; asserts worst error
+  `< 5e-3` at `δt = 1e-3`. Uses a minimal deterministic PCG-64 LCG for reproducibility
+  without a `rand` dev-dep — same LCG as `tests/lm_category.rs`.
+- Phase 6A.4 `examples/mock_coalition.rs` — 5-agent `WeightedCospan<&str, UnitInterval>`
+  + 3-agent `LmCategory` diversity demo without any transport deps. Builds the 5-agent
+  interaction graph (including a cycle), prints the Lawvere distance matrix, highlights
+  `d(alice, bob) = -ln 0.7` and `d(alice, carol) = ∞` (no transitive closure in
+  `into_metric_space`). Builds an acyclic 3-agent prefix-poset sub-coalition and prints
+  four magnitude-derived indicators (`Mag(1.0)`, `Mag(2.0)`, `Mag(1e6)`, Shannon FD).
+  Asserts BV 2025 p.4 bounds at `t = 2.0` and that `Mag(1e6·M) ∈ [#T(⊥), #ob(M)]`.
+  Demonstrates the `WeightedCospan`/`LmCategory` API split (cyclic vs. acyclic view)
+  before Phase 6B wires in `catgraph-coalition` transport.
+- Phase 6A.4 `README.md` — replaced Phase 6A.0 stub with a v0.1.0-quality landing page.
+  Includes: quickstart code snippet, two-point acceptance gate, full API surface table,
+  algebraic + numerical scoping sections, three example descriptions, and roadmap.
+- Phase 6A.4 rustdoc audit — fixed 3 pre-existing doc warnings: broken intra-doc link
+  `catgraph::Cospan` (replaced with plain text), redundant explicit target in `ring.rs`,
+  redundant explicit target in `lm_category.rs`. Zero doc warnings on `cargo doc`.
+
 - Phase 6A.3 `magnitude::<Q>(space, t)` — magnitude `Mag(tM) = Σᵢⱼ μ_t[i][j]`
   of a Lawvere metric space at scale `t` via Möbius sum (BV 2025 §3.5,
   Eq 7). Builds a t-scaled copy of the input space (distances multiplied

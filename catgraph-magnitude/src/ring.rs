@@ -1,4 +1,4 @@
-//! [`Ring`] super-trait over [`Rig`](catgraph_applied::rig::Rig).
+//! [`Ring`] super-trait over [`Rig`].
 //!
 //! Adds additive inverses (`Neg` + `Sub`), enabling Gaussian elimination on
 //! `Matrix<Q>`. Required by Möbius inversion `ζ · μ = I` and the

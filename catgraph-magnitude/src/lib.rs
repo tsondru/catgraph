@@ -6,7 +6,7 @@
 //! ## Scope (v0.1.0)
 //!
 //! - [`WeightedCospan<Λ, Q>`](weighted_cospan::WeightedCospan) — newtype over
-//!   [`catgraph::Cospan`] with per-edge weights in a rig `Q`.
+//!   `catgraph::Cospan` with per-edge weights in a rig `Q`.
 //! - [`tsallis_entropy`](magnitude::tsallis_entropy) — `H_t(p) = (1 − Σ pᵢᵗ)/(t−1)`,
 //!   special-cased to Shannon at `|t−1| < TSALLIS_SHANNON_EPS`.
 //! - [`mobius_function`](magnitude::mobius_function) — Möbius inversion
