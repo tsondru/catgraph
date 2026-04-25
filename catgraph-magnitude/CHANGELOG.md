@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 6A.3 `magnitude::<Q>(space, t)` — magnitude `Mag(tM) = Σᵢⱼ μ_t[i][j]`
+  of a Lawvere metric space at scale `t` via Möbius sum (BV 2025 §3.5,
+  Eq 7). Builds a t-scaled copy of the input space (distances multiplied
+  by `t`), Möbius-inverts the resulting zeta matrix, and sums every
+  entry. Same algebraic surface as `mobius_function`: `Q: Ring + Div +
+  From<f64>` (only `F64Rig` qualifies in v0.1.0).
+- Phase 6A.3 `LmCategory` — materialized language-model transition table
+  per BV 2025 §3. Public API: `new`, `add_transition`, `mark_terminating`,
+  `objects`, `terminating`, `transitions`, `magnitude(t)`. The
+  `magnitude` method lifts the transition table into a
+  `LawvereMetricSpace<NodeId>` via the **prefix-extension semantics** of
+  BV 2025 §2.10–2.17: a forward BFS from each source state multiplies
+  edge probabilities along every directed path, recording
+  `d(x, y) = -ln π(y|x)` where `π(y|x)` is the product of intermediate
+  transitions (Eq 6). Identity axiom `d(x, x) = 0` is enforced
+  internally; callers don't have to populate self-loops. The transition
+  graph must be acyclic (BV's tree-poset hypothesis) for the magnitude
+  to match Thm 3.10's closed form.
+- Phase 6A.3 BV 2025 acceptance gate (`tests/bv_2025_acceptance.rs`):
+  - **Thm 3.10 closed form** verified to within `1e-9` at
+    `t ∈ {0.5, 1.5, 2.0, 5.0}` on a hand-computed 4-state LM corresponding
+    to `A = {a}, N = 1` (states `⊥, ⊥a, ⊥†, ⊥a†`; T(⊥) = {⊥†, ⊥a†}).
+    Observed max residual `0e0` (exact match within `f64`).
+  - **Cor 3.14 Shannon recovery** verified by central finite difference
+    `(f(1+h) - f(1-h)) / (2h)` with `h = 1e-4` (per execution-plan amend
+    5: `h > TSALLIS_SHANNON_EPS`). Observed residual `~6e-10`.
+- Phase 6A.3 `LmCategory` unit tests (`tests/lm_category.rs`): empty-LM
+  baseline (`Mag = n` for the identity zeta), round-trip on
+  `add_transition` / `mark_terminating`, smoke test on the same 4-state
+  tree fixture, and a BV 2025 Eq 4.3 bounds proptest
+  (`#T(⊥) ≤ Mag(tM) ≤ #ob(M)` for `t ≥ 1`) on randomly generated
+  forward-chain LMs of size 2–4.
 - Phase 6A.2 `tsallis_entropy(p, t)` — Tsallis q-entropy
   `H_t(p) = (1 − Σ pᵢᵗ) / (t − 1)` with Shannon-recovery special case at
   `|t − 1| < TSALLIS_SHANNON_EPS = 1e-6`. The special-case branch returns

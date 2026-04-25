@@ -1,13 +1,13 @@
-//! Magnitude functions — Phase 6A.2 (Tsallis entropy + Möbius inversion).
-//!
-//! Phase 6A.3 will add the magnitude function itself on top of these two
-//! primitives.
+//! Magnitude functions — Phases 6A.2 + 6A.3.
 //!
 //! - [`tsallis_entropy`] — Tsallis q-entropy with Shannon-recovery special
 //!   case at `t = 1` (BV 2025 §3 / Tsallis 1988).
 //! - [`mobius_function`] — Möbius inversion `ζ · μ = I` over a ring (Leinster
 //!   2013 / Leinster-Shulman §2). v0.1.0 implements the matrix-inverse path
 //!   via Gaussian elimination, requiring `Q: Ring + Div + From<f64>`.
+//! - [`magnitude`] — magnitude `Mag(tM) = Σᵢⱼ μ_t[i][j]` of a Lawvere metric
+//!   space at scale `t`, computed by Möbius-inverting the t-scaled zeta
+//!   matrix and summing all entries (BV 2025 §3.5, Eq 7).
 
 use std::ops::Div;
 
@@ -201,4 +201,62 @@ where
         .collect();
 
     MatR::new(n, n, mu_entries)
+}
+
+/// Magnitude of an enriched (Lawvere) metric space at scale `t`.
+///
+/// Computes `Mag(tM) = Σᵢⱼ μ_t[i][j]` where `μ_t` is the Möbius function of
+/// the t-scaled space — distances multiplied by `t`, equivalently
+/// `ζ_t[i][j] = exp(-t · d(i, j))` (BV 2025 §3.5; Leinster 2013, Section 2.2).
+///
+/// **Bound: `Q: Ring + Div + From<f64>`.** Same algebraic surface as
+/// [`mobius_function`]. Among the workspace's four concrete rigs only
+/// [`crate::F64Rig`] satisfies all three; callers needing a scalar `f64`
+/// reduction can apply `.0` (for `F64Rig`) or `.into()` to the returned `Q`.
+///
+/// # Errors
+///
+/// Returns [`CatgraphError::Composition`] when the t-scaled zeta is singular
+/// (propagated from [`mobius_function`]).
+///
+/// # Notes on `t`
+///
+/// BV 2025 Prop 3.6 establishes invertibility for any `t > 0` in the
+/// language-model setting. The scaling is performed by constructing a fresh
+/// [`LawvereMetricSpace`] with every recorded distance multiplied by `t`;
+/// unset distances (`Tropical(+∞)`) remain `+∞` because `t · ∞ = ∞` for any
+/// finite positive `t` (`f64` arithmetic gives `t * f64::INFINITY = +∞`).
+pub fn magnitude<Q>(
+    space: &LawvereMetricSpace<NodeId>,
+    t: f64,
+) -> Result<Q, CatgraphError>
+where
+    Q: Ring + Div<Output = Q> + From<f64>,
+{
+    // Materialize the object list once, in deterministic Vec<NodeId> order.
+    let objects: Vec<NodeId> = <LawvereMetricSpace<NodeId> as crate::EnrichedCategory<
+        crate::Tropical,
+    >>::objects(space)
+    .collect();
+
+    // Build a t-scaled copy: distance(a, b) = t · old(a, b). Unset distances
+    // (`Tropical(+∞)`) are preserved by `f64` infinity arithmetic.
+    let mut scaled = LawvereMetricSpace::new(objects.clone());
+    for a in &objects {
+        for b in &objects {
+            let d = space.distance(a, b);
+            scaled.set_distance(*a, *b, crate::Tropical(t * d.0));
+        }
+    }
+
+    // Möbius-invert and sum every entry of the resulting `n × n` matrix.
+    let mu = mobius_function::<Q>(&scaled)?;
+    let n = mu.rows();
+    let mut sum = Q::zero();
+    for i in 0..n {
+        for j in 0..n {
+            sum = sum + mu.entries()[i][j].clone();
+        }
+    }
+    Ok(sum)
 }
