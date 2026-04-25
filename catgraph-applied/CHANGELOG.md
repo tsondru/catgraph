@@ -9,16 +9,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 ## [Unreleased]
 
-### Added
-
-- `Neg`, `Sub`, `Div`, and `From<f64>` impls on `F64Rig` — prerequisite for
-  the catgraph-magnitude v0.1.0 `mobius_function::<F64Rig>` Gaussian
-  elimination. `F64Rig` was already a ring at the math level (the existing
-  `verify_axioms_f64_rig_sample` test runs on `F64Rig(-1.0)` already);
-  these impls expose the ring + field operations Rust needs to do
-  arithmetic. The ring/field bound stays off `Rig` itself — only `F64Rig`
-  carries it.
-
 ### Performance candidates (bench-driven, no version target)
 
 Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP.md` "Performance TODOs".
@@ -28,6 +18,23 @@ Deferred from Phase 3.1 rayon ride-along (2026-04-14). See `.claude/docs/ROADMAP
 - `fold_chunks` / `fold_chunks_with` for Phase 6 magnitude per-partition accumulation
 - rayon Producer/Consumer plumbing if public parallel-iterator APIs land on `MultiwayEvolutionGraph` / `BranchialGraph`
 - `kb::CongruenceClosure::atom_canonical` — currently O(n) per call, called O(n) times inside `smc_refine`, so O(n²) per fixpoint iteration (bounded by `SAFETY_BOUND = 64`). Replace the full-graph scan with a per-class best-atom cache updated on `merge`. Surfaced by v0.5.1 code-review pass (2026-04-24). Not blocking at current d≤3 Mat(R) test sizes (~40 terms → ~100k ops). If Branch A (Knuth-Bendix completion) wins at v0.5.3 decision, `atom_canonical` is deleted and this TODO dissolves.
+
+## [0.5.3] - 2026-04-25
+
+**Additive release, no API break from v0.5.2.** Prerequisite for
+catgraph-magnitude v0.1.0: exposes the ring and field structure of `F64Rig`
+to Rust's type system, enabling `mobius_function::<F64Rig>` Gaussian
+elimination in catgraph-magnitude.
+
+### Added
+
+- `Neg`, `Sub`, `Div`, and `From<f64>` impls on `F64Rig`. `F64Rig` was
+  already a ring at the math level (the existing
+  `verify_axioms_f64_rig_sample` test exercises `F64Rig(-1.0)`); these
+  impls expose the ring + field operations Rust needs to perform arithmetic.
+  The ring/field bound stays off `Rig` itself — only `F64Rig` carries it.
+  Required by `catgraph-magnitude` v0.1.0's `mobius_function::<F64Rig>`
+  (Gaussian elimination, `ζ · μ = I` over `F64Rig`).
 
 ## [0.5.2] - 2026-04-24
 
@@ -478,7 +485,8 @@ Tier 1 gap closures (from v0.2.0 audit).
   - `e2_operad.rs` — little-disks operad (E₂).
 - Criterion bench `rayon_thresholds`.
 
-[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.2...HEAD
+[Unreleased]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.3...HEAD
+[0.5.3]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.2...catgraph-applied-v0.5.3
 [0.5.2]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.1...catgraph-applied-v0.5.2
 [0.5.1]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.5.0...catgraph-applied-v0.5.1
 [0.5.0]: https://github.com/tsondru/catgraph/compare/catgraph-applied-v0.4.0...catgraph-applied-v0.5.0

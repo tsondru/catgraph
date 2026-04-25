@@ -1,6 +1,6 @@
 [package]
 name = "catgraph-magnitude"
-version = "0.1.0-dev"
+version = "0.1.0"
 description = "Magnitude of enriched categories for catgraph: Lawvere metric spaces, Tsallis entropy, Möbius inversion, and BV 2025 closed-form magnitude"
 keywords = ["category-theory", "magnitude", "entropy", "enriched-category", "information-theory"]
 categories = ["mathematics", "science"]
