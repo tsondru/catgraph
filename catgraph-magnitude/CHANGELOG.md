@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 6A.2 `tsallis_entropy(p, t)` — Tsallis q-entropy
+  `H_t(p) = (1 − Σ pᵢᵗ) / (t − 1)` with Shannon-recovery special case at
+  `|t − 1| < TSALLIS_SHANNON_EPS = 1e-6`. The special-case branch returns
+  `-Σ pᵢ ln pᵢ` directly, avoiding catastrophic cancellation in the `0/0`
+  regime around `t = 1`. The Cor 3.14 finite-difference step `h` MUST stay
+  above the threshold so both `f(1±h)` evaluate the Tsallis branch.
+- Phase 6A.2 `mobius_function::<Q>(space)` — Möbius inversion `ζ · μ = I`
+  via Gaussian elimination on an `n × 2n` augmented matrix `[ζ | I]`. Bound
+  `Q: Ring + Div + From<f64>` — a (commutative) field for v0.1.0; only
+  `F64Rig` qualifies among the workspace's four concrete rigs. Returns
+  `Err(CatgraphError::Composition)` when zeta is singular. The chain-sum
+  variant `mobius_function_via_chains<Q: Rig>` per Leinster-Shulman is
+  deferred to v0.2.0.
+- Tests: 4 proptest arms (Shannon recovery within ε threshold, Tsallis-to-
+  Shannon limit on normalized distributions, μ·ζ=I on random Lawvere
+  metric spaces) + 3 spot checks (basic Tsallis values, all-∞ singular
+  zeta, all-zero singular zeta).
+- Re-exports: `MatR` (from `catgraph-applied`), `CatgraphError` (from
+  `catgraph::errors`).
 - Phase 6A.0 scaffold: workspace member, `Cargo.toml`, `lib.rs` with module
   stubs + re-exports of the Tier 3 enrichment substrate from `catgraph-applied`
   v0.5.x (`Rig`, `UnitInterval`, `Tropical`, `F64Rig`, `BoolRig`,
