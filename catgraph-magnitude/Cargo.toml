@@ -1,0 +1,24 @@
+[package]
+name = "catgraph-magnitude"
+version = "0.1.0-dev"
+description = "Magnitude of enriched categories for catgraph: Lawvere metric spaces, Tsallis entropy, Möbius inversion, and BV 2025 closed-form magnitude"
+keywords = ["category-theory", "magnitude", "entropy", "enriched-category", "information-theory"]
+categories = ["mathematics", "science"]
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+catgraph = { path = "../catgraph", default-features = false }
+catgraph-applied = { path = "../catgraph-applied", default-features = false }
+num.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true
+
+# Phase 6A scaffold (v0.1.0-dev). Pure-math crate: no tokio, no serde, no rayon.
+# `catgraph-applied` pinned to path during Phase 6A development; switches to
+# version = "0.5" git-tag pin at v0.1.0 release per cross-project convention.

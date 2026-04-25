@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["catgraph", "catgraph-physics", "catgraph-applied"]
+members = ["catgraph", "catgraph-physics", "catgraph-applied", "catgraph-magnitude"]
 
 [workspace.package]
 edition = "2024"
