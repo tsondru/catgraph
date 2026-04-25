@@ -37,7 +37,7 @@
 //! construct NaN values in these newtypes (the [`UnitInterval::new`] validator
 //! already rejects them).
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 use num::{Zero, One};
 
 /// A rig (semiring). Blanket-impl'd for any `T: Clone + PartialEq + Zero + One + Add + Mul`.
@@ -218,6 +218,31 @@ impl Add for F64Rig {
 impl Mul for F64Rig {
     type Output = Self;
     fn mul(self, other: Self) -> Self { F64Rig(self.0 * other.0) }
+}
+
+// Ring + field operations on `F64Rig` (added 2026-04-25 as a prerequisite
+// for catgraph-magnitude v0.1.0). `F64Rig` is the only `Ring + Div`-bounded
+// rig in the workspace; `mobius_function::<F64Rig>` (Phase 6A.2) needs all
+// four of `Neg`, `Sub`, `Div`, and `From<f64>`. The ring/field bound stays
+// off `Rig` itself — these impls live only on `F64Rig` (and any future
+// real-valued rig that elects to adopt them).
+impl Neg for F64Rig {
+    type Output = Self;
+    fn neg(self) -> Self { F64Rig(-self.0) }
+}
+
+impl Sub for F64Rig {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self { F64Rig(self.0 - other.0) }
+}
+
+impl Div for F64Rig {
+    type Output = Self;
+    fn div(self, other: Self) -> Self { F64Rig(self.0 / other.0) }
+}
+
+impl From<f64> for F64Rig {
+    fn from(x: f64) -> Self { F64Rig(x) }
 }
 
 // Bit-exact `Eq + Hash` for use as a `HashMap` key in the congruence-closure

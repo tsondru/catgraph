@@ -9,7 +9,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this c
 
 ## [Unreleased]
 
-No in-flight work.
+### Added
+
+- `Neg`, `Sub`, `Div`, and `From<f64>` impls on `F64Rig` — prerequisite for
+  the catgraph-magnitude v0.1.0 `mobius_function::<F64Rig>` Gaussian
+  elimination. `F64Rig` was already a ring at the math level (the existing
+  `verify_axioms_f64_rig_sample` test runs on `F64Rig(-1.0)` already);
+  these impls expose the ring + field operations Rust needs to do
+  arithmetic. The ring/field bound stays off `Rig` itself — only `F64Rig`
+  carries it.
 
 ### Performance candidates (bench-driven, no version target)
 
